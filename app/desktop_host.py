@@ -4,7 +4,8 @@
 Browser UI on a random 127.0.0.1 port, records in
 %LOCALAPPDATA%\\MALIGN\\CaseBank\\cases.sqlite3. No camera. Python stdlib only.
 
-v3.6 kit link: every correction round of the 4-unit kit is stored in
+v3.6 kit link: on the main server's command the 4-unit kit senses once; each
+result (one bundle) is stored in
 %LOCALAPPDATA%\\MALIGN\\Link\\outbox.sqlite3 and, ONLY if server_url is set in
 Link\\link_config.json, sent to that main server (see malign_link.py).
 """
@@ -29,7 +30,7 @@ from urllib.parse import urlparse
 
 import malign_link
 
-APP_TITLE = 'M-ALIGN Matrix5 — 영구 사례 누적 + 키트 전송 (v3.6.0)'
+APP_TITLE = 'M-ALIGN Matrix5 — 영구 사례 누적 + 메인 서버 연동 (v3.6.0)'
 APP_HTML = 'MALIGN_Desktop.html'
 MAX_POST = 25 * 1024 * 1024
 
@@ -334,18 +335,20 @@ def make_handler(bank, token, link=None):
 
 
 def link_post(link, action, obj):
-    """Local kit-link API used by the simulator UI (and later a hardware reader)."""
-    if action == 'begin':
-        return link.begin_cycle(obj.get('source', 'simulation'), obj.get('meta'))
+    """Local kit-link API for the sensing source (simulator UI now, hardware reader later).
+
+    The main server drives each job: poll GET /api/link/status and, when
+    status['pending'] asks for a sensing, answer with /round (or /sense_failed).
+    """
     if action == 'round':
         return link.record_round(obj.get('session_id'), obj.get('round_no'), obj.get('units'),
-                                 obj.get('command'), obj.get('measured_at'), obj.get('extra'))
-    if action == 'finish':
-        return link.finish_cycle(obj.get('session_id'), obj.get('converged'), obj.get('extra'))
+                                 obj.get('correction'), obj.get('measured_at'), obj.get('extra'))
+    if action == 'sense_failed':
+        return link.sense_failed(obj.get('session_id'), obj.get('round_no'), obj.get('reason', ''))
     if action == 'abort':
-        return link.abort_cycle(obj.get('session_id'), obj.get('reason', 'aborted'))
-    if action == 'hold':
-        return link.hold_reading(obj.get('units'), obj.get('measured_at'))
+        return link.abort_local(obj.get('session_id'), obj.get('reason', 'local_abort'))
+    if action == 'sim_machine_ready':
+        return link.sim_machine_ready(obj.get('machine_id', 'SIM-MACHINE-1'))
     raise LookupError('not found')
 
 
@@ -425,9 +428,9 @@ def start():
             stats.set('저장소 확인 실패: ' + str(exc))
         try:
             ls = link.status()
-            server_txt = ls['server_url'] or '미설정 (PC에만 보관)'
+            server_txt = ls['server_url'] or '미설정 (PC에만 보관, 내장 시뮬 서버가 지시)'
             err = ls['uplink']['last_error']
-            link_text.set(f"키트 {ls['kit_id']} · 상태 {ls['state']} · 메인 서버 {server_txt}\n"
+            link_text.set(f"키트 {ls['kit_id']} · 상태 {ls['state']} (회차 {ls['round_no']}) · 메인 서버 {server_txt}\n"
                           f"전송 대기 {ls['outbox']['pending']:,}건 / 전송 완료 {ls['outbox']['sent']:,}건"
                           + (f" · 최근 오류: {err}" if err else ''))
         except Exception as exc:
