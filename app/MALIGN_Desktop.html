@@ -62,6 +62,7 @@ select,input{border:1px solid #bdcddb;border-radius:7px;padding:8px;width:100%;f
 <div><label for="simFault">키트 코너 고장</label><select id="simFault"><option value="none">없음</option><option value="head_dead">코너2 헤드 2개 고장(감지)</option><option value="drift">코너2 교정 틀어짐(미감지)</option></select></div>
 <div><label for="simStrategy">4코너 종합 방식</label><select id="simStrategy"><option value="weighted">신뢰도 가중 + 튀는 코너 제외</option><option value="equal">4코너 동일 가중</option><option value="diagonal">고정 기준 (대각선 1·3)</option><option value="v354">v3.5.4 그대로 (인터록 없음)</option></select></div></div>
 <div class="log" id="simDecision" style="margin-top:8px;max-height:none">아직 판단 없음</div>
+<div class="buttons"><button id="open3d" class="secondary">🎮 3D 화면으로 보기 (AI 제어)</button></div>
 <p class="small">메인 서버 주소와 장치 번호는 관리 창의 <b>전송 설정</b>(link_config.json)에서만 바꿉니다. 키트는 측정·보고만 하며 기계를 직접 제어하지 않습니다. 기계 준비 완료 신호는 실제로는 기계가 메인 서버에 보내며, 여기서는 시뮬레이션으로 대신합니다.</p>
 </div>
 <div class="card"><h2>제어기가 실제로 아는 것 / 알 수 없는 것</h2><p class="notes"><b>아는 것:</b> 각 코너 Xp·Xm·Yp·Ym·Ref의 가상 인덕턴스 측정값, 21개 Maxwell 응답모델, 이전에 명령한 X/Y/회전 이동량. <b>모르는 것:</b> 구멍의 진짜 위치, 모델 편향·공극·기울기의 참값, 실제 이동 오차. 카메라·영상 위치 추정은 사용하지 않습니다.</p><p class="notes"><b>이력 추정:</b> 1회차는 기존 격자 추정, 2회차부터 이동 전후 센서값에서 코너·헤드별 정적 가산 편향을 제거한 잔차를 최소화합니다. 이동 이력으로 위치를 식별할 수 없는 경우에는 원본 추정으로 되돌아갑니다. 추가 보정 단계가 필요할 수 있지만 비교 공정을 위해 최대 6회 유지합니다.</p><p class="notes"><b>기준 하드웨어 가정 해설:</b> 기존 추정기는 X/Y·회전 보정과 공극의 간단한 선형 동시 추정을 수행합니다. 그러나 이 조건에서 공극 추정의 개선은 제한적(보고값: 켬 40%, 끔 36%), 편향·기울기의 별도 분리 모델은 없습니다. 기준 성공률 6.8%와 차이는 알고리즘뿐 아니라 코너 공차·구동 오차도 포함합니다. 이력 보정 결과가 곧 실제 센서 성능 증명은 아닙니다.</p></div>
@@ -828,6 +829,7 @@ $('bankClear').addEventListener('click',async()=>{
 });
 updateBankStats();
 refreshLink();setInterval(()=>{if(!busy)refreshLink();},2500);
+$('open3d').addEventListener('click',()=>{window.open('/3d','_blank','noopener');});
 $('seed').value=freshSeed();$('batchseed').value=freshSeed();
 // ready state must paint immediately without calculating the FEM table
 const first=[[18,-10],[18,-10],[18,-10],[18,-10]];draw3d(first);$('worst').textContent='—';

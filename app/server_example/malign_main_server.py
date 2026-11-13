@@ -68,8 +68,9 @@ def now():
 
 
 class Store:
-    def __init__(self, path, auto=True, rounds=6, move_delay=1.0):
+    def __init__(self, path, auto=True, rounds=6, move_delay=1.0, ai_url='http://127.0.0.1:11434', ai_model='qwen2.5:7b'):
         self.path = str(path)
+        self.ai_url, self.ai_model = ai_url, ai_model
         self.auto, self.rounds, self.move_delay = auto, rounds, move_delay
         self.lock = threading.RLock()
         self.model = malign_engine.Model() if auto else None
@@ -178,13 +179,14 @@ class Store:
                 with self.outq_lock:
                     self.outq.append((kit, cmd, delay))
             self.sites[kit] = sim_site.SimSite(self.model, send, kit, approach_s=0.5, move_s=self.move_delay,
-                                               max_rounds=self.rounds)
+                                               max_rounds=self.rounds, ai_url=self.ai_url, ai_model=self.ai_model)
         return self.sites[kit]
 
     def sim_start(self, kit, params):
         if not self.auto:
             raise ValueError('수동 모드에서는 가상 현장을 쓰지 않습니다')
-        st = self.site(kit).start(**{k: params[k] for k in ('hardware', 'machine', 'fault', 'strategy', 'seed') if k in params})
+        st = self.site(kit).start(**{k: params[k] for k in ('hardware', 'machine', 'fault', 'strategy', 'seed',
+                                                            'controller', 'ai_model') if k in params})
         self.decisions[st['job_id']] = self.sites[kit].job['brain'].decisions
         return st
 
@@ -348,8 +350,10 @@ def main():
     ap.add_argument('--rounds', type=int, default=6, help='AUTO: max rounds before end_job (ends earlier when within 1 mm)')
     ap.add_argument('--move-delay', type=float, default=1.0, help='AUTO: seconds the machine takes per correction')
     ap.add_argument('--manual', action='store_true', help='no automatic sense/end_job; use the commands API')
+    ap.add_argument('--ollama-url', default='http://127.0.0.1:11434', help='AI main server (controller=ai)')
+    ap.add_argument('--ai-model', default='qwen2.5:7b')
     a = ap.parse_args()
-    store = Store(a.db, auto=not a.manual, rounds=a.rounds, move_delay=a.move_delay)
+    store = Store(a.db, auto=not a.manual, rounds=a.rounds, move_delay=a.move_delay, ai_url=a.ollama_url, ai_model=a.ai_model)
     srv = ThreadingHTTPServer((a.host, a.port), make_handler(store, a.api_key))
     print(json.dumps({'listening': '%s:%d' % (a.host, srv.server_port), 'db': a.db,
                       'mode': 'manual' if a.manual else 'auto', 'rounds': a.rounds}), flush=True)

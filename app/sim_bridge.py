@@ -20,7 +20,7 @@ class LocalSim:
         self.link = link
         self.n = 0
         self.site = SimSite(M, self._send, link.kit_id, approach_s=1.0, move_s=float(cfg['sim_move_delay_s']),
-                            max_rounds=int(cfg['sim_rounds']))
+                            max_rounds=int(cfg['sim_rounds']), ai_url=cfg['ai_ollama_url'], ai_model=cfg['ai_model'])
         link.observers.append(self._observe)
         self.source = SimSensingSource(link, self.site.kit_readings)
 

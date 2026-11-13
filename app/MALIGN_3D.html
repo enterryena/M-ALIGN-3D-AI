@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>M-ALIGN 3D · AI 정렬 시뮬레이터</title>
+<style>
+:root{--ink:#e9f1f6;--muted:#9fb3c2;--panel:rgba(14,24,33,.82);--line:rgba(255,255,255,.12);--ok:#3ddc97;--bad:#ff5d5d;--warn:#ffc04d;--ai:#8fb8ff}
+*{box-sizing:border-box}html,body{margin:0;height:100%;overflow:hidden;background:#9fbcd0;font-family:"Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif;color:var(--ink)}
+canvas#scene{display:block;width:100vw;height:100vh}
+.panel{position:absolute;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;backdrop-filter:blur(4px)}
+#ctrl{left:12px;top:12px;width:270px}#ctrl h1{font-size:15px;margin:0 0 8px}#ctrl label{display:block;font-size:11px;color:var(--muted);margin:7px 0 3px}
+#ctrl select,#ctrl input{width:100%;background:#0d1720;color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:6px 7px;font-size:12px}
+.row{display:flex;gap:6px}.row>*{flex:1}
+button{background:#2f7df6;color:#fff;border:0;border-radius:8px;padding:9px 10px;font-size:13px;font-weight:600;cursor:pointer;width:100%;margin-top:10px}
+button.sec{background:#1d2c38;border:1px solid var(--line);font-weight:500;font-size:12px;padding:6px;margin-top:6px}
+button:disabled{opacity:.5;cursor:default}
+#status{left:50%;top:12px;transform:translateX(-50%);text-align:center;min-width:320px}
+#stage{font-size:16px;font-weight:700}#sub{font-size:12px;color:var(--muted);margin-top:3px}
+#banner{position:absolute;left:50%;top:96px;transform:translateX(-50%);font-size:22px;font-weight:800;padding:8px 20px;border-radius:12px;display:none;letter-spacing:.5px}
+#corners{right:12px;top:12px;width:270px}#corners h2,#log h2{font-size:13px;margin:0 0 8px}
+.cgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px}.c{background:#0d1720;border-radius:8px;padding:7px 8px;border:1px solid var(--line)}
+.c b{font-size:11px;color:var(--muted);font-weight:500}.c div{font-size:18px;font-weight:700;margin-top:2px}.c small{font-size:10px;color:var(--muted)}
+#log{right:12px;bottom:12px;width:420px;max-height:44vh;display:flex;flex-direction:column}
+#logbody{overflow:auto;font-size:12px;line-height:1.5}
+.l{padding:2px 0;border-bottom:1px dashed rgba(255,255,255,.06)}.who{display:inline-block;min-width:52px;font-weight:700;margin-right:6px}
+.w-AI{color:var(--ai)}.w-안전장치{color:var(--bad)}.w-도구{color:#c9a6ff}.w-키트{color:#5fe1d0}.w-서버{color:var(--warn)}.w-기계{color:#ffd27a}
+#help{left:12px;bottom:12px;font-size:11px;color:var(--muted);max-width:360px}
+@media(max-width:900px){#log{width:calc(100vw - 24px);max-height:30vh}#corners{top:auto;bottom:calc(30vh + 24px)}#help{display:none}}
+</style>
+<script type="importmap">{"imports":{"three":"/vendor/three/three.module.js","three/addons/":"/vendor/three/addons/"}}</script>
+</head>
+<body>
+<canvas id="scene"></canvas>
+<div class="panel" id="ctrl">
+ <h1>M-ALIGN 3D · AI 정렬</h1>
+ <label for="controller">제어 주체 (메인 서버)</label>
+ <select id="controller"><option value="ai">Ollama AI (무료, 내 PC)</option><option value="autopilot">규칙 자동조종 (AI 없이)</option></select>
+ <label for="model">AI 모델 (Ollama)</label><input id="model" value="qwen2.5:7b">
+ <div class="row"><div><label for="hardware">키트 하드웨어</label><select id="hardware"><option value="target">목표 사양</option><option value="base">기준 가정</option><option value="ideal">이상적</option></select></div>
+ <div><label for="machine">기존 센서</label><select id="machine"><option value="normal">정상</option><option value="unstable">불안정</option><option value="none">없음</option><option value="biased">편향(고장)</option></select></div></div>
+ <div class="row"><div><label for="fault">코너 고장</label><select id="fault"><option value="none">없음</option><option value="head_dead">코너2 헤드 고장</option><option value="drift">코너2 교정 틀어짐</option></select></div>
+ <div><label for="seed">시드 (비우면 무작위)</label><input id="seed" placeholder="무작위"></div></div>
+ <button id="start">▶ 작업 시작</button>
+ <label><input type="checkbox" id="exag" checked style="width:auto"> 오차 30배 확대 표시 (실제는 mm 단위)</label>
+ <div class="row"><button class="sec" data-cam="all">전체</button><button class="sec" data-cam="0">코너1</button><button class="sec" data-cam="1">코너2</button><button class="sec" data-cam="2">코너3</button><button class="sec" data-cam="3">코너4</button></div>
+ <button class="sec" id="follow">카메라: 자유</button>
+</div>
+<div class="panel" id="status"><div id="stage">대기</div><div id="sub">작업 시작을 누르세요</div></div>
+<div id="banner"></div>
+<div class="panel" id="corners"><h2>코너 오차 (실제 · 판정용)</h2><div class="cgrid" id="cgrid"></div>
+ <div style="font-size:11px;color:var(--muted);margin-top:8px" id="dec">서버 판단 없음</div></div>
+<div class="panel" id="log"><h2>AI · 서버 기록</h2><div id="logbody"></div></div>
+<div class="panel" id="help">마우스: 끌기 회전 · 휠 확대 · 오른쪽 끌기 이동. 회색 원뿔 = 트위스트록, 검은 원 = 코너캐스팅 구멍. 성공 조건: 네 코너 모두 5 mm 이내에서 결합.</div>
+<script type="module">
+import * as THREE from 'three';
+import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
+
+const TOKEN = window.MALIGN_DESKTOP_TOKEN || '';
+async function api(path, body){
+  const opt = {method: body === undefined ? 'GET' : 'POST', headers: {'X-MALIGN-Token': TOKEN, 'Accept': 'application/json'}, cache: 'no-store'};
+  if (body !== undefined){ opt.headers['Content-Type'] = 'application/json'; opt.body = JSON.stringify(body); }
+  const r = await fetch('/api/' + path, opt); const j = await r.json();
+  if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status)); return j;
+}
+const $ = id => document.getElementById(id);
+
+// ---------------- scene ----------------
+const canvas = $('scene');
+const renderer = new THREE.WebGLRenderer({canvas, antialias: true, preserveDrawingBuffer: true});
+renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+renderer.shadowMap.enabled = true;
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x9fbcd0);
+scene.fog = new THREE.Fog(0x9fbcd0, 60, 160);
+const camera = new THREE.PerspectiveCamera(45, 1, 0.05, 500);
+const HOME = {pos: new THREE.Vector3(12.5, 8.5, 10.5), look: new THREE.Vector3(0, 2.6, -2.2)};
+camera.position.copy(HOME.pos);
+const controls = new OrbitControls(camera, canvas);
+controls.target.copy(HOME.look); controls.enableDamping = true; controls.maxPolarAngle = Math.PI * .495;
+scene.add(new THREE.HemisphereLight(0xdfefff, 0x4a4a40, 1.1));
+const sun = new THREE.DirectionalLight(0xffffff, 2.0); sun.position.set(18, 30, -10); sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, {left: -25, right: 25, top: 25, bottom: -25}); scene.add(sun);
+
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(220, 220), new THREE.MeshStandardMaterial({color: 0x6b6f72, roughness: .95}));
+ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+const grid = new THREE.GridHelper(220, 110, 0x8a8f93, 0x7a7f83); grid.position.y = .005; scene.add(grid);
+const std = (c, o = {}) => new THREE.MeshStandardMaterial(Object.assign({color: c, roughness: .7, metalness: .1}, o));
+function box(w, h, d, mat, x = 0, y = 0, z = 0){ const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); m.castShadow = m.receiveShadow = true; return m; }
+
+// background stacks for atmosphere
+const stackColors = [0x2e6da4, 0x9b2d30, 0x2f7d4a, 0x7a7a7a, 0xc8a024];
+for (let i = 0; i < 14; i++){ const x = (i % 2 ? 1 : -1) * (16 + (i % 7) * 3.0), z = -14 + Math.floor(i / 2) * 3.4;
+  for (let h = 0; h < 1 + (i * 7) % 3; h++) scene.add(box(6.058, 2.591, 2.438, std(stackColors[(i + h) % 5], {roughness: .85}), x, 1.2955 + h * 2.591, z)); }
+
+// ---------------- container (sim X -> three x, sim Y -> three z) ----------------
+const L = 6.058, W = 2.438, H = 2.591, CX = 2.9265, CY = 1.1295;
+const CORNERS = [[-CX, CY], [CX, CY], [CX, -CY], [-CX, -CY]];
+const container = new THREE.Group(); scene.add(container);
+const cbody = box(L, H, W, std(0xd2601a, {roughness: .8}), 0, H / 2, 0); container.add(cbody);
+const edges = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(L, H, W)), new THREE.LineBasicMaterial({color: 0x5a2a0a}));
+edges.position.y = H / 2; container.add(edges);
+for (let i = -12; i <= 12; i++){ const r = box(.04, H * .9, W + .01, std(0xb4501a), i * .24, H / 2, 0); container.add(r); }
+const castings = [], holes = [];
+for (let k = 0; k < 4; k++){
+  const c = box(.178, .118, .162, std(0x3c4247, {metalness: .5}), CORNERS[k][0], H - .059, CORNERS[k][1]); container.add(c); castings.push(c);
+  const hole = new THREE.Mesh(new THREE.CircleGeometry(.05, 24), new THREE.MeshBasicMaterial({color: 0x050505}));
+  hole.scale.set(1.25, .62, 1); hole.rotation.x = -Math.PI / 2; container.add(hole); holes.push(hole);
+}
+
+// ---------------- reach stacker ----------------
+const yellow = std(0xf2b705, {roughness: .55}), dark = std(0x222629, {roughness: .9}), steel = std(0x8d969c, {metalness: .6, roughness: .4});
+const stacker = new THREE.Group(); scene.add(stacker);
+const BASE_Z = -(W / 2 + 6.3);
+stacker.add(box(3.4, 1.4, 8.2, yellow, 0, 1.55, BASE_Z - 1.0));
+stacker.add(box(3.2, 1.5, 1.6, dark, 0, 1.6, BASE_Z - 5.3));          // counterweight
+stacker.add(box(1.5, 1.9, 1.7, std(0x30363b, {roughness: .3, metalness: .2}), -0.9, 3.15, BASE_Z - 1.4)); // cab
+stacker.add(box(1.3, 1.5, 1.5, std(0x9fd3ff, {roughness: .1, opacity: .45, transparent: true}), -0.9, 3.25, BASE_Z - 1.4));
+for (const [x, z] of [[-1.75, BASE_Z + 2.2], [1.75, BASE_Z + 2.2], [-1.75, BASE_Z - 3.6], [1.75, BASE_Z - 3.6]]){
+  const w = new THREE.Mesh(new THREE.CylinderGeometry(.85, .85, .7, 28), dark); w.rotation.z = Math.PI / 2; w.position.set(x, .85, z); w.castShadow = true; stacker.add(w); }
+const pivot = new THREE.Vector3(0, 3.0, BASE_Z - 2.4);
+const boom = box(.8, .9, 1, yellow, 0, 0, 0); scene.add(boom);   // world space, re-aimed every frame
+const cyl = box(.25, .25, 1, steel); scene.add(cyl);
+
+// spreader (in container coordinates; moved by the simulated pose)
+const spreader = new THREE.Group(); scene.add(spreader);
+spreader.add(box(5.9, .32, .42, yellow, 0, .35, 0));
+spreader.add(box(.36, .3, 2.5, yellow, CX, .32, 0)); spreader.add(box(.36, .3, 2.5, yellow, -CX, .32, 0));
+spreader.add(box(1.4, .55, 1.0, dark, 0, .75, 0));
+const locks = [];
+for (let k = 0; k < 4; k++){
+  const g = new THREE.Group(); g.position.set(CORNERS[k][0], .17, CORNERS[k][1]);
+  const stem = new THREE.Mesh(new THREE.CylinderGeometry(.03, .03, .1, 12), steel); stem.position.y = -.05;
+  const cone = new THREE.Mesh(new THREE.ConeGeometry(.055, .12, 4), std(0x9aa3a8, {metalness: .6})); cone.rotation.x = Math.PI; cone.position.y = -.16;
+  g.add(stem); g.add(cone); spreader.add(g); locks.push({g, cone});
+}
+const SEAT = H, TRAVEL = H + 2.6;   // seated: beams 17 cm above the roof, twistlocks inside the castings
+
+// ---------------- state & animation ----------------
+let st = null, clockOffset = 0, exag = 30, followMode = false, camTarget = null;
+const shown = {tx: 0, ty: 0, th: 0, y: TRAVEL, approach: 0, lift: 0};
+function exagF(){ return $('exag').checked ? 30 : 1; }
+function evTime(kind){ if (!st) return null; for (let i = st.events.length - 1; i >= 0; i--) if (st.events[i].kind === kind) return st.events[i].t; return null; }
+function targets(){
+  const t = {tx: 0, ty: 0, th: 0, y: TRAVEL, approach: 0, lift: 0};
+  if (!st || !st.pose) return t;
+  const k = exagF();
+  t.tx = st.pose.tx_mm / 1000 * k; t.ty = st.pose.ty_mm / 1000 * k; t.th = st.pose.th_deg * Math.PI / 180 * k;
+  const now = Date.now() / 1000 - clockOffset;
+  const ta = evTime('approach_start'), tr = evTime('in_range');
+  if (tr) t.approach = 1; else if (ta) t.approach = Math.min(1, (now - ta) / Math.max(.3, st.approach_s)); else t.approach = 0;
+  const stage = st.stage;
+  if (stage === 'lower' || stage === 'lock') t.y = SEAT;
+  if (stage === 'raise'){ if (st.locked){ t.y = SEAT; t.lift = 1; } else t.y = TRAVEL; }
+  return t;
+}
+function lerp(a, b, s){ return a + (b - a) * s; }
+function applyScene(dt){
+  const t = targets(), s = 1 - Math.pow(.02, dt);
+  for (const key of ['tx', 'ty', 'th', 'y', 'lift']) shown[key] = lerp(shown[key], t[key], s);
+  shown.approach = t.approach >= 1 ? lerp(shown.approach, 1, s) : t.approach;
+  const far = (1 - shown.approach) * 24;
+  stacker.position.z = -far;
+  // spreader: twistlock = nominal rotated by +th (exaggerated) minus (tx, ty)
+  const liftH = shown.lift * 2.4;                       // container lifted together with a locked spreader
+  spreader.position.set(-shown.tx, shown.y + liftH, -shown.ty - far);
+  spreader.rotation.y = shown.th;
+  container.position.y = liftH;
+  // holes at nominal + tolerance (exaggerated)
+  const k = exagF();
+  for (let i = 0; i < 4; i++){
+    const tol = st && st.tol_mm ? st.tol_mm[i] : [0, 0];
+    holes[i].position.set(CORNERS[i][0] + tol[0] / 1000 * k, H + .002, CORNERS[i][1] + tol[1] / 1000 * k);
+  }
+  // boom from the chassis pivot to the spreader head; lift cylinder from the chassis to mid-boom
+  const head = new THREE.Vector3(spreader.position.x, spreader.position.y + 1.05, spreader.position.z);
+  const p = pivot.clone(); p.z -= far;
+  const mid = p.clone().add(head).multiplyScalar(.5);
+  boom.position.copy(mid); boom.scale.set(1, 1, p.distanceTo(head)); boom.lookAt(head);
+  const base = new THREE.Vector3(0, 1.9, BASE_Z + 1.8 - far);
+  cyl.position.copy(base.clone().add(mid).multiplyScalar(.5)); cyl.scale.set(1, 1, base.distanceTo(mid)); cyl.lookAt(mid);
+  // twistlock colours / rotation
+  for (const l of locks){
+    const locked = st && st.locked === true && (st.stage === 'lock' || st.stage === 'raise');
+    const failed = st && st.locked === false && (st.stage === 'lock' || st.stage === 'raise');
+    l.cone.material.color.set(locked ? 0x3ddc97 : failed ? 0xff5d5d : 0x9aa3a8);
+    l.g.rotation.y = lerp(l.g.rotation.y, locked ? Math.PI / 2 : 0, s);
+  }
+}
+
+// ---------------- HUD ----------------
+const STAGE_KO = {approach_start: '1·2 · 컨테이너로 접근', in_range: '3 · 센싱 범위 진입', sense: '4 · 키트 센싱', move: '5·6 · 보정 이동',
+  guard: '안전장치 개입', lower: '9 · 하강', lock: '9 · 결합', raise: '9 · 상승', stop: '안전 정지', abort: '중단'};
+const OUT_KO = {success: ['결합 성공', '#3ddc97'], false_lower: ['결합 실패', '#ff5d5d'], held: ['안전 정지 · 하강 안 함', '#ffc04d'], aborted: ['중단', '#ff5d5d']};
+function renderHud(){
+  if (!st || !st.job_id) return;
+  const ctrl = (st.settings || {}).controller === 'ai' ? 'AI (' + st.settings.ai_model + ')' : (st.settings || {}).controller === 'autopilot' ? '규칙 자동조종' : '규칙 서버';
+  $('stage').textContent = STAGE_KO[st.stage] || st.stage || '대기';
+  $('sub').textContent = `${st.job_id} · 제어 ${ctrl} · ${st.rounds}회차 · 실제 최악 코너 ${st.truth_worst_mm.toFixed(2)} mm`;
+  const g = (st.decision || {}).grade || [];
+  $('cgrid').innerHTML = st.truth_corner_errors_mm.map((e, i) => {
+    const v = Math.max(Math.abs(e[0]), Math.abs(e[1])), col = v <= 1 ? 'var(--ok)' : v <= 5 ? 'var(--warn)' : 'var(--bad)';
+    return `<div class="c"><b>코너${i + 1}</b><div style="color:${col}">${v.toFixed(2)} mm</div><small>X ${e[0].toFixed(1)} · Y ${e[1].toFixed(1)}${g[i] ? ' · 키트 ' + ({good: '양호', caution: '주의', invalid: '무효'})[g[i]] : ''}</small></div>`;
+  }).join('');
+  const d = st.decision;
+  $('dec').textContent = d ? `서버 판단: ${d.case_ko || d.case || '—'} · 권고 ${d.action || '—'}` : '서버 판단 없음';
+  const lb = $('logbody'), atEnd = lb.scrollTop + lb.clientHeight >= lb.scrollHeight - 20;
+  lb.innerHTML = (st.log || []).map(l => `<div class="l"><span class="who w-${l.who}">${l.who}</span>${escapeHtml(l.text)}</div>`).join('');
+  if (atEnd) lb.scrollTop = lb.scrollHeight;
+  const b = $('banner');
+  if (!st.active && st.outcome && OUT_KO[st.outcome]){ b.style.display = 'block'; b.textContent = OUT_KO[st.outcome][0]; b.style.background = OUT_KO[st.outcome][1] + 'dd'; b.style.color = '#0b1218'; }
+  else b.style.display = 'none';
+  $('start').disabled = !!st.active;
+}
+function escapeHtml(s){ return String(s).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'})[c]); }
+
+async function poll(){
+  try { const s = await api('sim/state'); if (s && s.job_id){ clockOffset = Date.now() / 1000 - s.now; st = s; renderHud(); } }
+  catch (e) { $('sub').textContent = '상태 확인 실패: ' + e.message; }
+  setTimeout(poll, 300);
+}
+$('start').addEventListener('click', async () => {
+  $('start').disabled = true; $('banner').style.display = 'none';
+  const seed = $('seed').value.trim();
+  const body = {controller: $('controller').value, ai_model: $('model').value.trim() || 'qwen2.5:7b', hardware: $('hardware').value,
+    machine: $('machine').value, fault: $('fault').value};
+  if (seed) body.seed = Number(seed);
+  try { st = await api('sim/start', body); clockOffset = Date.now() / 1000 - (st.now || Date.now() / 1000); renderHud();
+        shown.approach = 0; shown.lift = 0; shown.y = TRAVEL; camTarget = {pos: HOME.pos.clone(), look: HOME.look.clone()}; }
+  catch (e) { alert('시작 실패: ' + e.message); $('start').disabled = false; }
+});
+$('controller').addEventListener('change', () => { $('model').disabled = $('controller').value !== 'ai'; });
+for (const b of document.querySelectorAll('[data-cam]')) b.addEventListener('click', () => {
+  const v = b.dataset.cam;
+  if (v === 'all'){ camTarget = {pos: HOME.pos.clone(), look: HOME.look.clone()}; return; }
+  const k = Number(v), x = CORNERS[k][0], z = CORNERS[k][1], cy = container.position.y;
+  camTarget = {pos: new THREE.Vector3(x * 1.32, cy + H + 1.9, z + Math.sign(z) * 3.4), look: new THREE.Vector3(x, cy + H + 1.0, z)};
+});
+$('follow').addEventListener('click', () => { followMode = !followMode; $('follow').textContent = followMode ? '카메라: 스프레더 따라가기' : '카메라: 자유'; });
+
+function resize(){ const w = window.innerWidth, h = window.innerHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+window.addEventListener('resize', resize); resize();
+let last = performance.now();
+function loop(now){
+  const dt = Math.min(.1, (now - last) / 1000); last = now;
+  applyScene(dt);
+  if (camTarget){ camera.position.lerp(camTarget.pos, 1 - Math.pow(.01, dt)); controls.target.lerp(camTarget.look, 1 - Math.pow(.01, dt));
+    if (camera.position.distanceTo(camTarget.pos) < .02) camTarget = null; }
+  if (followMode) controls.target.lerp(new THREE.Vector3(spreader.position.x, spreader.position.y - .5, spreader.position.z), .1);
+  controls.update(); renderer.render(scene, camera);
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+poll();
+window.MALIGN_3D = {state: () => st, shown};
+</script>
+</body>
+</html>

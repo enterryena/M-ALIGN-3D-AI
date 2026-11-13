@@ -33,6 +33,10 @@ import malign_link
 
 APP_TITLE = 'M-ALIGN Matrix5 — 영구 사례 누적 + 메인 서버 연동 (v3.6.0)'
 APP_HTML = 'MALIGN_Desktop.html'
+APP_3D = 'MALIGN_3D.html'
+VENDOR = {'/vendor/three/three.module.js': 'vendor/three/three.module.js',
+          '/vendor/three/three.core.js': 'vendor/three/three.core.js',
+          '/vendor/three/addons/controls/OrbitControls.js': 'vendor/three/addons/controls/OrbitControls.js'}
 MAX_POST = 25 * 1024 * 1024
 
 
@@ -287,8 +291,11 @@ def make_handler(bank, token, link=None, sim_holder=None):
                 self._json({'error': 'loopback only'}, 403)
                 return
             p = urlparse(self.path).path
-            if p in ('/', '/index.html'):
-                content = resource_path(APP_HTML).read_text(encoding='utf-8')
+            if p in VENDOR:   # three.js (MIT), bundled so the 3D view works offline
+                self._send(200, resource_path(VENDOR[p]).read_bytes(), 'text/javascript; charset=utf-8')
+                return
+            if p in ('/', '/index.html', '/3d'):
+                content = resource_path(APP_3D if p == '/3d' else APP_HTML).read_text(encoding='utf-8')
                 inject = ('<script>window.MALIGN_DESKTOP_TOKEN=' + json.dumps(token) + ';</script>')
                 content = content.replace('</head>', inject + '</head>', 1)
                 self._send(200, content.encode('utf-8'), 'text/html; charset=utf-8')
@@ -335,8 +342,8 @@ def make_handler(bank, token, link=None, sim_holder=None):
                     n = bank.add(obj.get('records'))
                     self._json({'added': n})
                 elif p == '/api/sim/start':
-                    self._sim(lambda sim: sim.start({k: obj[k] for k in ('hardware', 'machine', 'fault', 'strategy', 'seed')
-                                                     if k in obj}))
+                    self._sim(lambda sim: sim.start({k: obj[k] for k in ('hardware', 'machine', 'fault', 'strategy', 'seed',
+                                                                         'controller', 'ai_model') if k in obj}))
                 elif p.startswith('/api/link/') and link is not None:
                     self._json(link_post(link, p[len('/api/link/'):], obj))
                 elif p == '/api/clear':

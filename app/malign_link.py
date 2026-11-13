@@ -85,6 +85,8 @@ DEFAULT_CONFIG = {
     'sim_rounds': 6,           # built-in virtual site (no server_url): max correction rounds
     'sim_move_delay_s': 0.8,   # virtual site: time the machine takes for one correction move
     'sim_auto_sensing': True,  # simulation: the kit's coil readers answer from the virtual site
+    'ai_ollama_url': 'http://127.0.0.1:11434',   # built-in virtual site: AI main server (Ollama, local, free)
+    'ai_model': 'qwen2.5:7b',
 }
 
 
@@ -155,6 +157,9 @@ def validate_config(cfg):
     for key in ('timeout_s', 'heartbeat_s', 'active_poll_s', 'retry_max_s', 'watchdog_s'):
         if _finite(cfg[key], key) <= 0:
             raise ValueError(key + ' 는 0보다 커야 합니다')
+    for key in ('ai_ollama_url', 'ai_model'):
+        if not isinstance(cfg[key], str) or not cfg[key] or len(cfg[key]) > 200:
+            raise ValueError(key + ' 형식 오류')
     if not isinstance(cfg['sim_auto_sensing'], bool):
         raise ValueError('sim_auto_sensing 은 true/false')
     if _finite(cfg['sim_move_delay_s'], 'sim_move_delay_s') < 0:
