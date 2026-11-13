@@ -1,18 +1,22 @@
-"""Kit link end-to-end with the main server directing every sensing.
+"""Kit = field device: 7 commands from the main server, 4 units x 23 items per sensing.
 
-A) manual server (exact control): machine ready -> start_job -> round 1 -> sense -> ...
-   -> end_job; offline storage + ordered resend; wrong round / missing unit refused;
-   sense_failed + re-sense; state kept across restart; stop.
-B) auto server: 6 rounds driven by the server, then end_job.
+A) manual server: offline store + ordered resend; start_job -> sense / resense -> end_job;
+   23 items per unit; measurement_id; sense_failed; self_test pass/fail -> FAULT ->
+   fault_reset; unit fault aborts the job; watchdog -> FAULT; restart-safe.
+B) auto server (JobBrain): server-side history estimation and rigid fit; ends <= 6 rounds.
 C) no server_url: built-in LocalMainSim drives the job; bundles kept locally.
 """
 import json, socket, subprocess, sys, tempfile, time, urllib.request, urllib.error
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+import malign_engine as E  # noqa: E402
+
 SERVER = ROOT / 'server_example' / 'malign_main_server.py'
 UNITS = ['KIT-T01-U1', 'KIT-T01-U2', 'KIT-T01-U3', 'KIT-T01-U4']
-CORR = {'x_mm': 1.0, 'y_mm': -1.0, 'theta_deg': 0.001}
+M = E.Model()
+DIAG = {'coil_temp_c': 26.5, 'supply_v': 23.9, 'fw_cal_version': 'TEST-1', 'error_code': 0}
 
 
 def free_port():
@@ -73,8 +77,14 @@ def wait_for(fn, what, timeout=15):
     raise AssertionError('timeout waiting for ' + what)
 
 
-def units(base, est=1.0):
-    return [{'sensor_uH': [base + k + h * 0.5 for h in range(5)], 'est_mm': [est, -est]} for k in range(4)]
+class SimUnits:
+    """Stands in for the 4 coil readers: readings of a simulated container corner set."""
+
+    def __init__(self, seed=5):
+        self.world = E.World(E.settings('target', 'history'), E.Rng(seed))
+
+    def read(self):
+        return [{'sensor_uH': self.world.read_corner(M, k), 'diag': DIAG} for k in range(4)]
 
 
 def config(folder, kit, unit_ids, server_url, **kw):
@@ -84,26 +94,40 @@ def config(folder, kit, unit_ids, server_url, **kw):
         'retry_max_s': 0.5, 'timeout_s': 2}, **kw)), encoding='utf-8')
 
 
-def pending(info, rnd=None):
+def pending(info, rnd=None, resense=None):
     s = host(info, 'link/status')
     p = s['pending']
-    return s if p and (rnd is None or p['round_no'] == rnd) else None
+    if p and p['type'] == 'sense' and (rnd is None or p['round_no'] == rnd) and (resense is None or p['resense'] == resense):
+        return s
+    return None
 
 
-def run_sensing_source(info, timeout=30):
-    """Stands in for the sensing source: answer every sense request until the job ends."""
+def state_is(info, state):
+    return (lambda: (lambda s: s if s['state'] == state else None)(host(info, 'link/status')))
+
+
+def run_sensing_source(info, units, timeout=40):
     done, end = 0, time.time() + timeout
     while time.time() < end:
         s = host(info, 'link/status')
-        if s['pending']:
-            n = s['pending']['round_no']
-            host(info, 'link/round', {'session_id': s['pending']['session_id'], 'round_no': n,
-                                      'units': units(100 + n, 6 - n), 'correction': CORR})
-            done = n
+        p = s['pending']
+        if p and p['type'] == 'sense':
+            host(info, 'link/round', {'session_id': s['session_id'], 'round_no': p['round_no'], 'units': units.read()})
+            done = p['round_no']
         elif done and s['state'] == 'IDLE':
             return s, done
         time.sleep(0.05)
     raise AssertionError('job did not finish')
+
+
+def count_items(u):
+    ids = ['unit_id', 'corner', 'job_id', 'round_no', 'measurement_id', 'measured_at']
+    n = sum(1 for k in ids if u.get(k) is not None)
+    n += len(u['sensor_uH'])
+    n += (2 if u['est_mm'] else 0) + (1 if u['gap_mm'] is not None else 0)
+    n += sum(1 for k in ('rss_uH2', 'extrapolated', 'gap_out_of_range', 'head_ok', 'grade') if k in u['quality'])
+    n += sum(1 for k in ('coil_temp_c', 'supply_v', 'fw_cal_version', 'error_code') if u['diag'].get(k) is not None)
+    return n
 
 
 with tempfile.TemporaryDirectory(prefix='malign_link_test_') as tmp:
@@ -112,16 +136,18 @@ with tempfile.TemporaryDirectory(prefix='malign_link_test_') as tmp:
     port = free_port()
     srv_url = 'http://127.0.0.1:%d/malign/v1' % port
     auth = {'Authorization': 'Bearer k1'}
-    config(tmp / 'A', 'KIT-T01', UNITS, srv_url + '/bundles', api_key='k1')
+    cmd_url = srv_url + '/kits/KIT-T01/commands'
+    config(tmp / 'A', 'KIT-T01', UNITS, srv_url + '/bundles', api_key='k1', watchdog_s=1.5)
+    units = SimUnits()
     h, info = start_host(tmp / 'A')
     server = None
     try:
         st = host(info, 'link/status')
         assert st['state'] == 'IDLE' and st['units'] == UNITS and st['server_configured'] and st['pending'] is None
 
-        # Server down: the event is stored, not lost.
+        # Server down: stored, not lost; no duplicate "ready".
         host(info, 'link/sim_machine_ready', {'machine_id': 'RS-07'})
-        assert host_err(info, 'link/sim_machine_ready', {'machine_id': 'RS-07'}) == 409  # no duplicate ready
+        assert host_err(info, 'link/sim_machine_ready', {'machine_id': 'RS-07'}) == 409
         wait_for(lambda: host(info, 'link/status')['uplink']['last_error'], 'send failure while server is down')
         assert host(info, 'link/status')['outbox']['pending'] == 1
 
@@ -129,69 +155,111 @@ with tempfile.TemporaryDirectory(prefix='malign_link_test_') as tmp:
         wait_for(lambda: host(info, 'link/status')['outbox']['pending'] == 0, 'resend after server up')
         assert host(info, 'link/status')['state'] == 'IDLE', 'manual server must not start by itself'
 
-        # 1-3) machine ready (machine -> main server) -> start_job -> kit asked for round 1
+        # start_job -> round 1
         cmd = call(srv_url + '/machines/RS-07/ready', {'kit_id': 'KIT-T01'}, auth)
-        assert cmd['type'] == 'start_job'
-        st = wait_for(lambda: pending(info, 1), 'start_job -> sense round 1')
+        st = wait_for(lambda: pending(info, 1, False), 'start_job -> sense round 1')
         sid = st['session_id']
         assert sid == cmd['job_id'] and st['state'] == 'SENSING'
+        assert host_err(info, 'link/round', {'session_id': sid, 'round_no': 2, 'units': units.read()}) == 400
+        assert host_err(info, 'link/round', {'session_id': sid, 'round_no': 1, 'units': units.read()[:3]}) == 400
+        r1 = host(info, 'link/round', {'session_id': sid, 'round_no': 1, 'units': units.read()})
+        assert r1['state'] == 'WAITING' and r1['measurement_id'] == 1 and len(r1['units']) == 4
+        assert host_err(info, 'link/round', {'session_id': sid, 'round_no': 1, 'units': units.read()}) == 409
 
-        # 4) one sensing -> one bundle; validation
-        assert host_err(info, 'link/round', {'session_id': sid, 'round_no': 2, 'units': units(1), 'correction': CORR}) == 400
-        assert host_err(info, 'link/round', {'session_id': sid, 'round_no': 1, 'units': units(1)[:3], 'correction': CORR}) == 400
-        assert host(info, 'link/round', {'session_id': sid, 'round_no': 1, 'units': units(101, 4.0),
-                                         'correction': CORR})['state'] == 'WAITING'
-        assert host_err(info, 'link/round', {'session_id': sid, 'round_no': 1, 'units': units(1), 'correction': CORR}) == 409
+        # resense: same round, new measurement id
+        call(cmd_url, {'type': 'resense', 'session_id': sid, 'round_no': 1}, auth)
+        wait_for(lambda: pending(info, 1, True), 'resense round 1')
+        assert host(info, 'link/round', {'session_id': sid, 'round_no': 1, 'units': units.read()})['measurement_id'] == 2
 
-        # 5-7) wrong-round sense is refused; correct one asks for round 2
-        call(srv_url + '/kits/KIT-T01/commands', {'type': 'sense', 'session_id': sid, 'round_no': 3}, auth)
+        # wrong-round sense refused; sense round 2 fails once, then succeeds
+        call(cmd_url, {'type': 'sense', 'session_id': sid, 'round_no': 3}, auth)
         wait_for(lambda: (host(info, 'link/status')['last_command'] or {}).get('note', '').startswith('wrong_round'), 'refused sense')
-        assert host(info, 'link/status')['state'] == 'WAITING'
-        call(srv_url + '/kits/KIT-T01/commands', {'type': 'sense', 'session_id': sid, 'round_no': 2}, auth)
-        wait_for(lambda: pending(info, 2), 'sense round 2')
+        call(cmd_url, {'type': 'sense', 'session_id': sid, 'round_no': 2}, auth)
+        wait_for(lambda: pending(info, 2, False), 'sense round 2')
         host(info, 'link/sense_failed', {'session_id': sid, 'round_no': 2, 'reason': 'unit 3 no signal'})
-        call(srv_url + '/kits/KIT-T01/commands', {'type': 'sense', 'session_id': sid, 'round_no': 2}, auth)
+        assert host(info, 'link/status')['state'] == 'WAITING'
+        call(cmd_url, {'type': 'sense', 'session_id': sid, 'round_no': 2}, auth)
         wait_for(lambda: pending(info, 2), 'sense round 2 again')
-        host(info, 'link/round', {'session_id': sid, 'round_no': 2, 'units': units(102, 0.5), 'correction': CORR})
-        st = host(info, 'link/status')
-        assert st['last_assessment']['converged_hint'] is True and st['last_assessment']['max_est_mm'] == 0.5
+        assert host(info, 'link/round', {'session_id': sid, 'round_no': 2, 'units': units.read()})['measurement_id'] == 3
 
-        # 9) end_job -> kit idle; server sees the whole job
-        call(srv_url + '/kits/KIT-T01/commands', {'type': 'end_job', 'session_id': sid, 'result': 'main_action'}, auth)
-        wait_for(lambda: host(info, 'link/status')['state'] == 'IDLE', 'end_job')
+        call(cmd_url, {'type': 'end_job', 'session_id': sid, 'result': 'main_action'}, auth)
+        wait_for(state_is(info, 'IDLE'), 'end_job')
         wait_for(lambda: host(info, 'link/status')['outbox']['pending'] == 0, 'all sent')
-        st = host(info, 'link/status')
-        assert st['last_job']['result'] == 'end' and st['last_job']['rounds'] == 2
         msgs = call(srv_url + '/kits/KIT-T01/messages?session_id=' + sid, headers=auth)
         rounds = [m for m in msgs if m['kind'] == 'round']
-        assert [m['round_no'] for m in rounds] == [1, 2]
-        assert [u['unit_id'] for u in rounds[0]['units']] == UNITS and rounds[0]['units'][2]['heads'][4] == 'Ref'
-        assert rounds[0]['correction'] == CORR and rounds[0]['kit_assessment']['converged_hint'] is False
+        assert [(m['round_no'], m['measurement_id'], m['resense']) for m in rounds] == [(1, 1, False), (1, 2, True), (2, 3, False)]
+        u = rounds[0]['units'][0]
+        assert [x['unit_id'] for x in rounds[0]['units']] == UNITS
+        assert count_items(u) == 23, (count_items(u), u)
+        assert u['quality']['grade'] in ('good', 'caution', 'invalid') and u['diag']['fw_cal_version'] == 'TEST-1'
+        assert rounds[0]['kit_reference']['available'] is True and 'fit_theta_deg' in rounds[0]['kit_reference']
         events = [m['event'] for m in msgs if m['kind'] == 'event' and m['event'] != 'command_ack']
         assert events == ['job_start', 'sense_failed', 'job_end'], events
-        job = [j for j in call(srv_url + '/jobs', headers=auth) if j['job_id'] == sid][0]
-        assert job['status'] == 'end' and job['rounds'] == 2 and job['machine_id'] == 'RS-07'
+        kit_row = call(srv_url + '/kits', headers=auth)[0]
+        assert kit_row['heartbeat_seq'] > 3 and kit_row['fault_code'] == 0
 
-        # Restart mid-job: state survives; then main server stops the job.
+        # self_test pass -> back to IDLE
+        call(cmd_url, {'type': 'self_test'}, auth)
+        st = wait_for(lambda: (lambda s: s if (s['pending'] or {}).get('type') == 'self_test' else None)(host(info, 'link/status')), 'self_test request')
+        assert st['state'] == 'SELF_TEST'
+        host(info, 'link/self_test_result', {'results': [{'ok': True}] * 4})
+        assert host(info, 'link/status')['state'] == 'IDLE'
+        # self_test fail -> FAULT; start refused until fault_reset
+        call(cmd_url, {'type': 'self_test'}, auth)
+        wait_for(state_is(info, 'SELF_TEST'), 'self_test 2')
+        host(info, 'link/self_test_result', {'results': [{'ok': True}, {'ok': True}, {'ok': False, 'error_code': 20, 'detail': 'Ym open'}, {'ok': True}]})
+        st = host(info, 'link/status')
+        assert st['state'] == 'FAULT' and st['fault_code'] == 40 and 'Ym open' in st['fault_detail']
+        call(srv_url + '/machines/RS-07/ready', {'kit_id': 'KIT-T01'}, auth)
+        wait_for(lambda: (host(info, 'link/status')['last_command'] or {}).get('note') == 'busy:FAULT', 'start refused in FAULT')
+        call(cmd_url, {'type': 'stop'}, auth)            # server cancels the refused job on its side
+        call(cmd_url, {'type': 'fault_reset'}, auth)
+        wait_for(state_is(info, 'IDLE'), 'fault_reset')
+
+        # unit fault during a job -> job aborted + FAULT
+        call(srv_url + '/machines/RS-07/ready', {'kit_id': 'KIT-T01'}, auth)
+        st = wait_for(lambda: pending(info, 1), 'job 2')
+        host(info, 'link/fault', {'code': 30, 'detail': 'unit 4 no response'})
+        st = host(info, 'link/status')
+        assert st['state'] == 'FAULT' and st['fault_code'] == 30 and st['last_job']['result'] == 'aborted'
+        call(cmd_url, {'type': 'fault_reset'}, auth)
+        wait_for(state_is(info, 'IDLE'), 'fault_reset 2')
+
+        # watchdog: server disappears mid-job -> FAULT 50
+        call(srv_url + '/machines/RS-07/ready', {'kit_id': 'KIT-T01'}, auth)
+        st = wait_for(lambda: pending(info, 1), 'job 3')
+        host(info, 'link/round', {'session_id': st['session_id'], 'round_no': 1, 'units': units.read()})
+        wait_for(lambda: host(info, 'link/status')['outbox']['pending'] == 0, 'sent before server stop')
+        stop(server)
+        st = wait_for(state_is(info, 'FAULT'), 'watchdog', timeout=10)
+        assert st['fault_code'] == 50 and st['last_job']['result'] == 'aborted'
+        server = start_server(port, tmp / 'mainA.sqlite3', '--manual', '--api-key', 'k1')
+        wait_for(lambda: host(info, 'link/status')['outbox']['pending'] == 0, 'fault events delivered after reconnect')
+        ev = [m['event'] for m in call(srv_url + '/kits/KIT-T01/messages', headers=auth) if m['kind'] == 'event']
+        assert 'fault' in ev and ev.count('job_aborted') == 2
+        call(cmd_url, {'type': 'stop'}, auth)
+        call(cmd_url, {'type': 'fault_reset'}, auth)
+        wait_for(state_is(info, 'IDLE'), 'fault_reset 3')
+
+        # restart mid-job: state survives
         cmd = call(srv_url + '/machines/RS-07/ready', {'kit_id': 'KIT-T01'}, auth)
-        st = wait_for(lambda: pending(info, 1), 'second job')
-        host(info, 'link/round', {'session_id': st['session_id'], 'round_no': 1, 'units': units(110), 'correction': CORR})
+        st = wait_for(lambda: pending(info, 1), 'job 4')
+        host(info, 'link/round', {'session_id': st['session_id'], 'round_no': 1, 'units': units.read()})
         wait_for(lambda: host(info, 'link/status')['outbox']['pending'] == 0, 'sent before restart')
     finally:
         stop(h)
     h, info = start_host(tmp / 'A')
     try:
         st = host(info, 'link/status')
-        assert st['state'] == 'WAITING' and st['round_no'] == 1 and st['session_id'] == cmd['job_id']
-        call(srv_url + '/kits/KIT-T01/commands', {'type': 'stop', 'reason': 'operator'}, auth)
-        wait_for(lambda: host(info, 'link/status')['state'] == 'IDLE', 'stop')
+        assert st['state'] == 'WAITING' and st['round_no'] == 1 and st['measurement_id'] == 1 and st['session_id'] == cmd['job_id']
+        call(cmd_url, {'type': 'stop', 'reason': 'operator'}, auth)
+        wait_for(state_is(info, 'IDLE'), 'stop')
         assert host(info, 'link/status')['last_job']['result'] == 'stopped'
-        wait_for(lambda: [j['status'] for j in call(srv_url + '/jobs', headers=auth)] == ['end', 'stopped'], 'server job status')
     finally:
         stop(h)
         stop(server)
 
-    # ------------------------------------------------------------------ B) auto server: 6 rounds
+    # ------------------------------------------------------------------ B) auto server with JobBrain
     port = free_port()
     srv_url = 'http://127.0.0.1:%d/malign/v1' % port
     server = start_server(port, tmp / 'mainB.sqlite3', '--rounds', '6', '--move-delay', '0.2')
@@ -199,12 +267,15 @@ with tempfile.TemporaryDirectory(prefix='malign_link_test_') as tmp:
     h, info = start_host(tmp / 'B')
     try:
         host(info, 'link/sim_machine_ready', {'machine_id': 'RS-01'})
-        st, done = run_sensing_source(info)
-        assert done == 6 and st['last_job']['result'] == 'end' and st['last_job']['rounds'] == 6
+        st, done = run_sensing_source(info, SimUnits(9))
+        assert 1 <= done <= 6 and st['last_job']['result'] == 'end'
         wait_for(lambda: host(info, 'link/status')['outbox']['pending'] == 0, 'auto job sent')
-        msgs = call(srv_url + '/kits/KIT-T02/messages?session_id=' + st['last_job']['session_id'])
-        assert [m['round_no'] for m in msgs if m['kind'] == 'round'] == [1, 2, 3, 4, 5, 6]
-        assert call(srv_url + '/jobs')[0]['status'] == 'end'
+        job = call(srv_url + '/jobs')[0]
+        assert job['status'] == 'end' and job['rounds'] == done
+        dec = call(srv_url + '/jobs/%s/decisions' % job['job_id'])
+        assert len(dec) == done and all(not d['hold'] for d in dec)
+        assert dec[0]['method'] == ['kit_grid'] * 4
+        assert set(dec[0]['correction']) == {'x_mm', 'y_mm', 'theta_rad', 'theta_deg'}
     finally:
         stop(h)
         stop(server)
@@ -214,11 +285,12 @@ with tempfile.TemporaryDirectory(prefix='malign_link_test_') as tmp:
     h, info = start_host(tmp / 'C')
     try:
         host(info, 'link/sim_machine_ready', {})
-        st, done = run_sensing_source(info)
+        st, done = run_sensing_source(info, SimUnits(3))
         assert done == 3 and st['last_job']['result'] == 'end'
         assert st['outbox']['pending'] > 0 and st['outbox']['sent'] == 0, 'store-only mode keeps everything locally'
+        assert st['state'] == 'IDLE' and st['fault_code'] == 0, 'no watchdog without a server'
     finally:
         stop(h)
 
-print('PASS: server-directed jobs (manual/auto/local), 4-unit bundle per sensing, offline store + resend, '
-      'sense_failed/re-sense, restart-safe, stop', flush=True)
+print('PASS: field-device kit — 7 commands, 23 items/unit, measurement ids, resense, self-test, FAULT/reset, '
+      'watchdog, offline resend, restart-safe; server-side fit in auto mode; local sim', flush=True)

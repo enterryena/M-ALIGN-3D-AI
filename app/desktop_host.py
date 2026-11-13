@@ -337,12 +337,17 @@ def make_handler(bank, token, link=None):
 def link_post(link, action, obj):
     """Local kit-link API for the sensing source (simulator UI now, hardware reader later).
 
-    The main server drives each job: poll GET /api/link/status and, when
-    status['pending'] asks for a sensing, answer with /round (or /sense_failed).
+    The main server drives each job: poll GET /api/link/status and answer
+    status['pending']: {'type':'sense'} -> /round (or /sense_failed),
+    {'type':'self_test'} -> /self_test_result. Hardware faults -> /fault.
     """
     if action == 'round':
         return link.record_round(obj.get('session_id'), obj.get('round_no'), obj.get('units'),
-                                 obj.get('correction'), obj.get('measured_at'), obj.get('extra'))
+                                 obj.get('measured_at'), obj.get('extra'))
+    if action == 'self_test_result':
+        return link.record_self_test(obj.get('results'))
+    if action == 'fault':
+        return link.report_fault(obj.get('code'), obj.get('detail', ''))
     if action == 'sense_failed':
         return link.sense_failed(obj.get('session_id'), obj.get('round_no'), obj.get('reason', ''))
     if action == 'abort':
@@ -377,7 +382,8 @@ def start():
         if sys.stderr is not None:
             print('M-ALIGN WARNING: daily backup failed: ' + backup_warning, file=sys.stderr, flush=True)
     link_dir = folder / 'Link' if args.data_dir else folder.parent / 'Link'
-    link, uploader, link_cfg_path = malign_link.open_link(link_dir)
+    runtime = malign_link.open_link(link_dir)
+    link, link_cfg_path = runtime.link, runtime.cfg_path
     server, token = create_server(bank, link)
     port = server.server_port
     url = f'http://127.0.0.1:{port}/'
@@ -392,7 +398,7 @@ def start():
         except KeyboardInterrupt:
             pass
         finally:
-            uploader.stop()
+            runtime.stop()
             server.shutdown()
             server.server_close()
         return
@@ -513,7 +519,7 @@ def start():
             return
         # Do NOT perform the normal shutdown backup: uninstall must not
         # create another persistent copy after the user's deletion request.
-        uploader.stop()
+        runtime.stop()
         server.shutdown()
         server.server_close()
         root.destroy()
@@ -531,7 +537,7 @@ def start():
         except Exception as exc:
             if not messagebox.askyesno('백업 실패', '종료 직전 백업을 만들지 못했습니다.\n' + str(exc) + '\n\n데이터베이스의 기존 기록은 유지됩니다. 종료할까요?'):
                 return
-        uploader.stop()
+        runtime.stop()
         server.shutdown()
         server.server_close()
         root.destroy()

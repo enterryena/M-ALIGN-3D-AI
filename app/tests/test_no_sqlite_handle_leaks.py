@@ -6,7 +6,7 @@ its Windows file handle, which can block TemporaryDirectory.cleanup().
 from pathlib import Path
 import ast
 ROOT = Path(__file__).resolve().parents[1]
-FILES = [*ROOT.glob('tests/test_*.py'), ROOT/'desktop_host.py', ROOT/'malign_link.py',
+FILES = [*ROOT.glob('tests/test_*.py'), ROOT/'desktop_host.py', ROOT/'malign_link.py', ROOT/'malign_engine.py',
          ROOT/'server_example'/'malign_main_server.py']
 for file in FILES:
     root = ast.parse(file.read_text(encoding='utf-8'), filename=str(file))

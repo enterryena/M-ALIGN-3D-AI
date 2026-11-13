@@ -8,11 +8,15 @@ the job sequence:
   2. server -> kit: start_job        (kit senses round 1, sends a 4-unit bundle)
   3. server applies the correction to the machine, confirms the move
   4. server -> kit: sense            (kit senses round n+1, sends a bundle)  ... about 6 times
+     (resense = measure the same round again without moving)
   5. server -> kit: end_job          then the machine does the main action (lower + lock)
 
-AUTO mode (default) does 2-5 by itself: it assumes the machine applies the kit's
-correction as-is after --move-delay seconds, and ends the job after --rounds rounds.
-With --manual, commands are only queued through the HTTP API (a real controller's job).
+AUTO mode (default) does 2-5 by itself with malign_server_logic.JobBrain: per-corner
+history estimation (the server knows the moves it commanded), one rigid fit of the
+4 corners, gain K; the job ends when all corners are within 1 mm or after --rounds.
+The machine is assumed to apply the decided correction after --move-delay seconds
+(stage 3 adds a virtual reach stacker). With --manual, commands are only queued
+through the HTTP API (a real controller's job).
 
     python malign_main_server.py --port 8750 [--rounds 6] [--move-delay 1] [--manual] [--api-key KEY]
 
@@ -25,6 +29,7 @@ Endpoints
   GET  /malign/v1/kits                          kits, last state, counts
   GET  /malign/v1/kits/<kit_id>/messages[?session_id=...]
   GET  /malign/v1/jobs                          jobs and their round counts / result
+  GET  /malign/v1/jobs/<job_id>/decisions       server decisions per bundle (AUTO)
 """
 import argparse
 import json
@@ -39,11 +44,16 @@ from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 
-KNOWN = {'MALIGN_round_bundle_v1': 'round', 'MALIGN_kit_event_v1': 'event'}
+import malign_server_logic as logic
+import malign_engine
+
+KNOWN = {'MALIGN_round_bundle_v2': 'round', 'MALIGN_kit_event_v1': 'event'}
 ID = r'[A-Za-z0-9][A-Za-z0-9._-]{0,63}'
 KIT_PATH = re.compile(r'^/malign/v1/kits/(' + ID + r')/(commands|messages)$')
 READY_PATH = re.compile(r'^/malign/v1/machines/(' + ID + r')/ready$')
-COMMANDS = ('start_job', 'sense', 'end_job', 'stop')
+DECISION_PATH = re.compile(r'^/malign/v1/jobs/(' + ID + r')/decisions$')
+COMMANDS = ('start_job', 'sense', 'resense', 'end_job', 'stop', 'fault_reset', 'self_test')
+MAX_HOLD_RESENSE = 2
 MAX_BODY = 10 * 1024 * 1024
 
 
@@ -56,6 +66,9 @@ class Store:
         self.path = str(path)
         self.auto, self.rounds, self.move_delay = auto, rounds, move_delay
         self.lock = threading.RLock()
+        self.model = malign_engine.Model() if auto else None
+        self.brains = {}      # job_id -> JobBrain (in memory: an example server restart forgets history)
+        self.decisions = {}   # job_id -> [decision, ...]
         with self.db() as con:
             con.execute('''CREATE TABLE IF NOT EXISTS messages (
                 msg_id TEXT PRIMARY KEY, kit_id TEXT NOT NULL, session_id TEXT, kind TEXT NOT NULL,
@@ -64,7 +77,8 @@ class Store:
             con.execute('''CREATE TABLE IF NOT EXISTS commands (
                 id TEXT PRIMARY KEY, kit_id TEXT NOT NULL, body TEXT NOT NULL, created_at TEXT NOT NULL,
                 not_before REAL NOT NULL DEFAULT 0, delivered_at TEXT)''')
-            con.execute('CREATE TABLE IF NOT EXISTS kits (kit_id TEXT PRIMARY KEY, last_seen TEXT, last_state TEXT)')
+            con.execute('CREATE TABLE IF NOT EXISTS kits (kit_id TEXT PRIMARY KEY, last_seen TEXT, last_state TEXT, '
+                        'heartbeat_seq INTEGER, fault_code INTEGER)')
             con.execute('''CREATE TABLE IF NOT EXISTS jobs (
                 job_id TEXT PRIMARY KEY, kit_id TEXT NOT NULL, machine_id TEXT, status TEXT NOT NULL,
                 rounds INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL, ended_at TEXT)''')
@@ -111,6 +125,8 @@ class Store:
             if cmd.get('type') == 'start_job':
                 return self._start_job(con, kit, cmd.get('machine_id'))
             keep = {k: cmd[k] for k in ('type', 'session_id', 'round_no', 'result', 'reason') if k in cmd}
+            if keep.get('type') == 'stop':
+                self._close_active(con, kit)
             return self._queue(con, kit, keep)
 
     # ---- kit upload
@@ -127,22 +143,50 @@ class Store:
                 con.execute("UPDATE jobs SET status='running' WHERE job_id=?", (sid,))
                 con.execute("INSERT OR IGNORE INTO jobs VALUES (?,?,?, 'running', 0, ?, NULL)",
                             (sid, kit, (m.get('detail') or {}).get('machine_id'), now()))
+            elif ev == 'command_ack' and not (m.get('detail') or {}).get('ok', True):
+                row = con.execute('SELECT body FROM commands WHERE id=?', ((m.get('detail') or {}).get('command_id'),)).fetchone()
+                body = json.loads(row[0]) if row else {}
+                if body.get('type') == 'start_job':   # kit refused the job (busy / FAULT)
+                    con.execute("UPDATE jobs SET status='refused', ended_at=? WHERE job_id=? AND status='requested'",
+                                (now(), body.get('job_id')))
             elif ev in ('job_end', 'job_stopped', 'job_aborted'):
                 con.execute('UPDATE jobs SET status=?, ended_at=? WHERE job_id=?', (ev[4:], now(), sid))
         elif kind == 'round':
             con.execute('UPDATE jobs SET rounds=MAX(rounds, ?) WHERE job_id=?', (m['round_no'], sid))
             if self.auto:
-                # Here a real server would weigh m['correction'] against the machine's own data,
-                # drive the machine, confirm the move — then ask for the next sensing.
-                if m['round_no'] >= self.rounds:
-                    self._queue(con, kit, {'type': 'end_job', 'session_id': sid, 'result': 'main_action'},
-                                self.move_delay)
-                else:
-                    self._queue(con, kit, {'type': 'sense', 'session_id': sid, 'round_no': m['round_no'] + 1},
-                                self.move_delay)
+                self._auto_decide(con, kit, m)
+
+    def _close_active(self, con, kit):
+        job = self._active_job(con, kit)
+        if job:
+            self.brains.pop(job, None)
+
+    def _auto_decide(self, con, kit, m):
+        # Here a real server would also weigh the machine's own sensors (stage 3), drive the
+        # machine, confirm the move — and then ask for the next sensing.
+        sid = m['session_id']
+        brain = self.brains.get(sid)
+        if brain is None:
+            brain = self.brains[sid] = logic.JobBrain(self.model, max_rounds=self.rounds)
+        d = brain.decide(m['units'], resense=bool(m.get('resense')))
+        d = dict(d, measurement_id=m.get('measurement_id'), round_no=m['round_no'])
+        self.decisions.setdefault(sid, []).append(d)
+        if d['hold']:
+            n = sum(1 for x in self.decisions[sid] if x['round_no'] == m['round_no'] and x['hold'])
+            if n <= MAX_HOLD_RESENSE:
+                self._queue(con, kit, {'type': 'resense', 'session_id': sid, 'round_no': m['round_no']}, 0.2)
+            else:
+                self._queue(con, kit, {'type': 'stop', 'reason': 'no_valid_estimate'}, 0)
+                self.brains.pop(sid, None)
+        elif d['end']:
+            self._queue(con, kit, {'type': 'end_job', 'session_id': sid, 'result': 'main_action'}, self.move_delay)
+            self.brains.pop(sid, None)
+        else:
+            self._queue(con, kit, {'type': 'sense', 'session_id': sid, 'round_no': m['round_no'] + 1,
+                                   'applied_correction': d['correction']}, self.move_delay)
 
     def ingest(self, batch):
-        if not isinstance(batch, dict) or batch.get('schema') != 'MALIGN_upload_batch_v1':
+        if not isinstance(batch, dict) or batch.get('schema') != 'MALIGN_upload_batch_v2':
             raise ValueError('batch schema 오류')
         kit = batch.get('kit_id')
         msgs = batch.get('messages')
@@ -163,8 +207,10 @@ class Store:
                         if not isinstance(units, list) or len(units) != 4 or \
                                 len({u.get('unit_id') for u in units if isinstance(u, dict)}) != 4:
                             raise ValueError('장치 4대 묶음이 아님')
-                        if not isinstance(m.get('round_no'), int):
-                            raise ValueError('round_no 없음')
+                        if not isinstance(m.get('round_no'), int) or not isinstance(m.get('measurement_id'), int):
+                            raise ValueError('round_no / measurement_id 없음')
+                        if any(not isinstance(u.get('sensor_uH'), list) or len(u['sensor_uH']) != 5 for u in units):
+                            raise ValueError('장치별 5헤드 값 없음')
                     n0 = con.total_changes
                     con.execute('INSERT OR IGNORE INTO messages VALUES (?,?,?,?,?,?,?,?)',
                                 (mid, kit, m.get('session_id'), kind, m.get('round_no'), m.get('event'), now(),
@@ -175,7 +221,9 @@ class Store:
                 except ValueError as exc:
                     if isinstance(mid, str):
                         rejected.append({'msg_id': mid, 'error': str(exc)})
-            con.execute('INSERT OR REPLACE INTO kits VALUES (?,?,?)', (kit, now(), str(batch.get('kit_state'))))
+            ks = batch.get('kit_status') if isinstance(batch.get('kit_status'), dict) else {}
+            con.execute('INSERT OR REPLACE INTO kits VALUES (?,?,?,?,?)',
+                        (kit, now(), str(ks.get('state')), batch.get('heartbeat_seq'), ks.get('fault_code')))
             rows = con.execute('SELECT id, body FROM commands WHERE kit_id=? AND delivered_at IS NULL AND not_before<=? '
                                'ORDER BY created_at', (kit, time.time())).fetchall()
             con.executemany('UPDATE commands SET delivered_at=? WHERE id=?', [(now(), i) for i, _ in rows])
@@ -185,9 +233,9 @@ class Store:
     def kits(self):
         with self.db() as con:
             out = []
-            for kit, seen, state in con.execute('SELECT * FROM kits ORDER BY kit_id').fetchall():
+            for kit, seen, state, hb, fault in con.execute('SELECT * FROM kits ORDER BY kit_id').fetchall():
                 n = dict(con.execute('SELECT kind, COUNT(*) FROM messages WHERE kit_id=? GROUP BY kind', (kit,)).fetchall())
-                out.append({'kit_id': kit, 'last_seen': seen, 'last_state': state,
+                out.append({'kit_id': kit, 'last_seen': seen, 'last_state': state, 'heartbeat_seq': hb, 'fault_code': fault,
                             'rounds': n.get('round', 0), 'events': n.get('event', 0)})
             return out
 
@@ -234,6 +282,9 @@ def make_handler(store, api_key):
                 return self._json(store.kits())
             if u.path == '/malign/v1/jobs':
                 return self._json(store.jobs())
+            m = DECISION_PATH.match(u.path)
+            if m:
+                return self._json(store.decisions.get(m.group(1), []))
             m = KIT_PATH.match(u.path)
             if m and m.group(2) == 'messages':
                 return self._json(store.messages(m.group(1), parse_qs(u.query).get('session_id', [None])[0]))
@@ -266,9 +317,9 @@ def main():
     ap = argparse.ArgumentParser(description='M-ALIGN example main server')
     ap.add_argument('--host', default='0.0.0.0')
     ap.add_argument('--port', type=int, default=8750)
-    ap.add_argument('--db', default=str(pathlib.Path(__file__).with_name('main_server_v2.sqlite3')))
+    ap.add_argument('--db', default=str(pathlib.Path(__file__).with_name('main_server_v3.sqlite3')))
     ap.add_argument('--api-key', default='')
-    ap.add_argument('--rounds', type=int, default=6, help='AUTO: rounds before end_job')
+    ap.add_argument('--rounds', type=int, default=6, help='AUTO: max rounds before end_job (ends earlier when within 1 mm)')
     ap.add_argument('--move-delay', type=float, default=1.0, help='AUTO: seconds the machine takes per correction')
     ap.add_argument('--manual', action='store_true', help='no automatic sense/end_job; use the commands API')
     a = ap.parse_args()

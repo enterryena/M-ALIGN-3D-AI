@@ -2,6 +2,8 @@
   "version": "3.6.0",
   "date": "2026-11-13",
   "changes": [
+    "Stage 1: kit as field device — 7 commands (start_job/sense/resense/end_job/stop/fault_reset/self_test), 4 units x 23 items (bundle v2), FAULT/SELF_TEST states, watchdog, heartbeat",
+    "Python port of the v3.5.4 engine (malign_engine.py) identical to JS trial by trial; per-unit device logic (kit_device.py); server-side history estimation + rigid fit (malign_server_logic.py)",
     "Kit link: main server directs each sensing (start_job / sense / end_job / stop); kit senses once per command",
     "One 4-unit bundle per sensing stored in %LOCALAPPDATA%\\MALIGN\\Link\\outbox.sqlite3, then sent in order (store-and-forward, retry)",
     "Kit states IDLE/SENSING/WAITING persisted across restart; server commands delivered in upload replies",
@@ -12,7 +14,7 @@
   ],
   "tests": {
     "python_compile": "pass",
-    "kit_link_end_to_end": "PASS - manual/auto/local server-directed jobs, offline store + ordered resend, sense_failed/re-sense, restart-safe, stop (Linux run)",
+    "kit_link_end_to_end": "PASS - 7 commands, 23 items/unit, resense, self-test, FAULT/reset, watchdog, offline resend, restart-safe, auto JobBrain (Linux)",
     "ui_link_end_to_end": "PASS - real JS UI: 1 job = 6 server-directed sensings with example auto server and with built-in sim server (Chromium Linux)",
     "browser_ui_bridge_100": "PASS - 6 successes 94 failures unchanged (Chromium Linux)",
     "persistence_restart": "PASS - Linux run",
@@ -21,6 +23,8 @@
     "uninstall_static_safety": "PASS - source inspection",
     "sqlite_connection_guard": "PASS - source AST check incl. malign_link.py",
     "actual_Windows_EXE": "NOT TESTED - requires Windows",
-    "real_sensor_hardware": "NOT TESTED - no hardware adapter yet; simulator source only"
+    "real_sensor_hardware": "NOT TESTED - no hardware adapter yet; simulator source only",
+    "engine_port": "PASS - grid 68/1000, history 586/1000, target 299/300 identical to JS trial by trial (Linux)",
+    "split_reproduction": "PASS - kit/server split reproduces v3.5.4 trial by trial (grid 68/1000, history 586/1000)"
   }
 }

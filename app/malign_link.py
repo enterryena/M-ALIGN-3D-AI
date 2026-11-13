@@ -1,29 +1,38 @@
 # -*- coding: utf-8 -*-
-"""M-ALIGN kit link: the main server directs each sensing; the kit stores and sends every result.
+"""M-ALIGN kit link: the kit is a field device — it reports to the main server and acts on its commands.
 
 One kit = 4 correction units (one per container corner), each with its own unique
-number. The machine (e.g. reach stacker) and its movement belong to the MAIN SERVER;
-the kit only senses and reports:
+number. The machine (e.g. reach stacker) and every decision about moving it belong to
+the MAIN SERVER; the kit only senses and reports.
 
-  1. machine moves into position and is ready         (machine -> main server)
-  2. main server sends  start_job                    -> kit senses round 1
-  3. kit sends round bundle: 4 units' 5-head readings + estimate + correction value
-  4. main server applies the correction (weighing it against the machine's own data),
-     confirms the move, then sends  sense            -> kit senses round n+1
-  5. repeat (about 6 rounds)
-  6. main server sends  end_job  and runs the main action (lower + lock)
+Job sequence:
+  machine ready (machine -> server) -> start_job -> kit senses round 1 -> bundle
+  -> server compares with the machine's sensors, decides and applies the correction,
+     confirms the move -> sense (or resense: same round, no move) -> bundle ... (~6)
+  -> end_job -> main action (lower + lock)
 
-Kit states:   IDLE --start_job--> SENSING --round sent--> WAITING --sense--> SENSING ...
-              WAITING/SENSING --end_job | stop--> IDLE
+Commands (server -> kit), 7:  start_job, sense, resense, end_job, stop, fault_reset, self_test
+Information (kit -> server), 5: command_ack, measurement bundle (4 units x 23 items),
+                                state, heartbeat (every upload), error code
+
+Kit states:
+  IDLE --start_job--> SENSING --bundle--> WAITING --sense|resense--> SENSING ...
+  WAITING|SENSING --end_job|stop--> IDLE
+  IDLE|FAULT --self_test--> SELF_TEST --pass--> previous state | --fail--> FAULT
+  any --fault (unit fault, self-test fail, watchdog)--> FAULT --fault_reset--> IDLE
+
+Per unit (23 items): ids 6 (unit_id, corner, job, round, measurement_id, measured_at),
+  readings 5 (dL uH vs calibration), estimate 3 (x, y, gap), reliability 5 (residual,
+  extrapolated, gap out of range, head_ok flags, grade), diagnostics 4 (coil temp,
+  supply voltage, fw/cal version, error code).
+Each unit computes ONLY its own corner (kit_device.py). Combining the 4 corners,
+priorities and the final correction are the main server's job; the kit's 4-corner
+fit is sent as reference only.
 
 Store-and-forward: every bundle/event is first committed to a local SQLite outbox,
-then a background uploader POSTs pending ones to the main server in order and
-receives the server's commands in the reply. Network loss never drops data.
-The sensing source (simulator now, real hardware later) only has to watch
-status()['pending'] and call record_round() / sense_failed().
-With no server_url and source 'simulation', a built-in LocalMainSim plays the
-main server's part so the simulator still runs stand-alone.
-Python stdlib only.
+then a background uploader POSTs pending ones in order and receives commands in the
+reply. Watchdog: during a job, no successful server exchange for watchdog_s -> FAULT.
+With no server_url and source 'simulation', LocalMainSim plays the server.
 """
 import json
 import logging
@@ -41,17 +50,22 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 
 SCHEMA_DB = 'MALIGN_link_outbox_v1'
-SCHEMA_ROUND = 'MALIGN_round_bundle_v1'
+SCHEMA_ROUND = 'MALIGN_round_bundle_v2'
 SCHEMA_EVENT = 'MALIGN_kit_event_v1'
-SCHEMA_BATCH = 'MALIGN_upload_batch_v1'
+SCHEMA_BATCH = 'MALIGN_upload_batch_v2'
 HEADS = ['Xp', 'Xm', 'Yp', 'Ym', 'Ref']
 # Same corner order as the simulator's CORNERS array (twistlock centres, mm).
 CORNER_POS_MM = [(-2926.5, 1129.5), (2926.5, 1129.5), (2926.5, -1129.5), (-2926.5, -1129.5)]
-STATES = ('IDLE', 'SENSING', 'WAITING')
+STATES = ('IDLE', 'SENSING', 'WAITING', 'SELF_TEST', 'FAULT')
+JOB_STATES = ('SENSING', 'WAITING')
 SOURCES = ('simulation', 'hardware')
-COMMANDS = ('start_job', 'sense', 'end_job', 'stop')
+COMMANDS = ('start_job', 'sense', 'resense', 'end_job', 'stop', 'fault_reset', 'self_test')
+GRADES = ('good', 'caution', 'invalid')
 ID_RE = re.compile(r'^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$')
 CONVERGED_MM = 1.0  # kit's own hint only; the main server decides when to finish
+# Error codes (unit diag.error_code and kit fault_code)
+ERRORS = {0: 'none', 10: 'sense_failed', 20: 'head_fault', 30: 'unit_no_response',
+          40: 'self_test_failed', 50: 'watchdog_timeout', 90: 'other'}
 
 DEFAULT_CONFIG = {
     'kit_id': None,            # generated once on first run; edit to the real kit number
@@ -60,11 +74,13 @@ DEFAULT_CONFIG = {
     'server_url': '',          # e.g. http://10.0.0.5:8750/malign/v1/bundles ; '' = store only
     'api_key': '',             # sent as "Authorization: Bearer <api_key>" when set
     'max_rounds': 10,          # safety cap per job (the main server normally ends after ~6)
+    'max_resense': 3,          # safety cap of re-measurements per round
     'batch_max': 50,
     'timeout_s': 5,
-    'heartbeat_s': 2,          # poll interval while idle (asks the server for start_job)
-    'active_poll_s': 0.5,      # poll interval during a job (waiting for sense / end_job)
+    'heartbeat_s': 2,          # upload/poll interval while idle (also the heartbeat)
+    'active_poll_s': 0.5,      # upload/poll interval during a job
     'retry_max_s': 30,
+    'watchdog_s': 10,          # during a job: no successful server exchange this long -> FAULT
     'sim_rounds': 6,           # LocalMainSim only (no server_url): rounds before end_job
     'sim_move_delay_s': 0.8,   # LocalMainSim only: time the "machine" takes to apply a correction
 }
@@ -129,12 +145,12 @@ def validate_config(cfg):
         p = urllib.parse.urlparse(url)
         if p.scheme not in ('http', 'https') or not p.netloc:
             raise ValueError('server_url 은 http:// 또는 https:// 주소여야 합니다')
-    for key, lo, hi in (('max_rounds', 1, 50), ('batch_max', 1, 500), ('sim_rounds', 1, 50)):
+    for key, lo, hi in (('max_rounds', 1, 50), ('max_resense', 0, 20), ('batch_max', 1, 500), ('sim_rounds', 1, 50)):
         if not isinstance(cfg[key], int) or isinstance(cfg[key], bool) or not lo <= cfg[key] <= hi:
             raise ValueError('%s 범위 오류 (%d~%d)' % (key, lo, hi))
     if cfg['sim_rounds'] > cfg['max_rounds']:
         raise ValueError('sim_rounds 는 max_rounds 이하여야 합니다')
-    for key in ('timeout_s', 'heartbeat_s', 'active_poll_s', 'retry_max_s'):
+    for key in ('timeout_s', 'heartbeat_s', 'active_poll_s', 'retry_max_s', 'watchdog_s'):
         if _finite(cfg[key], key) <= 0:
             raise ValueError(key + ' 는 0보다 커야 합니다')
     if _finite(cfg['sim_move_delay_s'], 'sim_move_delay_s') < 0:
@@ -242,22 +258,29 @@ class Outbox:
 
 
 
+
+
 # --------------------------------------------------------------------------- kit state machine
 class KitLink:
-    def __init__(self, outbox, config, on_enqueue=None):
+    def __init__(self, outbox, config, on_enqueue=None, processor=None):
         self.outbox = outbox
         self.cfg = config
         self.on_enqueue = on_enqueue or (lambda: None)
+        self.processor = processor   # (corner_index, sensor_uH, head_ok) -> {est_mm, gap_mm, quality}
         self.observers = []          # callables(msg) — LocalMainSim listens here
         self.lock = threading.RLock()
-        self.uplink = {'last_error': None, 'last_attempt_at': None, 'last_ok_at': None}
-        default = {'state': 'IDLE', 'session_id': None, 'cycle_no': 0, 'round_no': 0, 'pending_round': None,
-                   'awaiting_start': False, 'last_command': None, 'seen_commands': [], 'last_job': None,
-                   'last_assessment': None}
+        self.uplink = {'last_error': None, 'last_attempt_at': None, 'last_ok_at': None, 'heartbeat_seq': 0}
+        self.last_contact = time.monotonic()
+        default = {'state': 'IDLE', 'session_id': None, 'cycle_no': 0, 'round_no': 0, 'pending': None,
+                   'measurement_id': 0, 'resense_count': 0, 'awaiting_start': False, 'fault_code': 0,
+                   'fault_detail': None, 'pre_test_state': None, 'last_command': None, 'seen_commands': [],
+                   'last_job': None, 'last_reference': None, 'last_self_test': None}
         saved = outbox.get('kit_state') or {}
         self.st = dict(default, **{k: v for k, v in saved.items() if k in default})
-        if self.st['state'] not in STATES:   # e.g. state saved by an older version
-            self.st.update(state='IDLE', session_id=None, pending_round=None)
+        if self.st['state'] not in STATES or (self.st['state'] in JOB_STATES and not self.st['session_id']):
+            self.st.update(state='IDLE', session_id=None, pending=None)  # e.g. state saved by an older version
+        if self.st['state'] == 'SELF_TEST':      # interrupted self-test: report it again
+            self.st.update(state=self.st['pre_test_state'] or 'IDLE', pending=None)
 
     # ---- helpers
     @property
@@ -281,7 +304,8 @@ class KitLink:
             'schema': SCHEMA_EVENT, 'kind': 'event',
             'msg_id': '%s|evt|%d|%s' % (self.kit_id, time.time_ns(), secrets.token_hex(3)),
             'kit_id': self.kit_id, 'session_id': self.st['session_id'], 'cycle_no': self.st['cycle_no'],
-            'event': event, 'state': self.st['state'], 'created_at': utc_now(), 'detail': detail or {}})
+            'event': event, 'state': self.st['state'], 'fault_code': self.st['fault_code'],
+            'created_at': utc_now(), 'detail': detail or {}})
 
     def _commit(self):
         self._save()
@@ -290,41 +314,37 @@ class KitLink:
     def _end(self, result, detail):
         st = self.st
         st['last_job'] = {'session_id': st['session_id'], 'result': result, 'rounds': st['round_no'],
-                          'at': utc_now(), 'detail': detail}
-        st.update(state='IDLE', pending_round=None)
+                          'measurements': st['measurement_id'], 'at': utc_now(), 'detail': detail}
+        st.update(state='IDLE', pending=None)
         self._emit('job_' + result, dict(detail, rounds=st['round_no']))
 
-    @staticmethod
-    def _readings(units):
-        if not isinstance(units, list) or len(units) != 4:
-            raise ValueError('코너 4개(장치 4대)의 값이 모두 있어야 합니다')
-        out = []
-        for k, u in enumerate(units):
-            if not isinstance(u, dict):
-                raise ValueError('코너 %d 값 형식 오류' % (k + 1))
-            s, e = u.get('sensor_uH'), u.get('est_mm')
-            if not isinstance(s, list) or len(s) != 5:
-                raise ValueError('코너 %d: 5헤드 측정값(sensor_uH 5개)이 필요합니다' % (k + 1))
-            if not isinstance(e, list) or len(e) != 2:
-                raise ValueError('코너 %d: 추정 오차 est_mm [x,y] 가 필요합니다' % (k + 1))
-            out.append({'sensor_uH': [_finite(v, '코너 %d 센서' % (k + 1)) for v in s],
-                        'est_mm': [_finite(v, '코너 %d 추정' % (k + 1)) for v in e]})
-        return out
+    def _fault(self, code, detail):
+        st = self.st
+        if st['state'] in JOB_STATES:
+            self._end('aborted', {'reason': 'fault', 'fault_code': code, 'by': 'kit'})
+        st.update(state='FAULT', fault_code=int(code), fault_detail=str(detail)[:300], pending=None,
+                  awaiting_start=False)
+        self._emit('fault', {'fault_code': code, 'fault': ERRORS.get(code, 'other'), 'detail': str(detail)[:300]})
 
     def _check_job(self, session_id):
-        if self.st['state'] == 'IDLE':
-            raise LinkRefused('진행 중인 작업이 없습니다')
+        if self.st['state'] not in JOB_STATES:
+            raise LinkRefused('진행 중인 작업이 없습니다 (현재: %s)' % self.st['state'])
         if session_id != self.st['session_id']:
             raise LinkRefused('작업(세션) 번호가 현재 작업과 다릅니다')
+
+    def mark_contact(self):
+        self.last_contact = time.monotonic()
 
     # ---- read
     def status(self):
         with self.lock:
             st = self.st
-            s = {k: st[k] for k in ('state', 'session_id', 'cycle_no', 'round_no', 'awaiting_start',
-                                    'last_command', 'last_job', 'last_assessment')}
-            s['pending'] = ({'type': 'sense', 'session_id': st['session_id'], 'round_no': st['pending_round']}
-                            if st['state'] == 'SENSING' else None)
+            s = {k: st[k] for k in ('state', 'session_id', 'cycle_no', 'round_no', 'measurement_id', 'pending',
+                                    'awaiting_start', 'fault_code', 'fault_detail', 'last_command', 'last_job',
+                                    'last_reference', 'last_self_test')}
+            s['fault'] = ERRORS.get(st['fault_code'], 'other')
+            if st['pending']:
+                s['pending'] = dict(st['pending'], session_id=st['session_id'])
             s.update(kit_id=self.kit_id, units=list(self.cfg['units']), source=self.cfg['source'],
                      max_rounds=self.cfg['max_rounds'], server_url=self.cfg['server_url'],
                      server_configured=bool(self.cfg['server_url']),
@@ -332,56 +352,136 @@ class KitLink:
             return s
 
     def active(self):
-        return self.st['state'] != 'IDLE' or self.st['awaiting_start']
+        return self.st['state'] in JOB_STATES or self.st['awaiting_start'] or self.st['state'] == 'SELF_TEST'
 
-    # ---- sensing source (simulator UI now, hardware reader later)
-    def record_round(self, session_id, round_no, units, command, measured_at=None, extra=None):
-        """Result of ONE sensing requested by the main server -> one 4-unit bundle."""
+    @staticmethod
+    def _unit_input(k, u):
+        if not isinstance(u, dict):
+            raise ValueError('코너 %d 값 형식 오류' % (k + 1))
+        s = u.get('sensor_uH')
+        if not isinstance(s, list) or len(s) != 5:
+            raise ValueError('코너 %d: 5헤드 측정값(sensor_uH 5개)이 필요합니다' % (k + 1))
+        s = [_finite(v, '코너 %d 센서' % (k + 1)) for v in s]
+        head_ok = u.get('head_ok', [True] * 5)
+        if not isinstance(head_ok, list) or len(head_ok) != 5 or not all(isinstance(v, bool) for v in head_ok):
+            raise ValueError('코너 %d: head_ok 는 true/false 5개' % (k + 1))
+        d = u.get('diag') or {}
+        if not isinstance(d, dict):
+            raise ValueError('코너 %d: diag 형식 오류' % (k + 1))
+        diag = {'coil_temp_c': _finite(d.get('coil_temp_c', float('nan')), '온도') if 'coil_temp_c' in d else None,
+                'supply_v': _finite(d['supply_v'], '전압') if 'supply_v' in d else None,
+                'fw_cal_version': str(d.get('fw_cal_version', ''))[:40] or None,
+                'error_code': int(d.get('error_code', 0)) if not isinstance(d.get('error_code', 0), bool) else 0}
+        return s, head_ok, diag
+
+    def _reference(self, units):
+        """Kit's own equal-weight 4-corner fit — REFERENCE ONLY (the server decides)."""
+        est = [u['est_mm'] for u in units]
+        if any(e is None for e in est):
+            return {'available': False}
+        sx = sum(e[0] for e in est) / 4
+        sy = sum(e[1] for e in est) / 4
+        num = den = 0.0
+        for k in range(4):
+            X, Y = CORNER_POS_MM[k]
+            num += X * (est[k][1] - sy) - Y * (est[k][0] - sx)
+            den += X * X + Y * Y
+        worst = max(max(abs(e[0]), abs(e[1])) for e in est)
+        return {'available': True, 'fit_x_mm': sx, 'fit_y_mm': sy, 'fit_theta_deg': math.degrees(num / den),
+                'max_abs_est_mm': worst, 'converged_hint': worst <= CONVERGED_MM}
+
+    # ---- sensing source (simulator now, hardware reader later)
+    def record_round(self, session_id, round_no, units, measured_at=None, extra=None):
+        """Result of ONE sensing requested by the main server -> one 4-unit bundle (23 items per unit)."""
         with self.lock:
             self._check_job(session_id)
             st = self.st
-            if st['state'] != 'SENSING':
+            p = st['pending']
+            if st['state'] != 'SENSING' or not p or p['type'] != 'sense':
                 raise LinkRefused('메인 서버의 센싱 명령을 기다리는 중입니다 (현재: %s)' % st['state'])
-            if round_no != st['pending_round']:
-                raise ValueError('보정 회차 오류 (요청 %r, 받음 %r)' % (st['pending_round'], round_no))
-            rows = self._readings(units)
-            if not isinstance(command, dict):
-                raise ValueError('command 형식 오류')
-            cmd = {k: _finite(command.get(k), 'command.' + k) for k in ('x_mm', 'y_mm', 'theta_deg')}
+            if round_no != p['round_no']:
+                raise ValueError('보정 회차 오류 (요청 %r, 받음 %r)' % (p['round_no'], round_no))
+            if not isinstance(units, list) or len(units) != 4:
+                raise ValueError('코너 4개(장치 4대)의 값이 모두 있어야 합니다')
             if measured_at is not None and (not isinstance(measured_at, str) or len(measured_at) > 64):
                 raise ValueError('measured_at 형식 오류')
             if extra is not None and (not isinstance(extra, dict) or len(json.dumps(extra)) > 4000):
                 raise ValueError('extra 는 4KB 이하 JSON 객체')
-            worst = max(max(abs(r['est_mm'][0]), abs(r['est_mm'][1])) for r in rows)
-            assess = {'max_est_mm': worst, 'within_mm': CONVERGED_MM, 'converged_hint': worst <= CONVERGED_MM}
+            inputs = [self._unit_input(k, u) for k, u in enumerate(units)]
+            if self.processor is None:
+                raise RuntimeError('장치 계산 모듈이 연결되지 않았습니다')
             now = utc_now()
+            mid = st['measurement_id'] + 1
+            out = []
+            for k, (s, head_ok, diag) in enumerate(inputs):
+                r = self.processor(k, s, head_ok)
+                out.append({'corner': k + 1, 'unit_id': self.cfg['units'][k],
+                            'job_id': session_id, 'round_no': round_no, 'measurement_id': mid,
+                            'measured_at': measured_at or now,
+                            'heads': HEADS, 'sensor_uH': s,
+                            'est_mm': None if r['est_mm'] is None else {'x': r['est_mm'][0], 'y': r['est_mm'][1]},
+                            'gap_mm': r['gap_mm'],
+                            'quality': r['quality'],
+                            'diag': diag,
+                            '_est_list': r['est_mm']})
+            ref = self._reference([{'est_mm': u.pop('_est_list')} for u in out])
             bundle = {
                 'schema': SCHEMA_ROUND, 'kind': 'round',
-                'msg_id': '%s|r%02d' % (session_id, round_no),
+                'msg_id': '%s|m%03d' % (session_id, mid),
                 'kit_id': self.kit_id, 'session_id': session_id, 'cycle_no': st['cycle_no'],
-                'round_no': round_no, 'source': self.cfg['source'],
-                'measured_at': measured_at or now, 'created_at': now,
-                'units': [{'corner': i + 1, 'unit_id': self.cfg['units'][i], 'heads': HEADS,
-                           'sensor_uH': r['sensor_uH'], 'est_mm': {'x': r['est_mm'][0], 'y': r['est_mm'][1]}}
-                          for i, r in enumerate(rows)],
-                'correction': cmd,
-                'kit_assessment': assess,
+                'round_no': round_no, 'measurement_id': mid, 'resense': bool(p.get('resense')),
+                'source': self.cfg['source'], 'measured_at': measured_at or now, 'created_at': now,
+                'units': out,
+                'kit_reference': ref,
             }
             if extra:
                 bundle['extra'] = extra
-            st.update(state='WAITING', round_no=round_no, pending_round=None, last_assessment=assess)
+            st.update(state='WAITING', round_no=round_no, measurement_id=mid, pending=None, last_reference=ref)
             self._enqueue(bundle)
             self._commit()
-            return {'msg_id': bundle['msg_id'], 'round_no': round_no, 'state': 'WAITING'}
+            return {'msg_id': bundle['msg_id'], 'round_no': round_no, 'measurement_id': mid, 'state': 'WAITING',
+                    'units': [{'est_mm': u['est_mm'], 'gap_mm': u['gap_mm'], 'grade': u['quality']['grade']} for u in out],
+                    'kit_reference': ref}
 
     def sense_failed(self, session_id, round_no, reason):
-        """Sensing could not be done; report it. The server may send 'sense' for the same round again."""
+        """Sensing could not be done this time (not a fault). The server may resend sense/resense."""
         with self.lock:
             self._check_job(session_id)
-            if self.st['state'] != 'SENSING' or round_no != self.st['pending_round']:
+            p = self.st['pending']
+            if self.st['state'] != 'SENSING' or not p or round_no != p.get('round_no'):
                 raise LinkRefused('요청된 센싱 회차가 아닙니다')
-            self.st.update(state='WAITING', pending_round=None)
-            self._emit('sense_failed', {'round_no': round_no, 'reason': str(reason)[:300]})
+            self.st.update(state='WAITING', pending=None)
+            self._emit('sense_failed', {'round_no': round_no, 'error_code': 10, 'reason': str(reason)[:300]})
+            self._commit()
+            return self.status()
+
+    def report_fault(self, code, detail=''):
+        """Unit/hardware fault found by the sensing source (e.g. a dead coil). Kit -> FAULT."""
+        with self.lock:
+            if not isinstance(code, int) or isinstance(code, bool) or code not in ERRORS or code == 0:
+                raise ValueError('오류 코드는 ' + ', '.join(str(c) for c in ERRORS if c))
+            self._fault(code, detail)
+            self._commit()
+            return self.status()
+
+    def record_self_test(self, results):
+        """results: 4 x {'ok': bool, 'error_code': int, 'detail': str} in corner order."""
+        with self.lock:
+            st = self.st
+            if st['state'] != 'SELF_TEST':
+                raise LinkRefused('자가 점검 중이 아닙니다')
+            if not isinstance(results, list) or len(results) != 4 or not all(isinstance(r, dict) for r in results):
+                raise ValueError('장치 4대의 점검 결과가 필요합니다')
+            rows = [{'corner': k + 1, 'unit_id': self.cfg['units'][k], 'ok': bool(r.get('ok')),
+                     'error_code': int(r.get('error_code', 0) or 0), 'detail': str(r.get('detail', ''))[:200]}
+                    for k, r in enumerate(results)]
+            passed = all(r['ok'] for r in rows)
+            st['last_self_test'] = {'at': utc_now(), 'passed': passed, 'units': rows}
+            st.update(state=st['pre_test_state'] or 'IDLE', pending=None)
+            self._emit('self_test_result', {'passed': passed, 'units': rows})
+            if not passed:
+                self._fault(40, ', '.join('코너%d:%s' % (r['corner'], r['detail'] or r['error_code'])
+                                          for r in rows if not r['ok']))
             self._commit()
             return self.status()
 
@@ -393,16 +493,22 @@ class KitLink:
             self._commit()
             return self.status()
 
-    def sim_machine_ready(self, machine_id='SIM-MACHINE-1'):
-        """SIMULATION ONLY: stands in for step 1 (machine -> main server 'ready').
+    def watchdog_check(self):
+        with self.lock:
+            if (self.cfg['server_url'] and self.st['state'] in JOB_STATES
+                    and time.monotonic() - self.last_contact > float(self.cfg['watchdog_s'])):
+                self._fault(50, '메인 서버와 %s초 이상 통신 없음' % self.cfg['watchdog_s'])
+                self._commit()
+                return True
+            return False
 
-        The real machine reports to the main server itself; the kit never does this
-        in hardware mode."""
+    def sim_machine_ready(self, machine_id='SIM-MACHINE-1'):
+        """SIMULATION ONLY: stands in for 'machine -> main server: ready'. Real machines report directly."""
         with self.lock:
             if self.cfg['source'] != 'simulation':
                 raise LinkRefused('하드웨어 모드에서는 기계가 직접 메인 서버에 준비 완료를 보냅니다')
             if self.st['state'] != 'IDLE':
-                raise LinkRefused('이미 작업이 진행 중입니다 (현재: %s)' % self.st['state'])
+                raise LinkRefused('작업을 시작할 수 없는 상태입니다 (현재: %s)' % self.st['state'])
             if self.st['awaiting_start']:
                 raise LinkRefused('이미 준비 완료를 보냈고 메인 서버의 작업 지시를 기다리는 중입니다')
             if not isinstance(machine_id, str) or not ID_RE.match(machine_id):
@@ -414,7 +520,7 @@ class KitLink:
 
     # ---- main server commands
     def apply_command(self, cmd):
-        """start_job | sense | end_job | stop. Every command is acknowledged (command_ack)."""
+        """The 7 commands. Every command is acknowledged (command_ack with ok/note)."""
         with self.lock:
             if not isinstance(cmd, dict):
                 return
@@ -433,24 +539,34 @@ class KitLink:
                     if not (isinstance(job, str) and ID_RE.match(job)):
                         job = '%s-%s-%s' % (self.kit_id, datetime.now().strftime('%Y%m%d%H%M%S'), secrets.token_hex(2))
                     st.update(state='SENSING', session_id=job, cycle_no=st['cycle_no'] + 1, round_no=0,
-                              pending_round=1, awaiting_start=False, last_assessment=None)
+                              measurement_id=0, resense_count=0, awaiting_start=False, last_reference=None,
+                              pending={'type': 'sense', 'round_no': 1, 'resense': False})
+                    self.mark_contact()
                     self._emit('job_start', {'command_id': cid, 'machine_id': cmd.get('machine_id'),
                                              'units': [{'corner': i + 1, 'unit_id': u}
                                                        for i, u in enumerate(self.cfg['units'])]})
-            elif ctype == 'sense':
-                want = st['round_no'] + 1
+            elif ctype in ('sense', 'resense'):
+                want = st['round_no'] + (1 if ctype == 'sense' else 0)
                 if st['state'] != 'WAITING':
                     ok, note = False, 'not_waiting:' + st['state']
                 elif sid is not None and sid != st['session_id']:
                     ok, note = False, 'wrong_session'
                 elif cmd.get('round_no') is not None and cmd.get('round_no') != want:
                     ok, note = False, 'wrong_round(expected %d)' % want
-                elif want > self.cfg['max_rounds']:
+                elif ctype == 'sense' and want > self.cfg['max_rounds']:
                     ok, note = False, 'max_rounds_reached'
+                elif ctype == 'resense' and st['round_no'] < 1:
+                    ok, note = False, 'nothing_to_resense'
+                elif ctype == 'resense' and st['resense_count'] >= self.cfg['max_resense']:
+                    ok, note = False, 'max_resense_reached'
                 else:
-                    st.update(state='SENSING', pending_round=want)
+                    if ctype == 'sense':
+                        st['resense_count'] = 0
+                    else:
+                        st['resense_count'] += 1
+                    st.update(state='SENSING', pending={'type': 'sense', 'round_no': want, 'resense': ctype == 'resense'})
             elif ctype == 'end_job':
-                if st['state'] == 'IDLE':
+                if st['state'] not in JOB_STATES:
                     ok, note = False, 'no_job'
                 elif sid is not None and sid != st['session_id']:
                     ok, note = False, 'wrong_session'
@@ -458,25 +574,56 @@ class KitLink:
                     self._end('end', {'command_id': cid, 'result': str(cmd.get('result', ''))[:100]})
             elif ctype == 'stop':
                 st['awaiting_start'] = False
-                if st['state'] != 'IDLE':
+                if st['state'] in JOB_STATES:
                     self._end('stopped', {'command_id': cid, 'reason': str(cmd.get('reason', ''))[:200]})
+                elif st['state'] == 'SELF_TEST':
+                    st.update(state=st['pre_test_state'] or 'IDLE', pending=None)
+                    note = 'self_test_cancelled'
                 else:
                     note = 'no_job'
+            elif ctype == 'fault_reset':
+                if st['state'] == 'FAULT':
+                    st.update(state='IDLE', fault_code=0, fault_detail=None)
+                    self._emit('fault_reset', {'command_id': cid})
+                else:
+                    note = 'no_fault'
+            elif ctype == 'self_test':
+                if st['state'] not in ('IDLE', 'FAULT'):
+                    ok, note = False, 'busy:' + st['state']
+                else:
+                    st.update(pre_test_state=st['state'], state='SELF_TEST', pending={'type': 'self_test'})
             else:
                 ok, note = False, 'unknown_command'
             st['seen_commands'] = (st['seen_commands'] + [cid])[-50:] if cid else st['seen_commands']
             st['last_command'] = {'id': cid, 'type': ctype, 'received_at': utc_now(), 'ok': ok, 'note': note}
             self._emit('command_ack', {'command_id': cid, 'type': ctype, 'ok': ok, 'note': note,
-                                       'round_no': st['pending_round'] or st['round_no']})
+                                       'round_no': st['round_no']})
             self._commit()
+
+
+class Watchdog(threading.Thread):
+    def __init__(self, link, period=0.25):
+        super().__init__(daemon=True, name='MALIGN-watchdog')
+        self.link, self.period = link, period
+        self.stop_event = threading.Event()
+
+    def run(self):
+        while not self.stop_event.wait(self.period):
+            try:
+                self.link.watchdog_check()
+            except Exception:
+                logging.exception('watchdog check failed')
+
+    def stop(self):
+        self.stop_event.set()
 
 
 # --------------------------------------------------------------------------- built-in main server (simulation, no server_url)
 class LocalMainSim:
     """Plays the main server when no server_url is set and the source is the simulator.
 
-    machine ready -> start_job; each round -> (machine applies correction) -> sense,
-    until sim_rounds, then end_job. Assumes the machine applies the kit's value as-is."""
+    machine ready -> start_job; each bundle -> (machine applies correction) -> sense,
+    until sim_rounds, then end_job. Self-test is answered by the sensing source."""
 
     def __init__(self, link):
         self.link = link
@@ -498,8 +645,6 @@ class LocalMainSim:
                 self._later({'type': 'end_job', 'session_id': msg['session_id'], 'result': 'main_action'})
             else:
                 self._later({'type': 'sense', 'session_id': msg['session_id'], 'round_no': msg['round_no'] + 1})
-
-
 # --------------------------------------------------------------------------- uploader
 class Uploader(threading.Thread):
     """Background sender: pending messages -> main server, oldest first; commands come back in the reply."""
@@ -527,11 +672,16 @@ class Uploader(threading.Thread):
             return None
         batch = self.outbox.pending(self.cfg['batch_max'])
         ids = [m for m, _ in batch]
+        self.link.uplink['heartbeat_seq'] += 1
+        st = self.link.st
         body = json.dumps({'schema': SCHEMA_BATCH, 'kit_id': self.link.kit_id, 'sent_at': utc_now(),
-                           'kit_state': self.link.st['state'], 'session_id': self.link.st['session_id'],
+                           'heartbeat_seq': self.link.uplink['heartbeat_seq'],
+                           'kit_status': {'state': st['state'], 'session_id': st['session_id'],
+                                          'round_no': st['round_no'], 'measurement_id': st['measurement_id'],
+                                          'fault_code': st['fault_code']},
                            'messages': [p for _, p in batch]}, ensure_ascii=False, allow_nan=False).encode('utf-8')
         headers = {'Content-Type': 'application/json', 'Accept': 'application/json',
-                   'User-Agent': 'MALIGN-Kit/2', 'X-MALIGN-Kit': self.link.kit_id}
+                   'User-Agent': 'MALIGN-Kit/3', 'X-MALIGN-Kit': self.link.kit_id}
         if self.cfg['api_key']:
             headers['Authorization'] = 'Bearer ' + self.cfg['api_key']
         self.link.uplink['last_attempt_at'] = utc_now()
@@ -550,6 +700,7 @@ class Uploader(threading.Thread):
             self.outbox.mark_rejected([(r.get('msg_id'), r.get('error', 'rejected')) for r in rejected
                                        if isinstance(r, dict) and r.get('msg_id') in known])
             self.link.uplink.update(last_error=None, last_ok_at=utc_now())
+            self.link.mark_contact()
             for cmd in reply.get('commands', []) or []:
                 self.link.apply_command(cmd)
         except Exception as exc:
@@ -585,14 +736,33 @@ class Uploader(threading.Thread):
 
 
 # --------------------------------------------------------------------------- factory
-def open_link(folder, urlopen=None, start=True):
+def default_processor():
+    """Device-side per-corner computation (numpy + Maxwell model), loaded lazily."""
+    import kit_device
+    import malign_engine
+    model = malign_engine.Model()
+    return lambda k, sensor_uH, head_ok: kit_device.process_reading(model, k, sensor_uH, head_ok)
+
+
+class LinkRuntime:
+    def __init__(self, link, uploader, watchdog, cfg_path):
+        self.link, self.uploader, self.watchdog, self.cfg_path = link, uploader, watchdog, cfg_path
+
+    def stop(self):
+        self.watchdog.stop()
+        self.uploader.stop()
+
+
+def open_link(folder, urlopen=None, start=True, processor=None):
     cfg, cfg_path = load_config(folder)
     outbox = Outbox(pathlib.Path(folder) / 'outbox.sqlite3')
-    link = KitLink(outbox, cfg)
+    link = KitLink(outbox, cfg, processor=processor or default_processor())
     uploader = Uploader(outbox, link, cfg, urlopen=urlopen)
     link.on_enqueue = uploader.wake
     if not cfg['server_url'] and cfg['source'] == 'simulation':
         LocalMainSim(link)
+    watchdog = Watchdog(link)
     if start:
         uploader.start()
-    return link, uploader, cfg_path
+        watchdog.start()
+    return LinkRuntime(link, uploader, watchdog, cfg_path)

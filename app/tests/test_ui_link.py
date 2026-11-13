@@ -76,17 +76,21 @@ with tempfile.TemporaryDirectory(prefix='malign_ui_link_') as tmp, sync_playwrig
     try:
         host, info, browser, errors, out = run_ui(tmp / 'A', play)
         jobs = get(base + '/jobs')
-        assert len(jobs) == 1 and jobs[0]['status'] == 'end' and jobs[0]['rounds'] == 6, jobs
+        assert len(jobs) == 1 and jobs[0]['status'] == 'end' and 1 <= jobs[0]['rounds'] <= 6, jobs
+        nr = jobs[0]['rounds']
+        dec = get(base + '/jobs/%s/decisions' % jobs[0]['job_id'])
+        assert len(dec) == nr and dec[-1]['end'] is True
         msgs = get(base + '/kits/KIT-UI/messages?session_id=' + jobs[0]['job_id'])
         rounds = [m for m in msgs if m['kind'] == 'round']
-        assert [m['round_no'] for m in rounds] == [1, 2, 3, 4, 5, 6]
+        assert [m['round_no'] for m in rounds] == list(range(1, nr + 1))
         for m in rounds:
             assert [u['unit_id'] for u in m['units']] == ['UI-1', 'UI-2', 'UI-3', 'UI-4']
-            assert all(len(u['sensor_uH']) == 5 for u in m['units']) and set(m['correction']) == {'x_mm', 'y_mm', 'theta_deg'}
+            assert all(len(u['sensor_uH']) == 5 and u['quality']['grade'] in ('good', 'caution', 'invalid') for u in m['units'])
+            assert m['kit_reference']['available'] and m['measurement_id'] == m['round_no']
             assert m['source'] == 'simulation' and 'evaluation' not in json.dumps(m)
         ev = [m['event'] for m in msgs if m['kind'] == 'event' and m['event'] != 'command_ack']
         assert ev[0] == 'job_start' and ev[-1] == 'job_end', ev
-        assert out['history'].count('[센싱→메인 서버]') == 6
+        assert out['history'].count('[센싱→메인 서버]') == nr
         assert not errors, errors
     finally:
         if browser: browser.close()
@@ -105,5 +109,5 @@ with tempfile.TemporaryDirectory(prefix='malign_ui_link_') as tmp, sync_playwrig
         if browser: browser.close()
         if host: host.terminate(); host.wait(timeout=8)
 
-print('PASS: UI 1 job = machine ready -> start_job -> 6 server-directed sensings (4-unit bundles) -> end_job; '
+print('PASS: UI 1 job = machine ready -> start_job -> server-directed sensings (4-unit v2 bundles, server decisions) -> end_job; '
       'also stand-alone with built-in sim server; no JS errors', flush=True)

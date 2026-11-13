@@ -507,6 +507,7 @@ const DATA={"heads":["Xp","Xm","Yp","Ym","Ref"],"cases":{"P1_center":{"dx":0,"dy
  /* Kit link: main server commands each sensing; each result -> local outbox -> main server. */
  root.MALIGN_LINK={
   status:()=>req('link/status'),
+  selfTest:(results)=>req('link/self_test_result',{results}),
   machineReady:()=>req('link/sim_machine_ready',{machine_id:'SIM-REACHSTACKER-1'}),
   round:(data)=>req('link/round',data),
   senseFailed:(session_id,round_no,reason)=>req('link/sense_failed',{session_id,round_no,reason}),
@@ -676,7 +677,8 @@ async function playTrace(trial,token){const trace=trial.trace,opts=trial.simOpti
 }
 /* ---------- kit link: main server directs each sensing; every result is stored then sent ---------- */
 const LINK=window.MALIGN_LINK,JOB_WAIT_MS=30000;
-const STATE_KO={IDLE:'대기',SENSING:'센싱 중',WAITING:'보정 반영 대기'};
+const SIM_DIAG={coil_temp_c:25,supply_v:24,fw_cal_version:'SIM-FEM21-v1',error_code:0};
+const STATE_KO={IDLE:'대기',SENSING:'센싱 중',WAITING:'보정 반영 대기',SELF_TEST:'자가 점검',FAULT:'이상'};
 function linkLabel(text,warn=false){$('linkStatus').textContent=text;$('linkStatus').className=warn?'archive-state archive-warning':'archive-state';}
 function showLink(s){
  $('linkKit').textContent=s.kit_id;$('linkState').textContent=(STATE_KO[s.state]||s.state)+(s.state!=='IDLE'?` · ${s.pending?s.pending.round_no:s.round_no}차`:'');
@@ -685,12 +687,16 @@ function showLink(s){
  let msg=s.server_configured?`메인 서버: ${s.server_url}`:'메인 서버 미설정 · PC에만 보관 · 내장 시뮬 서버가 지시 (설정 후 재시작하면 쌓인 기록부터 전송)';
  if(s.awaiting_start)msg+=' · 작업 지시(start_job) 대기';
  if(s.last_job&&s.state==='IDLE')msg+=` · 마지막 작업 ${s.last_job.session_id}: ${({end:'완료',stopped:'서버 정지',aborted:'중단'})[s.last_job.result]||s.last_job.result} (${s.last_job.rounds}회)`;
+ if(s.state==='FAULT')msg+=` · 이상(${s.fault_code} ${s.fault}): ${s.fault_detail||''} — 메인 서버의 이상 해제(fault_reset) 필요`;
  if(s.uplink.last_error)msg+=` · 최근 전송 오류: ${s.uplink.last_error}`;
- linkLabel(msg,!!s.uplink.last_error);
+ linkLabel(msg,!!s.uplink.last_error||s.state==='FAULT');
 }
 async function refreshLink(){
  if(!LINK){linkLabel('EXE로 실행해야 키트 전송을 사용할 수 있습니다.',true);return null;}
- try{const s=await LINK.status();showLink(s);return s;}catch(e){linkLabel('키트 상태 확인 실패: '+String(e.message||e),true);return null;}
+ try{let s=await LINK.status();
+  if(s.pending&&s.pending.type==='self_test'){ /* simulated units always pass the self-test */
+   s=await LINK.selfTest([0,1,2,3].map(()=>({ok:true,error_code:0,detail:'sim'})));}
+  showLink(s);return s;}catch(e){linkLabel('키트 상태 확인 실패: '+String(e.message||e),true);return null;}
 }
 /* Steps 1-9 for one job. The simulator precomputes the physical trace; the MAIN SERVER decides
    when each sensing happens and when the job ends. Returns {session,rounds,result} or null. */
@@ -711,10 +717,11 @@ async function runJob(trial,token){
    await sleep(300*spd);if(token!==runId)break;
    const rec=recommended(cur.est,opts);
    highlightStep=1;phase(1,`${n}차 · 위치 추정 → 보정값 전송`,`X ${fmt(rec[0],2)}mm · Y ${fmt(rec[1],2)}mm · 회전 ${fmt(rec[2],4)}° 를 메인 서버로 보냅니다.`);draw3d(cur.e,cur.est[0]);
-   await LINK.round({session_id:session,round_no:n,units:cur.est.map((v,k)=>({sensor_uH:cur.sensor_uH[k],est_mm:v})),
-    correction:{x_mm:rec[0],y_mm:rec[1],theta_deg:rec[2]},measured_at:new Date().toISOString(),
-    extra:{scenario:$('scenario').value,estimator:opts.estimator}});
-   $('history').textContent+=`${n}차 [센싱→메인 서버]: X ${fmt(rec[0],2)}mm / Y ${fmt(rec[1],2)}mm / θ ${fmt(rec[2],4)}° | 내부 오차 ${worst(cur.e).toFixed(2)} mm\n`;
+   /* The coil hardware gives only readings; each unit's own estimate + reliability is computed by the kit. */
+   const kr=await LINK.round({session_id:session,round_no:n,units:cur.sensor_uH.map(v=>({sensor_uH:v,head_ok:[true,true,true,true,true],diag:SIM_DIAG})),
+    measured_at:new Date().toISOString(),extra:{scenario:$('scenario').value,estimator:opts.estimator}});
+   const grades=kr.units.map(u=>({good:'양호',caution:'주의',invalid:'무효'})[u.grade]||u.grade).join('/');
+   $('history').textContent+=`${n}차 [센싱→메인 서버${s.pending.resense?' · 재측정':''}] 측정 #${kr.measurement_id} · 신뢰도 ${grades}: X ${fmt(rec[0],2)}mm / Y ${fmt(rec[1],2)}mm / θ ${fmt(rec[2],4)}° | 내부 오차 ${worst(cur.e).toFixed(2)} mm\n`;
    if(cur.sensor_uH?.length)$('history').textContent+=`  코너1 측정 Lii μH: ${cur.sensor_uH[0].map(v=>v.toFixed(2)).join(' / ')}\n`;
    done=n;$('steps').textContent=`${n} / ${s.max_rounds}`;$('animProgress').style.width=Math.min(100,100*n/6)+'%';
    highlightStep=2;phase(2,`${n}차 · 메인 서버 보정 반영 중`,'메인 서버가 기계 정보와 비교해 보정값을 반영하고, 이동 확인 후 다음 센싱을 지시합니다.');
@@ -743,6 +750,10 @@ async function play(){if(busy)return;if(BANK.mode!=='desktop_sqlite'||!LINK){ale
  $('phase').textContent='실행 중 · 조건 계산';$('phaseDesc').textContent='원본 Matrix5 모델로 초기 오차를 만듭니다.';
  try{await sleep(30);
  let st=await LINK.status();
+ if(st.state==='FAULT'||st.state==='SELF_TEST'){
+  alert(st.state==='FAULT'?`키트가 이상 상태입니다 (${st.fault_code} ${st.fault}). 메인 서버가 이상 해제(fault_reset)를 보내야 작업할 수 있습니다.`:'자가 점검 중입니다. 잠시 후 다시 실행하세요.');
+  $('phase').textContent=st.state==='FAULT'?'키트 이상 · 메인 서버 조치 대기':'자가 점검 중';return;
+ }
  if(st.state!=='IDLE'){
   if(!confirm(`이전 작업(${st.session_id})이 ${STATE_KO[st.state]} 상태로 남아 있습니다. 중단하고 새 작업을 시작할까요?`))return;
   await LINK.abort(st.session_id,'ui_restart');st=await LINK.status();
