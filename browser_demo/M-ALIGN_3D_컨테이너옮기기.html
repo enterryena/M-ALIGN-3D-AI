@@ -36,8 +36,9 @@ button:disabled{opacity:.45}
 <canvas id="scene"></canvas>
 <div class="panel" id="ctrl">
  <h1>M-ALIGN 3D · 컨테이너 옮기기</h1>
- <div style="font-size:11px;color:var(--muted)">반투명 컨테이너를 원하는 곳에 두고 클릭 → 리치스태커가 가서 키트로 정렬·결합한 뒤 옮겨 놓습니다.</div>
+ <div style="font-size:11px;color:var(--muted)">옮길 컨테이너를 클릭해 고른 뒤, 반투명 컨테이너를 원하는 곳에 두고 클릭 → 리치스태커가 가서 키트로 정렬·결합한 뒤 옮겨 놓습니다.</div>
  <div class="row"><button id="rotL">⟲ 회전</button><button id="rotR">⟳ 회전</button></div>
+ <label class="chk"><input type="checkbox" id="slotMode"> 지정 구역(A1–B5)에만 내리기</label>
  <label for="env">환경 (리치스태커 카메라·적외선에 영향)</label>
  <select id="env"><option value="clear">맑은 낮</option><option value="night">야간</option><option value="rain">비</option><option value="fog">짙은 안개</option><option value="glare">강한 역광</option></select>
  <label class="chk"><input type="checkbox" id="useMachine" checked> 리치스태커 센서 사용 (카메라·적외선)</label>
@@ -56,7 +57,7 @@ button:disabled{opacity:.45}
 <div class="panel" id="sensors"><h2>센서 의존도 (메인 서버 판단)</h2><div id="sgrid"></div>
  <div style="font-size:10px;color:var(--muted);margin-top:4px">접근 단계: 카메라 &gt; 적외선 &gt; 키트. 오차 5 mm 이내 정밀 단계: 키트 우선. 신뢰도가 떨어지거나 다른 센서와 어긋난 센서는 의존도를 낮춥니다.</div></div>
 <div class="panel" id="log"><h2>작업 기록</h2><div id="logbody"></div></div>
-<div class="panel" id="help" style="display:none">마우스: 왼쪽 클릭 = 이곳으로 옮겨 · 끌기 = 화면 회전 · 휠 = 확대 · R/E = 방향 회전. 노란 선 = 야드 경계.<br>시뮬레이션이며 실제 장비 성능이 아닙니다 (Maxwell FEM 21케이스 기반).</div>
+<div class="panel" id="help" style="display:none">마우스: 컨테이너 클릭 = 선택 · 바닥 클릭 = 이곳으로 옮겨 · 끌기 = 화면 회전 · 휠 = 확대 · R/E = 방향 회전. 노란 선 = 야드 경계.<br>시뮬레이션이며 실제 장비 성능이 아닙니다 (Maxwell FEM 21케이스 기반).</div>
 <script>/* ORIGINAL MATRIX5 ENGINE, UNMODIFIED */
 
 
@@ -414,20 +415,65 @@ function makeContainer(mat, ghost){
   }
   return g;
 }
-const container = makeContainer(std(0xd2601a, {roughness: .8}), false); scene.add(container);
-const holes = [];
-for (let k = 0; k < 4; k++){
-  container.add(box(.178, .118, .162, std(0x3c4247, {metalness: .5}), CORNERS[k][0], H - .059, CORNERS[k][1]));
-  const hole = new THREE.Mesh(new THREE.CircleGeometry(.05, 24), new THREE.MeshBasicMaterial({color: 0x050505}));
-  hole.scale.set(1.25, .62, 1); hole.rotation.x = -Math.PI / 2; hole.position.set(CORNERS[k][0], H + .002, CORNERS[k][1]);
-  container.add(hole); holes.push(hole);
+// ---- several containers: the user picks which one to move ----
+function textTex(text, w = 256, h = 128, bg = 'rgba(10,20,28,.82)', fg = '#fff', font = 'bold 64px sans-serif'){
+  const cv = document.createElement('canvas'); cv.width = w; cv.height = h; const x = cv.getContext('2d');
+  if (bg){ x.fillStyle = bg; x.beginPath(); x.roundRect(4, 4, w - 8, h - 8, 22); x.fill(); }
+  x.fillStyle = fg; x.font = font; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(text, w / 2, h / 2 + 4);
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return t;
 }
-const cpose = {x: 6, z: 4, yaw: .35};       // container position on the ground
-container.position.set(cpose.x, 0, cpose.z); container.rotation.y = cpose.yaw;
+const boxes = [];
+function createContainer(id, color, pose){
+  const g = makeContainer(std(color, {roughness: .8}), false), hs = [];
+  for (let k = 0; k < 4; k++){
+    g.add(box(.178, .118, .162, std(0x3c4247, {metalness: .5}), CORNERS[k][0], H - .059, CORNERS[k][1]));
+    const hole = new THREE.Mesh(new THREE.CircleGeometry(.05, 24), new THREE.MeshBasicMaterial({color: 0x050505}));
+    hole.scale.set(1.25, .62, 1); hole.rotation.x = -Math.PI / 2; hole.position.set(CORNERS[k][0], H + .002, CORNERS[k][1]);
+    g.add(hole); hs.push(hole);
+  }
+  const label = new THREE.Sprite(new THREE.SpriteMaterial({map: textTex(id), depthTest: false}));
+  label.scale.set(2.2, 1.1, 1); label.position.set(0, H + 1.5, 0); label.renderOrder = 5; g.add(label);
+  const sel = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(L + .35, H + .35, W + .35)), new THREE.LineBasicMaterial({color: 0xffe14d}));
+  sel.position.y = H / 2; sel.visible = false; g.add(sel);
+  const c = {id, g, holes: hs, pose: {...pose}, sel, label};
+  g.position.set(pose.x, 0, pose.z); g.rotation.y = pose.yaw; g.traverse(o => { o.userData.box = c; });
+  scene.add(g); boxes.push(c); return c;
+}
+// ---- designated drop zones (slots): row A faces +z, row B faces -z, so the stacker reaches each from outside ----
+const SLOT_X = [-2, 6, 14, 22, 30], slots = [];
+for (const [row, z, yaw] of [['A', -20, Math.PI], ['B', -30, 0]]) SLOT_X.forEach((x, i) => {
+  const id = row + (i + 1), g = new THREE.Group();
+  const fill = new THREE.Mesh(new THREE.PlaneGeometry(L + .8, W + .9), new THREE.MeshBasicMaterial({color: 0x3ddc97, transparent: true, opacity: .14, depthWrite: false}));
+  fill.rotation.x = -Math.PI / 2; fill.position.y = .02; g.add(fill);
+  const edge = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(L + .8, .01, W + .9)), new THREE.LineBasicMaterial({color: 0xf4f1e6}));
+  edge.position.y = .03; g.add(edge);
+  const tag = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 1.3), new THREE.MeshBasicMaterial({map: textTex(id, 256, 128, null, '#f4f1e6', 'bold 84px sans-serif'), transparent: true, depthWrite: false}));
+  tag.rotation.x = -Math.PI / 2; tag.position.set(x, .04, z + (row === 'A' ? 1 : -1) * ((W + .9) / 2 + .6)); scene.add(tag);   // world-aligned, readable from the default view
+  g.position.set(x, 0, z); g.rotation.y = yaw; scene.add(g);
+  slots.push({id, x, z, yaw, fill});
+});
+function slotHolder(s, except){ return boxes.find(b => b !== except && Math.hypot(b.pose.x - s.x, b.pose.z - s.z) < 1.2) || null; }
+function paintSlots(hover){
+  for (const s of slots){ const occ = slotHolder(s, null);
+    s.fill.material.color.set(s === hover ? 0x46c7ff : occ ? 0x8a8f94 : 0x3ddc97); s.fill.material.opacity = s === hover ? .4 : occ ? .3 : .14; }
+}
+createContainer('C1', 0xd2601a, {x: 6, z: 4, yaw: .35});
+createContainer('C2', 0x2a6fb0, {x: -10, z: 9, yaw: -.25});
+createContainer('C3', 0x2f8a4a, {x: 18, z: 10, yaw: 1.2});
+createContainer('C4', 0x9b2d2d, {x: 14, z: -30, yaw: 0});      // already parked in slot B3
+// the currently selected container (everything below works on these)
+let cur = null, container = boxes[0].g, holes = boxes[0].holes, cpose = boxes[0].pose;
+function selectBox(c){
+  for (const b of boxes) b.sel.visible = false;
+  for (let i = 0; i < 4; i++) holes[i].position.set(CORNERS[i][0], H + .002, CORNERS[i][1]);
+  cur = c; if (!c) return;
+  c.sel.visible = true; container = c.g; holes = c.holes; cpose = c.pose;
+}
+paintSlots(null);
 
 // ghost (the "move it here" cursor) and target marker
 const ghostMat = new THREE.MeshStandardMaterial({color: 0x46c7ff, transparent: true, opacity: .35, depthWrite: false});
-const ghost = makeContainer(ghostMat, true); scene.add(ghost);
+const ghost = makeContainer(ghostMat, true); scene.add(ghost); ghost.visible = false;
 const ring = new THREE.Mesh(new THREE.RingGeometry(3.6, 3.9, 48), new THREE.MeshBasicMaterial({color: 0x46c7ff, transparent: true, opacity: .55, side: THREE.DoubleSide}));
 ring.rotation.x = -Math.PI / 2; ring.position.y = .03; ghost.add(ring);
 const targetMark = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(L, .02, W)), new THREE.LineBasicMaterial({color: 0x46ffb0}));
@@ -698,7 +744,7 @@ async function moveContainer(target){
   targetMark.visible = true; targetMark.position.set(target.x, .03, target.z); targetMark.rotation.y = target.yaw;
   const P = {...BASEP, ...PRESETS[$('hardware').value], estimator: 'history'};
   const seed = $('seed').value.trim() ? (Number($('seed').value) + jobs - 1) >>> 0 : (Math.random() * 4294967296) >>> 0;
-  log('사용자', `컨테이너를 (${target.x.toFixed(1)}, ${target.z.toFixed(1)}) m, 방향 ${Math.round(target.yaw * 180 / Math.PI)}°로 옮기라고 지시`);
+  log('사용자', `${cur.id}${target.slot ? ' → 구역 ' + target.slot : ''}: (${target.x.toFixed(1)}, ${target.z.toFixed(1)}) m, 방향 ${Math.round(target.yaw * 180 / Math.PI)}°로 옮기라고 지시`);
   sp.align = 0; truth.tx = truth.ty = truth.th = 0; truth.tol = [[0, 0], [0, 0], [0, 0], [0, 0]]; setLockColor(0x9aa3a8);
   for (const l of locks) l.g.rotation.y = 0;
   stage('1·2 · 컨테이너로 접근', '원거리에서 받은 컨테이너 대략 위치로 이동'); log('서버', '리치스태커 → 컨테이너로 접근');
@@ -709,7 +755,7 @@ async function moveContainer(target){
     setLockColor(0x9aa3a8); for (const l of locks) l.g.rotation.y = 0;
     banner(result === 'held' ? '안전 정지 · 하강하지 않음 (다시 지시하면 재시도)' : '결합 실패 · 다시 지시하면 재시도', result === 'held' ? '#ffc04ddd' : '#ff5d5ddd');
     stage(result === 'held' ? '안전 정지' : '결합 실패', '목적지를 다시 클릭하면 재시도합니다');
-    targetMark.visible = false; busy = false; $('rotL').disabled = $('rotR').disabled = false; return;
+    targetMark.visible = false; busy = false; $('rotL').disabled = $('rotR').disabled = false; paintSlots(null); return;
   }
   // lift and carry
   stage('8 · 들어 올림'); sp.carry = true;
@@ -726,8 +772,8 @@ async function moveContainer(target){
   Object.assign(cpose, goal); container.position.set(goal.x, 0, goal.z); container.rotation.y = goal.yaw;
   await tween(900, e => { sp.h = SEAT + (TRAVEL - SEAT) * e; });
   const [bx, bz] = rot(spose.yaw, 0, -4); await driveTo(spose.x + bx, spose.z + bz);
-  stage('완료', '다른 곳을 클릭하면 다시 옮깁니다'); banner('이동 완료', '#3ddc97dd'); log('서버', '작업 완료');
-  targetMark.visible = false; busy = false; $('rotL').disabled = $('rotR').disabled = false;
+  stage('완료', `${cur.id} 이동 완료 · 다른 곳을 클릭하거나 다른 컨테이너를 고르세요`); banner(`${cur.id} 이동 완료${target.slot ? ' · 구역 ' + target.slot : ''}`, '#3ddc97dd'); log('서버', '작업 완료');
+  targetMark.visible = false; busy = false; $('rotL').disabled = $('rotR').disabled = false; paintSlots(null);
 }
 
 // ---------------- pointer: ghost follows, click = "move it here" ----------------
@@ -735,23 +781,49 @@ const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), plane = new THREE.
 let down = null, ghostOk = false;
 function pick(ev){ const r = canvas.getBoundingClientRect(); ndc.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1);
   ray.setFromCamera(ndc, camera); return ray.ray.intersectPlane(plane, hit) ? hit.clone() : null; }
+let ghostTarget = null;
+function nearestFreeSlot(p){
+  let best = null, bd = 1e9;
+  for (const sl of slots){ if (slotHolder(sl, null)) continue; const d = Math.hypot(p.x - sl.x, p.z - sl.z); if (d < bd){ bd = d; best = sl; } }
+  return best && bd < 9 ? best : null;
+}
+function clearOfOthers(x, z){ return boxes.every(b => b === cur || Math.hypot(b.pose.x - x, b.pose.z - z) > 7.0); }
 function updateGhost(p){
-  if (!p){ ghost.visible = false; return; }
-  ghost.visible = !busy; ghost.position.set(p.x, 0, p.z); ghost.rotation.y = ghostYaw;
-  const far = Math.hypot(p.x - cpose.x, p.z - cpose.z) > 7.5, inYard = Math.abs(p.x) < 42 && Math.abs(p.z) < 42;
-  ghostOk = far && inYard;
+  ghostTarget = null;
+  if (!p || !cur){ ghost.visible = false; ghostOk = false; paintSlots(null); return; }
+  ghost.visible = !busy;
+  if ($('slotMode').checked){
+    const sl = nearestFreeSlot(p); paintSlots(sl);
+    if (sl){ ghost.position.set(sl.x, 0, sl.z); ghost.rotation.y = sl.yaw; ghostTarget = {x: sl.x, z: sl.z, yaw: sl.yaw, slot: sl.id}; }
+    else { ghost.position.set(p.x, 0, p.z); ghost.rotation.y = ghostYaw; }
+    ghostOk = !!sl;
+  } else {
+    paintSlots(null);
+    ghost.position.set(p.x, 0, p.z); ghost.rotation.y = ghostYaw;
+    const far = Math.hypot(p.x - cpose.x, p.z - cpose.z) > 7.5, inYard = Math.abs(p.x) < 42 && Math.abs(p.z) < 42;
+    ghostOk = far && inYard && clearOfOthers(p.x, p.z);
+    if (ghostOk) ghostTarget = {x: p.x, z: p.z, yaw: ghostYaw};
+  }
   ghostMat.color.set(ghostOk ? 0x46c7ff : 0xff5d5d); ring.material.color.set(ghostOk ? 0x46c7ff : 0xff5d5d);
+}
+function pickBox(){ const h = ray.intersectObjects(boxes.map(b => b.g), true)[0]; return h ? h.object.userData.box : null; }
+function promptIdle(){
+  if (!cur) stage('대기', '옮길 컨테이너를 클릭해서 고르세요');
+  else stage(`${cur.id} 선택됨`, $('slotMode').checked ? '지정 구역 모드: 빈 구역 근처에 두면 자동으로 맞춰집니다' : '반투명 컨테이너를 원하는 곳에 두고 클릭 (R/E 또는 ⟲⟳ 로 방향)');
 }
 canvas.addEventListener('pointermove', ev => { if (!busy) updateGhost(pick(ev)); });
 canvas.addEventListener('pointerdown', ev => { down = {x: ev.clientX, y: ev.clientY}; });
 canvas.addEventListener('pointerup', ev => {
   if (!down || ev.button !== 0) return; const moved = Math.hypot(ev.clientX - down.x, ev.clientY - down.y); down = null;
   if (moved > 6 || busy) return;
-  const p = pick(ev); updateGhost(p);
-  if (!p) return;
-  if (!ghostOk){ stage('여기는 안 돼요', '지금 컨테이너와 겹치거나 야드(노란 선) 밖입니다'); return; }
-  ghost.visible = false; moveContainer({x: p.x, z: p.z, yaw: ghostYaw});
+  const p = pick(ev), b = pickBox();
+  if (b){ if (b !== cur){ selectBox(b); log('사용자', `${b.id} 선택`); } promptIdle(); updateGhost(p); return; }
+  updateGhost(p);
+  if (!p || !cur) { promptIdle(); return; }
+  if (!ghostOk){ stage('여기는 안 돼요', $('slotMode').checked ? '근처에 빈 지정 구역이 없습니다' : '다른 컨테이너와 겹치거나 야드(노란 선) 밖입니다'); return; }
+  ghost.visible = false; moveContainer(ghostTarget);
 });
+$('slotMode').addEventListener('change', () => { if (!busy) promptIdle(); });
 function rotateGhost(d){ ghostYaw += d; ghost.rotation.y = ghostYaw; }
 window.addEventListener('keydown', ev => { if (busy) return; if (ev.key === 'r' || ev.key === 'R') rotateGhost(Math.PI / 12); if (ev.key === 'e' || ev.key === 'E') rotateGhost(-Math.PI / 12); });
 $('rotL').addEventListener('click', () => rotateGhost(Math.PI / 12));
@@ -773,9 +845,10 @@ function loop(now){
   controls.update(); renderer.render(scene, camera); requestAnimationFrame(loop);
 }
 showCorners(); requestAnimationFrame(loop);
-stage('대기', '반투명 컨테이너를 원하는 곳에 두고 클릭하세요 (R/E 또는 ⟲⟳ 로 방향)');
-log('서버', '준비 완료 · 컨테이너 1개, 리치스태커 1대');
-window.MALIGN_MOVE = {moveContainer, state: () => ({busy, cpose: {...cpose}, spose: {...spose}, truthWorst: worstTruth(), jobs,
+promptIdle();
+log('서버', `준비 완료 · 컨테이너 ${boxes.length}개, 지정 구역 ${slots.length}칸, 리치스태커 1대`);
+window.MALIGN_MOVE = {moveContainer, screen: (x, y, z) => { const v = new THREE.Vector3(x, y, z).project(camera), r = canvas.getBoundingClientRect(); return [r.left + (v.x + 1) / 2 * r.width, r.top + (1 - v.y) / 2 * r.height]; }, select: id => selectBox(boxes.find(b => b.id === id) || null), slots,
+  state: () => ({busy, selected: cur && cur.id, boxes: boxes.map(b => ({id: b.id, ...b.pose})), occupied: slots.filter(sl => slotHolder(sl, null)).map(sl => sl.id), cpose: {...cpose}, spose: {...spose}, truthWorst: worstTruth(), jobs,
   spreader: {x: spreader.position.x, y: spreader.position.y, z: spreader.position.z, yaw: spreader.rotation.y},
   container: {x: container.position.x, y: container.position.y, z: container.position.z, yaw: container.rotation.y}})};
 
