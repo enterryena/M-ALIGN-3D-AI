@@ -1,0 +1,233 @@
+{
+  "L": {
+    "file": "L.csv", 
+    "freq_khz": 3.0, 
+    "header": "Matrix_AC.L(Winding_1,Winding_1) [mH]", 
+    "unit": "mH", 
+    "value": 1.10828077776481
+  }, 
+  "L_from_final_energy_uH": 1108.2777777777778, 
+  "L_uH": 1108.28077776481, 
+  "R": {
+    "file": "R.csv", 
+    "freq_khz": 3.0, 
+    "header": "Matrix_AC.R(Winding_1,Winding_1) [mOhm]", 
+    "unit": "mOhm", 
+    "value": 350.6900064
+  }, 
+  "accepted_for_training": false, 
+  "analyze_returned": true, 
+  "case": "z20_center", 
+  "conv": {
+    "before": {
+      "delta_energy_percent": 0.015778, 
+      "energy_error_percent": 0.17927000000000001, 
+      "energy_j": 9.9771000000000004e-05, 
+      "pass": 18, 
+      "tetra": 161948
+    }, 
+    "last": {
+      "delta_energy_percent": 0.025427000000000002, 
+      "energy_error_percent": 0.15762999999999999, 
+      "energy_j": 9.9745000000000001e-05, 
+      "pass": 19, 
+      "tetra": 181719
+    }, 
+    "last_energy_derived_delta_uH": -0.28888888888892, 
+    "max_passes_in_export": 22, 
+    "pass_count": 19, 
+    "passes": [
+      {
+        "delta_energy_percent": null, 
+        "energy_error_percent": 46.442, 
+        "energy_j": 0.00013846999999999999, 
+        "pass": 1, 
+        "tetra": 22852
+      }, 
+      {
+        "delta_energy_percent": 20.419, 
+        "energy_error_percent": 14.43, 
+        "energy_j": 0.0001102, 
+        "pass": 2, 
+        "tetra": 25638
+      }, 
+      {
+        "delta_energy_percent": 5.0342, 
+        "energy_error_percent": 6.1704, 
+        "energy_j": 0.00010465, 
+        "pass": 3, 
+        "tetra": 28759
+      }, 
+      {
+        "delta_energy_percent": 1.7372, 
+        "energy_error_percent": 4.2413, 
+        "energy_j": 0.00010283, 
+        "pass": 4, 
+        "tetra": 32267
+      }, 
+      {
+        "delta_energy_percent": 1.2907, 
+        "energy_error_percent": 2.6266, 
+        "energy_j": 0.00010151, 
+        "pass": 5, 
+        "tetra": 36205
+      }, 
+      {
+        "delta_energy_percent": 0.27089000000000002, 
+        "energy_error_percent": 1.7492, 
+        "energy_j": 0.00010123, 
+        "pass": 6, 
+        "tetra": 40627
+      }, 
+      {
+        "delta_energy_percent": 0.50702999999999998, 
+        "energy_error_percent": 1.2507, 
+        "energy_j": 0.00010072, 
+        "pass": 7, 
+        "tetra": 45590
+      }, 
+      {
+        "delta_energy_percent": 0.26007999999999998, 
+        "energy_error_percent": 0.92705000000000004, 
+        "energy_j": 0.00010046, 
+        "pass": 8, 
+        "tetra": 51163
+      }, 
+      {
+        "delta_energy_percent": 0.22511999999999999, 
+        "energy_error_percent": 0.72614000000000001, 
+        "energy_j": 0.00010022999999999999, 
+        "pass": 9, 
+        "tetra": 57416
+      }, 
+      {
+        "delta_energy_percent": 0.096855999999999998, 
+        "energy_error_percent": 0.60582999999999998, 
+        "energy_j": 0.00010013000000000001, 
+        "pass": 10, 
+        "tetra": 64431
+      }, 
+      {
+        "delta_energy_percent": 0.081800999999999999, 
+        "energy_error_percent": 0.50666, 
+        "energy_j": 0.00010005000000000001, 
+        "pass": 11, 
+        "tetra": 72301
+      }, 
+      {
+        "delta_energy_percent": 0.084879999999999997, 
+        "energy_error_percent": 0.40851999999999999, 
+        "energy_j": 9.9965999999999998e-05, 
+        "pass": 12, 
+        "tetra": 81135
+      }, 
+      {
+        "delta_energy_percent": 0.044760000000000001, 
+        "energy_error_percent": 0.34998000000000001, 
+        "energy_j": 9.9920999999999994e-05, 
+        "pass": 13, 
+        "tetra": 91049
+      }, 
+      {
+        "delta_energy_percent": 0.062458, 
+        "energy_error_percent": 0.29622999999999999, 
+        "energy_j": 9.9858999999999994e-05, 
+        "pass": 14, 
+        "tetra": 102159
+      }, 
+      {
+        "delta_energy_percent": 0.028874, 
+        "energy_error_percent": 0.25727, 
+        "energy_j": 9.9829999999999998e-05, 
+        "pass": 15, 
+        "tetra": 114630
+      }, 
+      {
+        "delta_energy_percent": 0.030884999999999999, 
+        "energy_error_percent": 0.22445000000000001, 
+        "energy_j": 9.9798999999999998e-05, 
+        "pass": 16, 
+        "tetra": 128627
+      }, 
+      {
+        "delta_energy_percent": 0.013047, 
+        "energy_error_percent": 0.20044000000000001, 
+        "energy_j": 9.9785999999999996e-05, 
+        "pass": 17, 
+        "tetra": 144325
+      }, 
+      {
+        "delta_energy_percent": 0.015778, 
+        "energy_error_percent": 0.17927000000000001, 
+        "energy_j": 9.9771000000000004e-05, 
+        "pass": 18, 
+        "tetra": 161948
+      }, 
+      {
+        "delta_energy_percent": 0.025427000000000002, 
+        "energy_error_percent": 0.15762999999999999, 
+        "energy_j": 9.9745000000000001e-05, 
+        "pass": 19, 
+        "tetra": 181719
+      }
+    ], 
+    "warning": "Pass energies rounded in .conv. Pass delta is NOT final discretization error."
+  }, 
+  "delta_energy_pct": 0.025427000000000002, 
+  "energy_convergence_only_is_not_sufficient": true, 
+  "energy_error_pct": 0.15762999999999999, 
+  "energy_to_csv_gap_uH": 0.0029999870321262279, 
+  "errors": [], 
+  "exported_files": [
+    "convergence.conv", 
+    "profile.prof", 
+    "L.csv", 
+    "R.csv", 
+    "convergence_passes.csv"
+  ], 
+  "failed_gates": [
+    "gate_last_dL"
+  ], 
+  "gate_energy": true, 
+  "gate_energy_consistency": true, 
+  "gate_last_dL": false, 
+  "gate_passes": true, 
+  "geometry": {
+    "center_mm": [
+      55.0, 
+      -1.9984014443252818e-14, 
+      34.5
+    ], 
+    "pole_to_casting_top_AABB_mm": 20.0, 
+    "source_aedt_sha256": "83a927528282dedeb9c7cc0f158b98dcee52a75e54e76911d32711edd6089007", 
+    "switch": {
+      "delta_mm": [
+        -11.0, 
+        -66.0, 
+        0.0
+      ], 
+      "from": "Ref", 
+      "no_geometry_regeneration": true, 
+      "passive_swapped": "U_Core1", 
+      "same_core_orientation": true, 
+      "to": "Xp"
+    }, 
+    "target_offset_dxdy_mm": [
+      0, 
+      0
+    ], 
+    "z_mm": 20
+  }, 
+  "label": "z20_center_Xp_AFAST", 
+  "last_pass_dL_uH": 0.28888888888892, 
+  "last_tetra": 181719, 
+  "max_passes": 22, 
+  "numeric_accuracy_proven": false, 
+  "pass_count": 19, 
+  "probe": "Xp", 
+  "status": "NUMERIC_UNVERIFIED_DATA_SAVED", 
+  "tier": "AFAST", 
+  "warnings": [
+    "REPORT_Z_UNAVAILABLE invalid literal for float(): 0.3506900064 + 20.8906005i"
+  ]
+}

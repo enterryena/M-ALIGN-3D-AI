@@ -1,0 +1,26 @@
+M-ALIGN v3.5.4 / 2026-11-11 / Windows sqlite3 handle cleanup fix
+
+증상
+BUILD_EXE.cmd [3/4] 테스트에서 PASS 두 줄 출력 직후
+TemporaryDirectory 정리 시 MALIGN_daily_YYYYMMDD.sqlite3 파일 WinError 32.
+
+원인
+- tests/test_backup_windows_regression.py 에서 `with sqlite3.connect(snap) as c:`
+  사용. sqlite3 연결 컨텍스트 매니저는 트랜잭션만 종료하고 DB 핸들은 닫지 않음.
+- 테스트 마지막까지 c 변수가 연결을 잡고 있어 Windows에서 임시 폴더 삭제 실패.
+- tests/test_storage_location.py 의 기존 스냅샷 검사에도 동일 패턴 발견.
+
+수정
+- 두 테스트에서 `with contextlib.closing(sqlite3.connect(...)) as c:` 사용.
+- test_no_sqlite_handle_leaks.py 추가: 원래 패턴이 재도입되면 빌드를 중단.
+- BUILD_EXE.cmd 단계 3에 누수 방지 검사 추가.
+- 실제 CaseBank 백업 구현은 원래 with closing(source/dest)로 핸들을 닫고 있었으므로 그대로 유지.
+- 시뮬레이터 JS/HTML, Maxwell 21케이스, 성공률 조건, 사례 DB 경로, 제거 규칙은 변경하지 않음.
+
+저장 데이터
+사용자의 %LOCALAPPDATA%\MALIGN\CaseBank\cases.sqlite3 파일은 이 ZIP이나
+빌드 스크립트가 삭제·초기화하지 않음. 기존 v3.5.3 ZIP도 롤백 가능.
+
+주의
+이 환경에서는 Windows 3.13 및 PyInstaller 산출 EXE의 실제 실행 여부 확인 불가.
+사용자 Windows PC에서 BUILD_EXE.cmd 실행 후 3/4 테스트 완료 및 4/4 생성 여부 확인.

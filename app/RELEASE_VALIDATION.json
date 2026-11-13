@@ -1,0 +1,21 @@
+{
+  "version": "3.5.4",
+  "date": "2026-11-11",
+  "changes": [
+    "Windows test backup-reader sqlite3 handle explicitly closed",
+    "storage-location test snapshot-reader handle explicitly closed",
+    "AST regression guard added to builder",
+    "Simulator, user DB schema and data location unchanged"
+  ],
+  "tests": {
+    "python_compile": "pass",
+    "backup_regression": "PASS - closes SQLite reader before Windows temp cleanup (Linux run)",
+    "persistence_restart": "PASS - Linux run",
+    "stable_path": "PASS - Linux simulated Windows profile",
+    "browser_ui_bridge_100": "PASS - 6 successes 94 failures, 100 records persisted and reloaded (Chromium Linux)",
+    "uninstall_static_safety": "PASS - source inspection; Windows runtime not tested",
+    "actual_Windows_EXE_uninstall": "NOT TESTED - requires Windows",
+    "actual_Windows_Python313_BUILD": "NOT TESTED - requires Windows",
+    "sqlite_connection_guard": "PASS - source AST check"
+  }
+}

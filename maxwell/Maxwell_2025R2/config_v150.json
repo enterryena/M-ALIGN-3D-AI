@@ -1,0 +1,83 @@
+{
+  "version": "1.5.12",
+  "output_dir_tag": "v1_5_11",
+  "output_dir_note": "v1.5.12 deliberately reuses the v1.5.11 folder: 19 solved cases are skipped, only P5_xm15 and P5_xm30 are solved.",
+  "output_dir": "D:/Hongsk/aligner/MALIGN_MATRIX5_v1_5_11",
+  "source_aedt": "SOURCE_MODELS/MALIGN_CENTER_XP_AFAST.aedt",
+  "source_aedt_sha256": "7bd701ce159828ff918ae3fae1db88fa1a0172dc30089d44c27c1c1b7591e5bf",
+  "base_aedt_name": "MALIGN150_MATRIX5_BASE.aedt",
+  "manual_base_aedt": "D:/Hongsk/aligner/MALIGN_MATRIX5_v1_5_11/MATRIX5_BASE_v1_5_11.aedt",
+  "design_name": "Maxwell3DDesign1",
+  "setup_name": "Setup1",
+  "matrix_name": "Matrix5",
+  "current": "0.6A",
+  "conductor_number": "100",
+  "reference_gap_mm": 20.0,
+  "minimum_region_padding_mm": 20.0,
+  "head_xy_mm": {
+    "Xp": [55.0, 0.0],
+    "Xm": [-55.0, 0.0],
+    "Yp": [0.0, 55.0],
+    "Ym": [0.0, -55.0],
+    "Ref": [66.0, 66.0]
+  },
+  "head_match_tol_mm": 3.0,
+  "solve_matrix_each_pass": false,
+  "afast_setup_note": "v1.5.11: 0.5% / 26 passes so the 5-coil model converges (~pass 23, real run reached 0.46% at pass 22) -> matrix is computed regardless of the SolveMatrixAtLast meaning.",
+  "afast_setup": {
+    "MaximumPasses": 26,
+    "MinimumPasses": 8,
+    "MinimumConvergedPasses": 2,
+    "PercentRefinement": 12,
+    "PercentError": 0.5,
+    "Frequency": "3000Hz"
+  },
+  "strict_setup": {
+    "MaximumPasses": 26,
+    "MinimumPasses": 10,
+    "MinimumConvergedPasses": 2,
+    "PercentRefinement": 12,
+    "PercentError": 0.1,
+    "Frequency": "3000Hz"
+  },
+  "afast_reference": {
+    "center_Xp_L_uH": 1108.28077776481,
+    "offaxis_30_30_Xp_L_uH": 1117.64859237008,
+    "offaxis_minus_center_uH": 9.36781460527,
+    "note": "Single active coil (Xp), other 4 positions had cores without coils. AFAST tier."
+  },
+  "cases_to_run": ["P1_center","P1_offaxis_30_30"],
+  "close_project_after_case": true,
+  "resume_skip_solved": true,
+  "upload_zip_max_mb": 20,
+  "cases": [
+    {"id": "P1_center",      "stage": 1, "dx": 0,  "dy": 0,  "dz": 0,  "pitch_deg": 0, "roll_deg": 0, "setup": "afast"},
+    {"id": "P1_offaxis_30_30","stage": 1, "dx": 30, "dy": 30, "dz": 0,  "pitch_deg": 0, "roll_deg": 0, "setup": "afast"},
+    {"id": "P2_xp5",         "stage": 2, "dx": 5,  "dy": 0,  "dz": 0,  "pitch_deg": 0, "roll_deg": 0, "setup": "afast"},
+    {"id": "P2_xm5",         "stage": 2, "dx": -5, "dy": 0,  "dz": 0,  "pitch_deg": 0, "roll_deg": 0, "setup": "afast"},
+    {"id": "P2_yp5",         "stage": 2, "dx": 0,  "dy": 5,  "dz": 0,  "pitch_deg": 0, "roll_deg": 0, "setup": "afast"},
+    {"id": "P2_ym5",         "stage": 2, "dx": 0,  "dy": -5, "dz": 0,  "pitch_deg": 0, "roll_deg": 0, "setup": "afast"},
+    {"id": "P3_diag_p3_p3",  "stage": 3, "dx": 3,  "dy": 3,  "dz": 0,  "pitch_deg": 0, "roll_deg": 0, "setup": "afast"},
+    {"id": "P3_diag_p3_m3",  "stage": 3, "dx": 3,  "dy": -3, "dz": 0,  "pitch_deg": 0, "roll_deg": 0, "setup": "afast"},
+    {"id": "P3_blind_m2_p4", "stage": 3, "dx": -2, "dy": 4,  "dz": 0,  "pitch_deg": 0, "roll_deg": 0, "setup": "afast", "requires_blind_prediction": true},
+    {"id": "P4_pitch_p1",    "stage": 4, "dx": 0,  "dy": 0,  "dz": 0,  "pitch_deg": 1, "roll_deg": 0, "setup": "afast"},
+    {"id": "P4_roll_p1",     "stage": 4, "dx": 0,  "dy": 0,  "dz": 0,  "pitch_deg": 0, "roll_deg": 1, "setup": "afast"},
+    {"id": "P4_gap18",       "stage": 4, "dx": 0,  "dy": 0,  "dz": -2, "pitch_deg": 0, "roll_deg": 0, "setup": "afast"},
+    {"id": "P4_gap22",       "stage": 4, "dx": 0,  "dy": 0,  "dz": 2,  "pitch_deg": 0, "roll_deg": 0, "setup": "afast"},
+    {"id": "P5_xp15",        "stage": 5, "dx": 15, "dy": 0,  "dz": 0,  "pitch_deg": 0, "roll_deg": 0, "setup": "afast"},
+    {"id": "P5_xp30",        "stage": 5, "dx": 30, "dy": 0,  "dz": 0,  "pitch_deg": 0, "roll_deg": 0, "setup": "afast"},
+    {"id": "P5_yp15",        "stage": 5, "dx": 0,  "dy": 15, "dz": 0,  "pitch_deg": 0, "roll_deg": 0, "setup": "afast"},
+    {"id": "P5_yp30",        "stage": 5, "dx": 0,  "dy": 30, "dz": 0,  "pitch_deg": 0, "roll_deg": 0, "setup": "afast"},
+    {"id": "P5_xm15",        "stage": 5, "dx": -15, "dy": 0, "dz": 0,  "pitch_deg": 0, "roll_deg": 0, "setup": "afast"},
+    {"id": "P5_xm30",        "stage": 5, "dx": -30, "dy": 0, "dz": 0,  "pitch_deg": 0, "roll_deg": 0, "setup": "afast"},
+    {"id": "P6_center_strict","stage": 6, "dx": 0,  "dy": 0,  "dz": 0,  "pitch_deg": 0, "roll_deg": 0, "setup": "strict"},
+    {"id": "P6_gap40",       "stage": 6, "dx": 0,  "dy": 0,  "dz": 20, "pitch_deg": 0, "roll_deg": 0, "setup": "afast"}
+  ],
+  "sign_conventions": {
+    "dx_dy": "Container group (Casting_Target + TargetSteel_*) moved by (dx,dy). Hole center - twistlock axis error e = (dx,dy).",
+    "dz": "Spreader+sensor group moved in Z. Gap = 20 + dz mm.",
+    "pitch_deg": "Spreader+sensor group rotated about global Y axis through (0,0,pole face z). Positive = right-hand about +Y = Xp side moves DOWN (smaller gap).",
+    "roll_deg": "Rotation about global X axis through (0,0,pole face z). Positive = right-hand about +X = Yp side moves UP, Ym side DOWN."
+  },
+  "safety": "Model-only diagnostic. Not for real crane control. Not tested inside AEDT by the author."
+}
