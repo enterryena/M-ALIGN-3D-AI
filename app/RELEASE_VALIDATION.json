@@ -1,21 +1,25 @@
 {
-  "version": "3.5.4",
-  "date": "2026-11-11",
+  "version": "3.6.0",
+  "date": "2026-11-13",
   "changes": [
-    "Windows test backup-reader sqlite3 handle explicitly closed",
-    "storage-location test snapshot-reader handle explicitly closed",
-    "AST regression guard added to builder",
-    "Simulator, user DB schema and data location unchanged"
+    "Kit link: per-round 4-unit bundle stored in %LOCALAPPDATA%\\MALIGN\\Link\\outbox.sqlite3",
+    "Background batch upload to main server only when server_url is set in link_config.json (store-and-forward, retry, ordered)",
+    "Kit state machine IDLE/ALIGNING/HOLD/STOPPED; movement detection in HOLD; main-server commands realign/stop/hold",
+    "Simulator UI: one bundle per correction round of a single run; Monte Carlo batches are not sent",
+    "Example main server (server_example/malign_main_server.py)",
+    "Simulator math, casebank DB schema and data location unchanged"
   ],
   "tests": {
     "python_compile": "pass",
-    "backup_regression": "PASS - closes SQLite reader before Windows temp cleanup (Linux run)",
+    "kit_link_end_to_end": "PASS - server down -> pending, resend in order, movement->STOPPED, realign, restart-safe (Linux run)",
+    "ui_link_end_to_end": "PASS - real JS UI run -> per-round bundles on example server; movement test; realign (Chromium Linux)",
+    "browser_ui_bridge_100": "PASS - 6 successes 94 failures unchanged (Chromium Linux)",
     "persistence_restart": "PASS - Linux run",
     "stable_path": "PASS - Linux simulated Windows profile",
-    "browser_ui_bridge_100": "PASS - 6 successes 94 failures, 100 records persisted and reloaded (Chromium Linux)",
-    "uninstall_static_safety": "PASS - source inspection; Windows runtime not tested",
-    "actual_Windows_EXE_uninstall": "NOT TESTED - requires Windows",
-    "actual_Windows_Python313_BUILD": "NOT TESTED - requires Windows",
-    "sqlite_connection_guard": "PASS - source AST check"
+    "backup_regression": "PASS - Linux run",
+    "uninstall_static_safety": "PASS - source inspection",
+    "sqlite_connection_guard": "PASS - source AST check incl. malign_link.py",
+    "actual_Windows_EXE": "NOT TESTED - requires Windows",
+    "real_sensor_hardware": "NOT TESTED - no hardware adapter yet; simulator source only"
   }
 }

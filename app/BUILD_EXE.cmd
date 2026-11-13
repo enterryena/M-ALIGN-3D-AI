@@ -14,6 +14,11 @@ if not exist "desktop_host.py" (
   pause
   exit /b 1
 )
+if not exist "malign_link.py" (
+  echo ERROR: malign_link.py missing. Extract the whole ZIP first.
+  pause
+  exit /b 1
+)
 if not exist "MALIGN_Desktop.html" (
   echo ERROR: MALIGN_Desktop.html missing. Extract the whole ZIP first.
   pause
@@ -59,8 +64,10 @@ if errorlevel 1 goto :failed
 if errorlevel 1 goto :failed
 "%PYBIN%" tests\test_storage_location.py
 if errorlevel 1 goto :failed
+"%PYBIN%" tests\test_kit_link.py
+if errorlevel 1 goto :failed
 echo [4/4] Building one-file GUI EXE...
-"%PYBIN%" -m PyInstaller --noconfirm --clean --onefile --windowed --name "MALIGN_Desktop" --add-data "MALIGN_Desktop.html;." --add-data "UNINSTALL_MALIGN.ps1;." "desktop_host.py"
+"%PYBIN%" -m PyInstaller --noconfirm --clean --onefile --windowed --name "MALIGN_Desktop" --hidden-import malign_link --add-data "MALIGN_Desktop.html;." --add-data "UNINSTALL_MALIGN.ps1;." "desktop_host.py"
 if errorlevel 1 goto :failed
 if not exist "dist\MALIGN_Desktop.exe" goto :failed
 echo.

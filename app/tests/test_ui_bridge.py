@@ -25,7 +25,7 @@ with tempfile.TemporaryDirectory(prefix='malign_browser_bridge_') as tmp:
    except urllib.error.HTTPError as err:
     return {'ok':False,'status':err.code,'body':err.read().decode('utf-8')}
   with sync_playwright() as play:
-   browser=play.chromium.launch(executable_path='/usr/bin/chromium',headless=True,args=['--no-sandbox'])
+   browser=play.chromium.launch(executable_path=__import__('os').environ.get('MALIGN_CHROMIUM','/usr/bin/chromium'),headless=True,args=['--no-sandbox'])
    page=browser.new_page(accept_downloads=True,viewport={'width':1366,'height':900})
    errors=[]
    page.on('pageerror',lambda err:errors.append(str(err)))

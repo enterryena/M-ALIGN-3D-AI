@@ -53,6 +53,14 @@ select,input{border:1px solid #bdcddb;border-radius:7px;padding:8px;width:100%;f
 <input id="bankFile" type="file" accept="application/json,.json" hidden>
 <p class="small">보관 위치: <b>데스크톱 EXE 실행 시 %LOCALAPPDATA%\\MALIGN\\CaseBank\\cases.sqlite3</b> (영구 저장). HTML만 단독 실행하면 브라우저 IndexedDB를 사용하므로 브라우저 데이터 삭제 시 사라질 수 있습니다. JSON 내보내기로 별도 백업할 수 있습니다. 누적 기록은 현재 제어 방향에 반영하지 않습니다. 이후 학습 시 평가용 내부 정답과 센서 관측 정보를 엄격히 구분해야 합니다.</p>
 </div>
+<div class="card" id="linkPanel"><h2>⑤ 메인 서버 전송 · 4대 1세트 키트</h2>
+<p class="small">1회 실행의 <b>보정 1회차마다</b> 네 코너 장치(고유 번호)의 5헤드 측정값·추정 오차·이동 안내값을 <b>한 묶음</b>으로 PC에 먼저 저장하고, 메인 서버가 설정돼 있으면 바로 전송합니다. 서버가 끊겨도 기록은 남아 있다가 연결되면 순서대로 다시 보냅니다. 성공률 계산(반복 시험)은 전송하지 않습니다.</p>
+<div class="batch"><div class="stat"><small>키트 번호</small><strong id="linkKit" style="font-size:13px">—</strong></div><div class="stat"><small>키트 상태</small><strong id="linkState">—</strong></div><div class="stat"><small>전송 대기</small><strong id="linkPending">—</strong></div><div class="stat"><small>전송 완료</small><strong id="linkSent">—</strong></div></div>
+<div id="linkStatus" class="archive-state" role="status" aria-live="polite">키트 전송 상태를 확인하는 중…</div>
+<div id="linkUnits" class="small"></div>
+<div class="buttons"><button id="linkMove" class="secondary" disabled>정렬 후 이동 발생 테스트 (시뮬)</button></div>
+<p class="small">메인 서버 주소와 장치 번호는 관리 창의 <b>전송 설정</b>(link_config.json)에서만 바꿉니다. 키트는 측정·보고만 하며 크레인을 직접 제어하지 않습니다.</p>
+</div>
 <div class="card"><h2>제어기가 실제로 아는 것 / 알 수 없는 것</h2><p class="notes"><b>아는 것:</b> 각 코너 Xp·Xm·Yp·Ym·Ref의 가상 인덕턴스 측정값, 21개 Maxwell 응답모델, 이전에 명령한 X/Y/회전 이동량. <b>모르는 것:</b> 구멍의 진짜 위치, 모델 편향·공극·기울기의 참값, 실제 이동 오차. 카메라·영상 위치 추정은 사용하지 않습니다.</p><p class="notes"><b>이력 추정:</b> 1회차는 기존 격자 추정, 2회차부터 이동 전후 센서값에서 코너·헤드별 정적 가산 편향을 제거한 잔차를 최소화합니다. 이동 이력으로 위치를 식별할 수 없는 경우에는 원본 추정으로 되돌아갑니다. 추가 보정 단계가 필요할 수 있지만 비교 공정을 위해 최대 6회 유지합니다.</p><p class="notes"><b>기준 하드웨어 가정 해설:</b> 기존 추정기는 X/Y·회전 보정과 공극의 간단한 선형 동시 추정을 수행합니다. 그러나 이 조건에서 공극 추정의 개선은 제한적(보고값: 켬 40%, 끔 36%), 편향·기울기의 별도 분리 모델은 없습니다. 기준 성공률 6.8%와 차이는 알고리즘뿐 아니라 코너 공차·구동 오차도 포함합니다. 이력 보정 결과가 곧 실제 센서 성능 증명은 아닙니다.</p></div>
 <div class="card"><h2>모델 범위·금지 해석</h2><p class="notes">원본 <b>Maxwell Matrix5 v1.5.11·v1.5.12의 21개 케이스</b>를 사용합니다. X±30mm까지 직접 해석 데이터가 있지만 <b>Y−15, −30mm는 대칭 가정</b>, 그 밖은 상수 외삽입니다. 공극·기울기 오차와 정적 편향도 가상 가정입니다. 동일 FEM 모델이 가상 플랜트와 추정기에 함께 사용돼 결과가 낙관적일 수 있습니다.</p><p class="notes">기존 총합본의 <b>99.9% / 60.5% / 6.8%</b>는 다른 실행에서 얻은 기준 결과로 보존하되 새로 계산된 수치와 혼동하지 않습니다. <b>자동 체결 성공률, 실제 장비 정밀도, 물리적 잠금 안전성은 검증하지 않았습니다.</b></p></div>
 </aside></div></main>
@@ -488,7 +496,7 @@ const DATA={"heads":["Xp","Xm","Yp","Ym","Ref"],"cases":{"P1_center":{"dx":0,"dy
    if(data!==undefined){opt.headers['Content-Type']='application/json';opt.body=JSON.stringify(data);}
    let resp=await fetch('/api/'+path,opt);
    const result=await resp.json();
-   if(!resp.ok)throw new Error(result.error||'로컬 저장소 응답 오류 ('+resp.status+')');
+   if(!resp.ok){const err=new Error(result.error||'로컬 저장소 응답 오류 ('+resp.status+')');err.status=resp.status;throw err;}
    return result;
  }
  root.MALIGN_CASE_BANK={
@@ -497,11 +505,21 @@ const DATA={"heads":["Xp","Xm","Yp","Ym","Ref"],"cases":{"P1_center":{"dx":0,"dy
   add:async(records)=>{let total=0;for(let i=0;i<records.length;i+=100){const r=await req('add',{records:records.slice(i,i+100)});total+=r.added;}return total;},
   stats:()=>req('stats'),all:()=>req('all'),clear:()=>req('clear',{confirm:'CLEAR'})
  };
+ /* Kit link: each correction round -> local outbox -> main server (sent by the desktop host). */
+ root.MALIGN_LINK={
+  status:()=>req('link/status'),
+  begin:(meta)=>req('link/begin',{source:'simulation',meta}),
+  round:(data)=>req('link/round',data),
+  finish:(data)=>req('link/finish',data),
+  abort:(session_id,reason)=>req('link/abort',{session_id,reason}),
+  hold:(units)=>req('link/hold',{units,measured_at:new Date().toISOString()})
+ };
 })(window);
 </script>
 <script>
 /* Desktop distribution: a direct file open MUST NOT create a second, misleading browser database. */
 if(!window.MALIGN_DESKTOP_TOKEN){
+ window.MALIGN_LINK=null;
  window.MALIGN_CASE_BANK={mode:'desktop_required',
   dbOpen:()=>Promise.reject(Error('EXE로 실행해야 PC 저장소에 연결됩니다.')),
   stats:()=>Promise.reject(Error('EXE로 실행해야 PC 저장소에 연결됩니다.')),
@@ -633,7 +651,7 @@ function recommended(est,p){let sx=0,sy=0,nu=0,den=0;for(const v of est){sx+=v[0
 async function animateErrors(before,after,duration,token,info=null,approachPct=0){const start=performance.now();return new Promise(resolve=>{
  function step(ts){if(token!==runId){resolve();return;}const t=Math.min(1,(ts-start)/duration),p=t*t*(3-2*t);const errs=before.map((v,k)=>v.map((x,j)=>x+(after[k][j]-x)*p));draw3d(errs,info,approachPct);
  if(t<1)requestAnimationFrame(step);else resolve();}requestAnimationFrame(step);});}
-async function playTrace(trial,token){const trace=trial.trace,opts=trial.simOptions || setting(),spd=Number($('speed').value);
+async function playTrace(trial,token,onRound=null){const trace=trial.trace,opts=trial.simOptions || setting(),spd=Number($('speed').value);
  $('history').textContent='';$('animProgress').style.width='0%';$('verdict').textContent='진행 중';$('verdict').style.color='var(--ink)';highlightStep=-1;
  let used=trace.filter(x=>x.est).length;const first=trace[0].e;draw3d(first);$('steps').textContent='0 / '+opts.iters;$('worst').textContent=worst(first).toFixed(2)+' mm';
  phase(0,'초기 오차 생성',`초기 4코너 최악축: ${worst(first).toFixed(2)}mm · 랜덤 시뮬레이션`);
@@ -646,7 +664,9 @@ async function playTrace(trial,token){const trace=trial.trace,opts=trial.simOpti
   if(token!==runId)return;highlightStep=3;phase(3,`${t+1}차 · 재측정`,`실제 가상 오차 ${worst(cur.e).toFixed(2)} → ${worst(next.e).toFixed(2)}mm`);draw3d(next.e);$('steps').textContent=`${t+1} / ${opts.iters}`;$('worst').textContent=worst(next.e).toFixed(2)+' mm';
   $('history').textContent+=`${t+1}차 [센서 기반]: X ${fmt(rec[0],2)}mm / Y ${fmt(rec[1],2)}mm / θ ${fmt(rec[2],4)}° | 내부 오차 ${worst(cur.e).toFixed(2)} → ${worst(next.e).toFixed(2)} mm\n`;
   if(cur.sensor_uH?.length) $('history').textContent+=`  코너1 측정 Lii μH: ${cur.sensor_uH[0].map(v=>v.toFixed(2)).join(' / ')}\n`;
-  $('animProgress').style.width=100*(t+1)/opts.iters+'%';await sleep(210*spd);
+  $('animProgress').style.width=100*(t+1)/opts.iters+'%';
+  if(onRound&&token===runId)await onRound(t,cur,rec);
+  await sleep(210*spd);
  }
  if(token!==runId)return;
  const last=trace[trace.length-1].e;draw3d(last);highlightStep=-1;
@@ -658,6 +678,62 @@ async function playTrace(trial,token){const trace=trial.trace,opts=trial.simOpti
  if(trial.ok){await animateErrors(last,last,440*spd,token,null,.75);$('phaseDesc').textContent+=' · 아래 접근은 개념 장면이며 잠금 해석 아님';}
  if(trial.extrap)$('warnings').textContent='주의: 이 사례는 ±30mm 직접 표본 범위 밖을 거쳤습니다. 외삽·대칭 가정이 적용되어 성공 판정의 신뢰도가 낮습니다.';
 }
+/* ---------- kit link (store + per-round bundle send) ---------- */
+const LINK=window.MALIGN_LINK;let linkInfo=null,linkHoldBase=null,linkBusy=false;
+const STATE_KO={IDLE:'대기',ALIGNING:'보정 중',HOLD:'정렬 완료·이동 감시',STOPPED:'정지'};
+function linkLabel(text,warn=false){$('linkStatus').textContent=text;$('linkStatus').className=warn?'archive-state archive-warning':'archive-state';}
+async function refreshLink(){
+ if(!LINK){linkLabel('EXE로 실행해야 키트 전송을 사용할 수 있습니다.',true);return;}
+ try{const s=await LINK.status();linkInfo=s;
+  $('linkKit').textContent=s.kit_id;$('linkState').textContent=STATE_KO[s.state]||s.state;
+  $('linkPending').textContent=s.outbox.pending.toLocaleString();$('linkSent').textContent=s.outbox.sent.toLocaleString();
+  $('linkUnits').textContent='장치 번호 · '+s.units.map((u,i)=>`코너${i+1}: ${u}`).join(' / ');
+  let msg=s.server_configured?`메인 서버: ${s.server_url}`:'메인 서버 미설정 · PC에만 보관 중 (설정 후 재시작하면 쌓인 기록부터 전송)';
+  if(s.state==='STOPPED')msg+=` · 정지 사유: ${s.stop_reason}`+(s.server_configured?' · 메인 서버 재보정 명령 대기':' · 서버 미설정이라 다음 실행으로 재보정 가능');
+  if(s.realign_requested)msg+=' · 재보정 요청 수신: 다음 실행이 재보정입니다';
+  if(s.uplink.last_error)msg+=` · 최근 전송 오류: ${s.uplink.last_error}`;
+  linkLabel(msg,!!s.uplink.last_error||s.state==='STOPPED');
+  $('linkMove').disabled=!(s.state==='HOLD'&&linkHoldBase);
+ }catch(e){linkLabel('키트 전송 상태 확인 실패: '+String(e.message||e),true);}
+}
+async function linkBegin(meta){
+ if(!LINK)return null;
+ try{const s=await LINK.begin(meta);linkInfo=s;linkHoldBase=null;await refreshLink();return s.session_id;}
+ catch(e){const m=String(e.message||e);
+  if(e.status===409){alert(m);await refreshLink();return false;}
+  linkLabel('키트 기록 시작 실패 (시뮬레이션은 계속): '+m,true);return null;}
+}
+async function linkRound(session,t,cur,rec,P){
+ try{await LINK.round({session_id:session,round_no:t+1,
+   units:cur.est.map((v,k)=>({sensor_uH:cur.sensor_uH[k],est_mm:v})),
+   command:{x_mm:rec[0],y_mm:rec[1],theta_deg:rec[2]},
+   measured_at:new Date().toISOString(),extra:{scenario:$('scenario').value,estimator:P.estimator}});
+  await refreshLink();
+ }catch(e){linkLabel(`${t+1}차 묶음 저장 실패: `+String(e.message||e),true);}
+}
+async function linkFinish(session,trial,P){
+ const rounds=trial.trace.filter(x=>Array.isArray(x.est)),last=rounds[rounds.length-1];
+ const converged=!!last&&last.est.every(v=>Math.abs(v[0])<=P.stopMM&&Math.abs(v[1])<=P.stopMM);
+ try{await LINK.finish({session_id:session,converged,
+   extra:{sensor_stop_mm:P.stopMM,sim_evaluation_only:{within_5mm:!!trial.ok,final_worst_axis_mm:trial.worst}}});
+  linkHoldBase=converged&&last?{sensor:last.sensor_uH.map(r=>r.slice()),est:last.est.map(v=>v.slice())}:null;
+ }catch(e){linkLabel('보정 종료 기록 실패: '+String(e.message||e),true);}
+ await refreshLink();
+}
+async function linkAbort(session,reason){try{await LINK.abort(session,reason);}catch(e){}await refreshLink();}
+/* Simulated movement after alignment: baseline + FEM response change for a 10 mm X shift. */
+async function linkMoveTest(){
+ if(linkBusy||!linkHoldBase)return;linkBusy=true;$('linkMove').disabled=true;
+ try{const M=ensureModel(),a=[0,0,0,0,0],b=[0,0,0,0,0],dx=10;
+  const units=linkHoldBase.sensor.map((base,k)=>{const f=E.frame(k,true),lx=f[0]*linkHoldBase.est[k][0],ly=f[1]*linkHoldBase.est[k][1];
+   M.resp(lx,ly,a);M.resp(lx+f[0]*dx,ly,b);return {sensor_uH:base.map((v,h)=>v+(b[h]-a[h]))};});
+  let r=null;for(let i=0;i<10;i++){r=await LINK.hold(units);if(r.moved)break;}
+  linkLabel(r&&r.moved?`이동 감지: 최대 변화 ${r.max_delta_uH.toFixed(2)} μH → ${STATE_KO[r.state]||r.state}. 메인 서버에 보고했습니다.`
+                      :`변화 ${r?r.max_delta_uH.toFixed(2):'—'} μH: 기준 이하라 이동 아님`,!!(r&&r.moved));
+  if(r&&r.moved)linkHoldBase=null;
+ }catch(e){linkLabel('이동 감시 오류: '+String(e.message||e),true);}
+ finally{linkBusy=false;setTimeout(refreshLink,400);}
+}
 function errorMessage(err){console.error(err);$('phase').textContent='실행 오류';$('phaseDesc').textContent=String(err?.message||err);}
 async function play(){if(busy)return;if(BANK.mode!=='desktop_sqlite'){alert('이 파일은 배포용 EXE 내부 UI입니다. dist\\MALIGN_Desktop.exe로 실행해 주세요.');return;}if(!bankReady){alert('PC 저장소 연결 상태를 확인할 수 없습니다. 저장 위치 확인 후 다시 실행하세요.');return;}const token=++runId;busy=true;$('run').disabled=true;$('reroll').disabled=true;$('batchRun').disabled=true;$('failReplay').disabled=true;
  $('phase').textContent='실행 중 · 조건 계산';$('phaseDesc').textContent='원본 Matrix5 모델로 초기 오차와 추정 결과를 계산합니다.';
@@ -665,7 +741,13 @@ async function play(){if(busy)return;if(BANK.mode!=='desktop_sqlite'){alert('이
  $('runSeedUsed').textContent='마지막 1회 실행 시드: '+selectedSeed;
  $('phaseDesc').textContent=`이번 시드 ${selectedSeed} · 다음 실행은 새 랜덤 시드를 사용합니다.`;
  $('warnings').textContent='코너 위치 공차·공극·기울기·모델 편차·측정 잡음·구동 오차는 선택한 원본 시나리오 가정값을 따릅니다.';
- await playTrace(trial,token);
+ const session=await linkBegin({scenario:$('scenario').value,estimator:P.estimator,seed:selectedSeed,radius_mm:P.R0});
+ if(session===false){$('phase').textContent='메인 서버 명령 대기';return;}
+ await playTrace(trial,token,session?(t,cur,rec)=>linkRound(session,t,cur,rec,P):null);
+ if(session){
+  if(token!==runId)await linkAbort(session,'ui_interrupted');
+  else await linkFinish(session,trial,P);
+ }
  if(token===runId){
    const record=toBankRecord(trial,selectedSeed,P,1,'single',new Date().toISOString());
    if(!await storeTrialRecords([record],`1회 ${trial.ok?'성공':'실패'} 기록`)){
@@ -731,6 +813,7 @@ $('bankClear').addEventListener('click',async()=>{
  try{await BANK.clear();await updateBankStats(0);bankLabel('누적 기록을 초기화했습니다.');}catch(e){bankLabel('초기화 오류: '+String(e.message||e),true);}
 });
 updateBankStats();
+$('linkMove').addEventListener('click',linkMoveTest);refreshLink();setInterval(()=>{if(!busy)refreshLink();},2500);
 $('seed').value=freshSeed();$('batchseed').value=freshSeed();
 // ready state must paint immediately without calculating the FEM table
 const first=[[18,-10],[18,-10],[18,-10],[18,-10]];draw3d(first);$('worst').textContent='—';

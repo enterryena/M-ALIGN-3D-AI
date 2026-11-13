@@ -1,9 +1,12 @@
 # -*- coding: utf-8 -*-
 """M-ALIGN Windows desktop host: bundled Matrix5 HTML + durable SQLite casebank.
 
-This is a local-only program: browser UI on a random 127.0.0.1 port,
-records in %LOCALAPPDATA%\\MALIGN\\CaseBank\\cases.sqlite3.
-No camera, network API, or external service. Python stdlib only.
+Browser UI on a random 127.0.0.1 port, records in
+%LOCALAPPDATA%\\MALIGN\\CaseBank\\cases.sqlite3. No camera. Python stdlib only.
+
+v3.6 kit link: every correction round of the 4-unit kit is stored in
+%LOCALAPPDATA%\\MALIGN\\Link\\outbox.sqlite3 and, ONLY if server_url is set in
+Link\\link_config.json, sent to that main server (see malign_link.py).
 """
 import argparse
 import base64
@@ -24,7 +27,9 @@ from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
 
-APP_TITLE = 'M-ALIGN Matrix5 — 영구 사례 누적 (v3.5.4)'
+import malign_link
+
+APP_TITLE = 'M-ALIGN Matrix5 — 영구 사례 누적 + 키트 전송 (v3.6.0)'
 APP_HTML = 'MALIGN_Desktop.html'
 MAX_POST = 25 * 1024 * 1024
 
@@ -223,7 +228,7 @@ class CaseBank:
         return str(target)
 
 
-def make_handler(bank, token):
+def make_handler(bank, token, link=None):
     class LocalHandler(BaseHTTPRequestHandler):
         server_version = 'MALIGN-Local/3.5'
         protocol_version = 'HTTP/1.1'
@@ -273,7 +278,12 @@ def make_handler(bank, token):
             if not self._authorized():
                 self._json({'error': 'unauthorized'}, 403)
                 return
-            if p == '/api/stats':
+            if p == '/api/link/status':
+                if link is None:
+                    self._json({'error': 'link disabled'}, 404)
+                else:
+                    self._json(link.status())
+            elif p == '/api/stats':
                 self._json(bank.stats())
             elif p == '/api/all':
                 self._json(bank.all())
@@ -301,6 +311,8 @@ def make_handler(bank, token):
                 if p == '/api/add':
                     n = bank.add(obj.get('records'))
                     self._json({'added': n})
+                elif p.startswith('/api/link/') and link is not None:
+                    self._json(link_post(link, p[len('/api/link/'):], obj))
                 elif p == '/api/clear':
                     if obj.get('confirm') != 'CLEAR':
                         raise ValueError('confirmation required')
@@ -311,15 +323,35 @@ def make_handler(bank, token):
                     self._json({'ok': True})
                 else:
                     self._json({'error': 'not found'}, 404)
+            except malign_link.LinkRefused as exc:
+                self._json({'error': str(exc), 'state': link.status()['state'] if link else None}, 409)
+            except LookupError as exc:
+                self._json({'error': str(exc)}, 404)
             except (ValueError, TypeError, UnicodeError, sqlite3.Error) as exc:
                 self._json({'error': str(exc)}, 400)
 
     return LocalHandler
 
 
-def create_server(bank):
+def link_post(link, action, obj):
+    """Local kit-link API used by the simulator UI (and later a hardware reader)."""
+    if action == 'begin':
+        return link.begin_cycle(obj.get('source', 'simulation'), obj.get('meta'))
+    if action == 'round':
+        return link.record_round(obj.get('session_id'), obj.get('round_no'), obj.get('units'),
+                                 obj.get('command'), obj.get('measured_at'), obj.get('extra'))
+    if action == 'finish':
+        return link.finish_cycle(obj.get('session_id'), obj.get('converged'), obj.get('extra'))
+    if action == 'abort':
+        return link.abort_cycle(obj.get('session_id'), obj.get('reason', 'aborted'))
+    if action == 'hold':
+        return link.hold_reading(obj.get('units'), obj.get('measured_at'))
+    raise LookupError('not found')
+
+
+def create_server(bank, link=None):
     token = secrets.token_urlsafe(32)
-    srv = ThreadingHTTPServer(('127.0.0.1', 0), make_handler(bank, token))
+    srv = ThreadingHTTPServer(('127.0.0.1', 0), make_handler(bank, token, link))
     srv.daemon_threads = True
     return srv, token
 
@@ -341,19 +373,23 @@ def start():
         logging.warning('일일 백업 실패. 실제 사례 DB는 그대로 사용: %s', backup_warning)
         if sys.stderr is not None:
             print('M-ALIGN WARNING: daily backup failed: ' + backup_warning, file=sys.stderr, flush=True)
-    server, token = create_server(bank)
+    link_dir = folder / 'Link' if args.data_dir else folder.parent / 'Link'
+    link, uploader, link_cfg_path = malign_link.open_link(link_dir)
+    server, token = create_server(bank, link)
     port = server.server_port
     url = f'http://127.0.0.1:{port}/'
     th = threading.Thread(target=server.serve_forever, daemon=True)
     th.start()
     if args.headless:
-        print(json.dumps({'url': url, 'token': token, 'database': str(bank.file_path)}), flush=True)
+        print(json.dumps({'url': url, 'token': token, 'database': str(bank.file_path),
+                          'link_config': str(link_cfg_path), 'kit_id': link.kit_id}), flush=True)
         try:
             while True:
                 time.sleep(0.2)
         except KeyboardInterrupt:
             pass
         finally:
+            uploader.stop()
             server.shutdown()
             server.server_close()
         return
@@ -361,7 +397,7 @@ def start():
     from tkinter import ttk, messagebox
     root = tk.Tk()
     root.title(APP_TITLE)
-    root.geometry('760x410')
+    root.geometry('760x470')
     if backup_warning:
         root.after(500, lambda: messagebox.showwarning(
             'M-ALIGN 백업 경고',
@@ -376,7 +412,9 @@ def start():
     ttk.Label(frame, text='HTML 화면은 로컬 브라우저에서 열립니다. 이 창은 데이터 저장 서버입니다.\n창을 닫으면 서버는 종료되지만 저장된 성공·실패 기록은 남습니다.', justify='left').pack(anchor='w')
     ttk.Label(frame, text='영구 저장 위치: ' + str(bank.file_path), wraplength=650).pack(anchor='w', pady=(12, 4))
     stats = tk.StringVar(value='저장 건수 확인 중')
-    ttk.Label(frame, textvariable=stats).pack(anchor='w', pady=(0, 12))
+    ttk.Label(frame, textvariable=stats).pack(anchor='w', pady=(0, 4))
+    link_text = tk.StringVar(value='키트 전송 상태 확인 중')
+    ttk.Label(frame, textvariable=link_text, wraplength=650, justify='left').pack(anchor='w', pady=(0, 12))
     bar = ttk.Frame(frame)
     bar.pack(anchor='w')
     def update_stats():
@@ -385,6 +423,15 @@ def start():
             stats.set(f"누적 성공 {val['success']:,}건 / 실패 {val['failure']:,}건 / 전체 {val['total']:,}건")
         except Exception as exc:
             stats.set('저장소 확인 실패: ' + str(exc))
+        try:
+            ls = link.status()
+            server_txt = ls['server_url'] or '미설정 (PC에만 보관)'
+            err = ls['uplink']['last_error']
+            link_text.set(f"키트 {ls['kit_id']} · 상태 {ls['state']} · 메인 서버 {server_txt}\n"
+                          f"전송 대기 {ls['outbox']['pending']:,}건 / 전송 완료 {ls['outbox']['sent']:,}건"
+                          + (f" · 최근 오류: {err}" if err else ''))
+        except Exception as exc:
+            link_text.set('키트 전송 상태 확인 실패: ' + str(exc))
         if root.winfo_exists():
             root.after(1600, update_stats)
     def open_browser():
@@ -414,6 +461,14 @@ def start():
         except Exception as exc:
             messagebox.showerror('백업 실패', str(exc))
     ttk.Button(bar, text='저장 기록 백업', command=back_up).pack(side='left', padx=(0, 7))
+    def open_link_config():
+        # Server address/kit numbers are edited ONLY in this local file, never from the web page.
+        if sys.platform == 'win32':
+            os.startfile(str(link_cfg_path))
+        else:
+            messagebox.showinfo('전송 설정 파일', str(link_cfg_path))
+        messagebox.showinfo('전송 설정', '설정 파일을 수정·저장한 뒤 프로그램을 다시 시작해야 적용됩니다.')
+    ttk.Button(bar, text='전송 설정', command=open_link_config).pack(side='left', padx=(0, 7))
     # Full uninstall is deliberately separate from "clear cases": it removes ALL
     # app-owned persistent DBs, backups, and logs, then the bundled EXE.
     def remove_app():
@@ -421,6 +476,7 @@ def start():
         if not messagebox.askyesno(
                 'M-ALIGN 완전 제거',
                 '이 Windows 계정의 M-ALIGN 누적 성공/실패 사례, DB, 모든 백업·로그·설정이 영구 삭제됩니다.\n'
+                f"메인 서버로 아직 보내지 못한 보정 기록 {link.status()['outbox']['pending']:,}건도 함께 삭제됩니다.\n"
                 '앱 실행 파일(EXE)도 함께 삭제합니다.\n\n'
                 '한 번 삭제하면 복구하기 어려우며 기존 데이터의 자동 백업은 남기지 않습니다.\n'
                 '정말로 완전히 제거할까요?', icon='warning'):
@@ -454,6 +510,7 @@ def start():
             return
         # Do NOT perform the normal shutdown backup: uninstall must not
         # create another persistent copy after the user's deletion request.
+        uploader.stop()
         server.shutdown()
         server.server_close()
         root.destroy()
@@ -471,6 +528,7 @@ def start():
         except Exception as exc:
             if not messagebox.askyesno('백업 실패', '종료 직전 백업을 만들지 못했습니다.\n' + str(exc) + '\n\n데이터베이스의 기존 기록은 유지됩니다. 종료할까요?'):
                 return
+        uploader.stop()
         server.shutdown()
         server.server_close()
         root.destroy()
