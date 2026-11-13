@@ -30,7 +30,8 @@ with tempfile.TemporaryDirectory(prefix='malign_stable_path_') as tmp:
     alternate=base/'release_in_another_location';alternate.mkdir()
     shutil.copy2(ROOT/'desktop_host.py',alternate/'desktop_host.py')
     shutil.copy2(ROOT/'MALIGN_Desktop.html',alternate/'MALIGN_Desktop.html')
-    for name in ('malign_link.py', 'malign_engine.py', 'kit_device.py', 'matrix5_data.json'):
+    for name in ('malign_link.py', 'malign_engine.py', 'kit_device.py', 'matrix5_data.json', 'main_controller.py',
+                 'reachstacker_sim.py', 'sim_site.py', 'sim_bridge.py', 'sim_job.py'):
         shutil.copy2(ROOT/name, alternate/name)
     expected=profile/'MALIGN'/'CaseBank'/'cases.sqlite3'
     p,info=start(ROOT/'desktop_host.py',profile,ROOT)

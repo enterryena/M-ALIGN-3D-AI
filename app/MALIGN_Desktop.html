@@ -54,10 +54,14 @@ select,input{border:1px solid #bdcddb;border-radius:7px;padding:8px;width:100%;f
 <p class="small">보관 위치: <b>데스크톱 EXE 실행 시 %LOCALAPPDATA%\\MALIGN\\CaseBank\\cases.sqlite3</b> (영구 저장). HTML만 단독 실행하면 브라우저 IndexedDB를 사용하므로 브라우저 데이터 삭제 시 사라질 수 있습니다. JSON 내보내기로 별도 백업할 수 있습니다. 누적 기록은 현재 제어 방향에 반영하지 않습니다. 이후 학습 시 평가용 내부 정답과 센서 관측 정보를 엄격히 구분해야 합니다.</p>
 </div>
 <div class="card" id="linkPanel"><h2>⑤ 메인 서버 연동 · 4대 1세트 키트</h2>
-<p class="small"><b>1회 실행</b> = 작업 1건: ① 기계 준비 완료 → ② 메인 서버 작업 지시 → ③ 키트 1회 센싱·보정값 전송 → ④ 메인 서버가 보정 반영·이동 확인 후 다음 센싱 지시 → (약 6회 반복) → ⑤ 작업 종료 지시 후 메인 동작(하강·결합). 회차마다 네 코너 장치(고유 번호)의 값을 <b>한 묶음</b>으로 PC에 먼저 저장하고 메인 서버로 보냅니다. 서버가 끊겨도 기록은 남았다가 순서대로 다시 보냅니다. 성공률 계산(반복 시험)은 전송하지 않습니다.</p>
+<p class="small"><b>1회 작업 실행</b> = 가상 현장에서 작업 1건: 기계 접근 → 센싱 범위 진입 → 메인 서버 작업 지시 → 키트 센싱 → <b>메인 서버가 기존 센서와 키트를 비교해 우선순위·보정값 결정</b> → 리치스태커 보정 이동 → 다음 센싱 (약 6회) → 하강 조건 확인 후 하강·결합. 조건이 안 맞으면 하강하지 않고 안전 정지합니다. 회차마다 네 코너 장치(고유 번호)의 값을 <b>한 묶음</b>으로 PC에 먼저 저장하고 메인 서버로 보냅니다. 서버가 끊겨도 기록은 남았다가 순서대로 다시 보냅니다. 성공률 계산(반복 시험)은 전송하지 않습니다.</p>
 <div class="batch"><div class="stat"><small>키트 번호</small><strong id="linkKit" style="font-size:13px">—</strong></div><div class="stat"><small>키트 상태</small><strong id="linkState">—</strong></div><div class="stat"><small>전송 대기</small><strong id="linkPending">—</strong></div><div class="stat"><small>전송 완료</small><strong id="linkSent">—</strong></div></div>
 <div id="linkStatus" class="archive-state" role="status" aria-live="polite">키트 전송 상태를 확인하는 중…</div>
 <div id="linkUnits" class="small"></div>
+<div class="controls" style="margin-top:8px"><div><label for="simMachine">리치스태커 기존 센서</label><select id="simMachine"><option value="normal">정상</option><option value="unstable">불안정</option><option value="none">정보 없음</option><option value="biased">편향(고장 미감지)</option></select></div>
+<div><label for="simFault">키트 코너 고장</label><select id="simFault"><option value="none">없음</option><option value="head_dead">코너2 헤드 2개 고장(감지)</option><option value="drift">코너2 교정 틀어짐(미감지)</option></select></div>
+<div><label for="simStrategy">4코너 종합 방식</label><select id="simStrategy"><option value="weighted">신뢰도 가중 + 튀는 코너 제외</option><option value="equal">4코너 동일 가중</option><option value="diagonal">고정 기준 (대각선 1·3)</option><option value="v354">v3.5.4 그대로 (인터록 없음)</option></select></div></div>
+<div class="log" id="simDecision" style="margin-top:8px;max-height:none">아직 판단 없음</div>
 <p class="small">메인 서버 주소와 장치 번호는 관리 창의 <b>전송 설정</b>(link_config.json)에서만 바꿉니다. 키트는 측정·보고만 하며 기계를 직접 제어하지 않습니다. 기계 준비 완료 신호는 실제로는 기계가 메인 서버에 보내며, 여기서는 시뮬레이션으로 대신합니다.</p>
 </div>
 <div class="card"><h2>제어기가 실제로 아는 것 / 알 수 없는 것</h2><p class="notes"><b>아는 것:</b> 각 코너 Xp·Xm·Yp·Ym·Ref의 가상 인덕턴스 측정값, 21개 Maxwell 응답모델, 이전에 명령한 X/Y/회전 이동량. <b>모르는 것:</b> 구멍의 진짜 위치, 모델 편향·공극·기울기의 참값, 실제 이동 오차. 카메라·영상 위치 추정은 사용하지 않습니다.</p><p class="notes"><b>이력 추정:</b> 1회차는 기존 격자 추정, 2회차부터 이동 전후 센서값에서 코너·헤드별 정적 가산 편향을 제거한 잔차를 최소화합니다. 이동 이력으로 위치를 식별할 수 없는 경우에는 원본 추정으로 되돌아갑니다. 추가 보정 단계가 필요할 수 있지만 비교 공정을 위해 최대 6회 유지합니다.</p><p class="notes"><b>기준 하드웨어 가정 해설:</b> 기존 추정기는 X/Y·회전 보정과 공극의 간단한 선형 동시 추정을 수행합니다. 그러나 이 조건에서 공극 추정의 개선은 제한적(보고값: 켬 40%, 끔 36%), 편향·기울기의 별도 분리 모델은 없습니다. 기준 성공률 6.8%와 차이는 알고리즘뿐 아니라 코너 공차·구동 오차도 포함합니다. 이력 보정 결과가 곧 실제 센서 성능 증명은 아닙니다.</p></div>
@@ -513,12 +517,13 @@ const DATA={"heads":["Xp","Xm","Yp","Ym","Ref"],"cases":{"P1_center":{"dx":0,"dy
   senseFailed:(session_id,round_no,reason)=>req('link/sense_failed',{session_id,round_no,reason}),
   abort:(session_id,reason)=>req('link/abort',{session_id,reason})
  };
+ root.MALIGN_SIM={start:(p)=>req('sim/start',p),state:()=>req('sim/state')};
 })(window);
 </script>
 <script>
 /* Desktop distribution: a direct file open MUST NOT create a second, misleading browser database. */
 if(!window.MALIGN_DESKTOP_TOKEN){
- window.MALIGN_LINK=null;
+ window.MALIGN_LINK=null;window.MALIGN_SIM=null;
  window.MALIGN_CASE_BANK={mode:'desktop_required',
   dbOpen:()=>Promise.reject(Error('EXE로 실행해야 PC 저장소에 연결됩니다.')),
   stats:()=>Promise.reject(Error('EXE로 실행해야 PC 저장소에 연결됩니다.')),
@@ -676,7 +681,7 @@ async function playTrace(trial,token){const trace=trial.trace,opts=trial.simOpti
  if(trial.extrap)$('warnings').textContent='주의: 이 사례는 ±30mm 직접 표본 범위 밖을 거쳤습니다. 외삽·대칭 가정이 적용되어 성공 판정의 신뢰도가 낮습니다.';
 }
 /* ---------- kit link: main server directs each sensing; every result is stored then sent ---------- */
-const LINK=window.MALIGN_LINK,JOB_WAIT_MS=30000;
+const LINK=window.MALIGN_LINK,SIM=window.MALIGN_SIM,JOB_WAIT_MS=30000;
 const SIM_DIAG={coil_temp_c:25,supply_v:24,fw_cal_version:'SIM-FEM21-v1',error_code:0};
 const STATE_KO={IDLE:'대기',SENSING:'센싱 중',WAITING:'보정 반영 대기',SELF_TEST:'자가 점검',FAULT:'이상'};
 function linkLabel(text,warn=false){$('linkStatus').textContent=text;$('linkStatus').className=warn?'archive-state archive-warning':'archive-state';}
@@ -698,57 +703,38 @@ async function refreshLink(){
    s=await LINK.selfTest([0,1,2,3].map(()=>({ok:true,error_code:0,detail:'sim'})));}
   showLink(s);return s;}catch(e){linkLabel('키트 상태 확인 실패: '+String(e.message||e),true);return null;}
 }
-/* Steps 1-9 for one job. The simulator precomputes the physical trace; the MAIN SERVER decides
-   when each sensing happens and when the job ends. Returns {session,rounds,result} or null. */
-async function runJob(trial,token){
- const trace=trial.trace,opts=trial.simOptions,spd=Number($('speed').value);
- let session=null,done=0,deadline=Date.now()+JOB_WAIT_MS;
+function errorMessage(err){console.error(err);$('phase').textContent='실행 오류';$('phaseDesc').textContent=String(err?.message||err);}
+/* Stage 3: one run = one job on the virtual site. The main server (built-in or the example server)
+   decides everything; this screen only starts the job and shows what happened. */
+const SIM_OUTCOME_KO={success:'성공 · 결합 완료',false_lower:'실패 · 허용 오차 밖에서 하강',held:'안전 정지 · 하강 금지',aborted:'중단'};
+function showDecision(d,s){
+ if(!d){$('simDecision').textContent='아직 판단 없음';return;}
+ const m=s.machine_last||{},w=(d.weights||[]).map(v=>v.toFixed(1)).join(' / ');
+ $('simDecision').textContent=`${d.round}차 · ${d.case_ko||d.case||'—'}\n기계 센서: ${({valid:'정상',unstable:'불안정',none:'정보 없음'})[d.machine_status]||d.machine_status} · 키트 종합: ${({good:'양호',caution:'주의',invalid:'무효'})[d.kit_status]||d.kit_status}`
+  +`\n코너 신뢰도: ${(d.grade||[]).map(g=>({good:'양호',caution:'주의',invalid:'무효'})[g]||g).join(' / ')} · 코너 가중치: ${w}${d.dropped_corner?` · 코너${d.dropped_corner} 제외`:''}`
+  +(d.correction?`\n보정 이동: X ${fmt(d.correction.x_mm,2)} / Y ${fmt(d.correction.y_mm,2)} mm / θ ${fmt(d.correction.theta_deg,4)}° (기계 ${Math.round(100*(d.w_machine||0))}% · 키트 ${Math.round(100*(d.w_kit??1))}%)`:'')
+  +`\n다음 행동: ${({move:'보정 이동 후 다음 센싱',move_then_verify:'보정 이동 후 최종 확인 센싱',lower_after_move:'보정 이동 후 하강',resense:'재측정',stop:'안전 정지'})[d.action]||d.action}${d.reason?' ('+d.reason+')':''}`;
+}
+async function runSimJob(token){
+ const spd=Number($('speed').value);let shownFrames=0,shownLog=0,last=Date.now(),s=null,prev=null;
  while(token===runId){
-  const s=await LINK.status();showLink(s);
-  if(s.pending&&s.pending.type==='sense'&&(!session||s.pending.session_id===session)){
-   session=s.pending.session_id;const n=s.pending.round_no;
-   if(n>1&&done===n-1){
-    highlightStep=2;phase(2,`${n-1}차 보정 반영 확인`,'메인 서버가 기계 이동을 확인하고 다음 센싱을 지시했습니다.');
-    await animateErrors(trace[n-2].e,trace[n-1].e,540*spd,token,trace[n-2].est[0]);if(token!==runId)break;
-   }
-   const cur=trace[n-1];
-   if(!cur||!Array.isArray(cur.est)){await LINK.senseFailed(session,n,'simulation trace exhausted');continue;}
-   highlightStep=0;phase(0,`${n}차 · 5헤드 센싱 (메인 서버 지시)`,'네 코너 장치가 인덕턴스 Lii를 읽습니다.');draw3d(cur.e);$('worst').textContent=worst(cur.e).toFixed(2)+' mm';
-   await sleep(300*spd);if(token!==runId)break;
-   const rec=recommended(cur.est,opts);
-   highlightStep=1;phase(1,`${n}차 · 위치 추정 → 보정값 전송`,`X ${fmt(rec[0],2)}mm · Y ${fmt(rec[1],2)}mm · 회전 ${fmt(rec[2],4)}° 를 메인 서버로 보냅니다.`);draw3d(cur.e,cur.est[0]);
-   /* The coil hardware gives only readings; each unit's own estimate + reliability is computed by the kit. */
-   const kr=await LINK.round({session_id:session,round_no:n,units:cur.sensor_uH.map(v=>({sensor_uH:v,head_ok:[true,true,true,true,true],diag:SIM_DIAG})),
-    measured_at:new Date().toISOString(),extra:{scenario:$('scenario').value,estimator:opts.estimator}});
-   const grades=kr.units.map(u=>({good:'양호',caution:'주의',invalid:'무효'})[u.grade]||u.grade).join('/');
-   $('history').textContent+=`${n}차 [센싱→메인 서버${s.pending.resense?' · 재측정':''}] 측정 #${kr.measurement_id} · 신뢰도 ${grades}: X ${fmt(rec[0],2)}mm / Y ${fmt(rec[1],2)}mm / θ ${fmt(rec[2],4)}° | 내부 오차 ${worst(cur.e).toFixed(2)} mm\n`;
-   if(cur.sensor_uH?.length)$('history').textContent+=`  코너1 측정 Lii μH: ${cur.sensor_uH[0].map(v=>v.toFixed(2)).join(' / ')}\n`;
-   done=n;$('steps').textContent=`${n} / ${s.max_rounds}`;$('animProgress').style.width=Math.min(100,100*n/6)+'%';
-   highlightStep=2;phase(2,`${n}차 · 메인 서버 보정 반영 중`,'메인 서버가 기계 정보와 비교해 보정값을 반영하고, 이동 확인 후 다음 센싱을 지시합니다.');
-   deadline=Date.now()+JOB_WAIT_MS;continue;
+  s=await SIM.state();
+  if(s.frames&&s.frames.length>shownFrames){
+   for(let i=Math.max(shownFrames,0);i<s.frames.length;i++){const f=s.frames[i];
+    if(prev){await animateErrors(prev,f.errors,480*spd,token);}else draw3d(f.errors);
+    prev=f.errors;$('worst').textContent=worst(f.errors).toFixed(2)+' mm';phase(Math.min(3,i===0?0:2),f.label,`가상 현장 · 실제 최악축 ${worst(f.errors).toFixed(2)} mm (판정용, 서버·키트는 모름)`);}
+   shownFrames=s.frames.length;last=Date.now();
   }
-  if(session&&s.state==='IDLE'&&s.last_job&&s.last_job.session_id===session){
-   if(s.last_job.result==='end'&&done>0){
-    highlightStep=2;phase(2,`${done}차 보정 반영 · 작업 종료 지시`,'메인 서버가 마지막 보정을 반영하고 메인 동작(하강·결합)으로 넘어갑니다.');
-    await animateErrors(trace[done-1].e,trace[done].e,540*spd,token,trace[done-1].est[0]);
-   }
-   return {session,rounds:done,result:s.last_job.result};
-  }
-  if(!session&&!s.awaiting_start&&s.state==='IDLE'){phase(0,'작업 지시 취소','메인 서버가 작업을 시작하지 않았습니다.');return null;}
-  if(Date.now()>deadline){
-   phase(0,'메인 서버 응답 없음',`${JOB_WAIT_MS/1000}초 동안 지시가 없어 이 화면의 작업을 멈췄습니다. 지금까지 값은 PC에 저장돼 있습니다.`);
-   if(session&&s.state!=='IDLE')await LINK.abort(session,'ui_timeout');
-   return null;
-  }
+  if(s.log&&s.log.length){const newer=s.log.filter(l=>l.t>(window.__simLogT||0));for(const l of newer){$('history').textContent+=l.text+'\n';}if(newer.length){window.__simLogT=newer[newer.length-1].t;$('history').scrollTop=1e9;last=Date.now();}}
+  showDecision(s.decision,s);$('steps').textContent=`${s.rounds} / 6`;
+  if(!s.active&&s.outcome)return s;
+  if(Date.now()-last>30000){phase(0,'응답 없음','30초 동안 진행이 없어 화면 표시를 멈췄습니다. 기록은 저장돼 있습니다.');return null;}
   await sleep(250);
  }
- if(session){try{await LINK.abort(session,'ui_interrupted');}catch(e){}}
  return null;
 }
-function errorMessage(err){console.error(err);$('phase').textContent='실행 오류';$('phaseDesc').textContent=String(err?.message||err);}
 async function play(){if(busy)return;if(BANK.mode!=='desktop_sqlite'||!LINK){alert('이 파일은 배포용 EXE 내부 UI입니다. dist\\MALIGN_Desktop.exe로 실행해 주세요.');return;}if(!bankReady){alert('PC 저장소 연결 상태를 확인할 수 없습니다. 저장 위치 확인 후 다시 실행하세요.');return;}const token=++runId;busy=true;$('run').disabled=true;$('reroll').disabled=true;$('batchRun').disabled=true;$('failReplay').disabled=true;
- $('phase').textContent='실행 중 · 조건 계산';$('phaseDesc').textContent='원본 Matrix5 모델로 초기 오차를 만듭니다.';
- try{await sleep(30);
+ try{
  let st=await LINK.status();
  if(st.state==='FAULT'||st.state==='SELF_TEST'){
   alert(st.state==='FAULT'?`키트가 이상 상태입니다 (${st.fault_code} ${st.fault}). 메인 서버가 이상 해제(fault_reset)를 보내야 작업할 수 있습니다.`:'자가 점검 중입니다. 잠시 후 다시 실행하세요.');
@@ -756,34 +742,29 @@ async function play(){if(busy)return;if(BANK.mode!=='desktop_sqlite'||!LINK){ale
  }
  if(st.state!=='IDLE'){
   if(!confirm(`이전 작업(${st.session_id})이 ${STATE_KO[st.state]} 상태로 남아 있습니다. 중단하고 새 작업을 시작할까요?`))return;
-  await LINK.abort(st.session_id,'ui_restart');st=await LINK.status();
+  await LINK.abort(st.session_id,'ui_restart');
  }
- const M=ensureModel();const P0=setting();const selectedSeed=autoSeedFor('seed');
- const P={...P0,iters:st.max_rounds,stopMM:-1}; // the main server, not the simulator, decides when to stop
- const trial=E.runOnce(M,P,E.rng(selectedSeed),true);trial.simOptions=P;
- $('runSeedUsed').textContent='마지막 1회 실행 시드: '+selectedSeed;
- $('warnings').textContent='메인 서버가 키트 보정값을 그대로 반영한다고 가정합니다(구동 오차 포함). 회차 수는 메인 서버가 정합니다.';
- $('history').textContent='';$('animProgress').style.width='0%';$('verdict').textContent='진행 중';$('verdict').style.color='var(--ink)';$('steps').textContent='0 / '+st.max_rounds;
- draw3d(trial.trace[0].e);$('worst').textContent=worst(trial.trace[0].e).toFixed(2)+' mm';
- highlightStep=-1;phase(0,'1·2단계 · 기계 작업 준비 완료',`기계가 컨테이너 위로 이동해 준비 완료를 메인 서버에 보냈다고 가정합니다 (시뮬). 초기 최악축 ${worst(trial.trace[0].e).toFixed(2)}mm · 시드 ${selectedSeed}`);
- await LINK.machineReady();
- phase(0,'3단계 · 메인 서버 작업 지시 대기','메인 서버의 작업 실시(start_job) 명령을 기다립니다.');
- const job=await runJob(trial,token);
- if(!job||token!==runId)return;
- highlightStep=-1;
- if(job.result!=='end'){$('verdict').textContent='중단';$('verdict').style.color='var(--bad)';phase(0,'작업 중단',`메인 서버/키트가 ${job.rounds}차에서 작업을 멈췄습니다. 사례 보관함에는 넣지 않습니다.`);return;}
- const last=trial.trace[job.rounds].e,wf=worst(last),ok=wf<=P.tolMM;
- const result={ok,ok0:trial.ok0,worst:wf,worst0:trial.worst0,steps:job.rounds,extrap:trial.extrap,
-  trace:[...trial.trace.slice(0,job.rounds),{e:last,est:null}]};
+ const seed=autoSeedFor('seed');
+ const params={hardware:$('scenario').value,machine:$('simMachine').value,fault:$('simFault').value,strategy:$('simStrategy').value,seed};
+ $('runSeedUsed').textContent='마지막 1회 실행 시드: '+seed;
+ $('history').textContent='';window.__simLogT=0;$('animProgress').style.width='0%';$('verdict').textContent='진행 중';$('verdict').style.color='var(--ink)';$('steps').textContent='0 / 6';
+ $('warnings').textContent='기계 이동·하강·결합은 메인 서버의 판단대로 가상 리치스태커가 수행합니다. 화면의 실제 오차는 판정용이며 서버와 키트는 알지 못합니다.';
+ highlightStep=-1;phase(0,'1·2단계 · 기계 접근','컨테이너 대략 위치(원거리 정보)로 접근 중 · 키트 센싱 범위(±30 mm)에 들어오면 메인 서버가 작업을 지시합니다.');
+ await SIM.start(params);
+ const s=await runSimJob(token);
+ if(!s||token!==runId)return;
+ const ok=s.outcome==='success',wf=s.truth_worst_mm,last=s.truth_corner_errors_mm;
  draw3d(last);$('worst').textContent=wf.toFixed(2)+' mm';$('animProgress').style.width='100%';
- $('verdict').textContent=ok?'성공':'실패';$('verdict').style.color=ok?'var(--teal)':'var(--bad)';
- phase(3,'9단계 · 메인 동작 (하강·결합)',`${job.rounds}회 보정 후 최악축 ${wf.toFixed(2)}mm · 가상 ±5mm ${ok?'충족':'미달'} (실제 체결 보장 아님)`);
- $('history').textContent+=`작업 ${job.session}: ${job.rounds}회 보정 후 메인 동작 · 최종 ${ok?'성공':'실패'}, 최악축 ${wf.toFixed(2)}mm\n`;
+ $('verdict').textContent=ok?'성공':(s.outcome==='held'?'정지':'실패');$('verdict').style.color=ok?'var(--teal)':'var(--bad)';
+ phase(3,'9단계 · '+(SIM_OUTCOME_KO[s.outcome]||s.outcome),`${s.rounds}회 보정 · 최종 최악축 ${wf.toFixed(2)} mm · 가상 ±5 mm 판정 (실제 체결 보장 아님)`);
  if(ok){await animateErrors(last,last,440*Number($('speed').value),token,null,.75);}
- if(token===runId){
-   const record=toBankRecord(result,selectedSeed,P,1,'server_job',new Date().toISOString());
-   record.uid+='|job|'+job.session;record.job_id=job.session;
-   if(!await storeTrialRecords([record],`1회 작업 ${ok?'성공':'실패'} 기록`)){
+ if(token===runId&&s.outcome!=='aborted'){
+   const P=setting();
+   const result={ok,ok0:s.worst0_mm<=5,worst:wf,worst0:s.worst0_mm,steps:s.rounds,extrap:false,
+    trace:s.frames.map(f=>({e:f.errors,est:null}))};
+   const record=toBankRecord(result,seed,P,1,'server_job_v3',new Date().toISOString());
+   record.uid+='|job|'+s.job_id;record.job_id=s.job_id;record.job_outcome=s.outcome;record.site_settings=s.settings;
+   if(!await storeTrialRecords([record],`1회 작업 ${SIM_OUTCOME_KO[s.outcome]} 기록`)){
      caseArchive={schema:'MALIGN_casebank_backup_v1',records:[record],count:1,warning:'SQLite 자동 저장 실패로 수동 저장 필요'};
      $('saveCases').disabled=false;
      alert('PC 저장소 기록에 실패했습니다. 시험 기록이 사라지지 않도록 "성공·실패 기록 JSON 저장" 버튼으로 백업하세요.');

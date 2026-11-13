@@ -3,8 +3,8 @@
 A) manual server: offline store + ordered resend; start_job -> sense / resense -> end_job;
    23 items per unit; measurement_id; sense_failed; self_test pass/fail -> FAULT ->
    fault_reset; unit fault aborts the job; watchdog -> FAULT; restart-safe.
-B) auto server (JobBrain): server-side history estimation and rigid fit; ends <= 6 rounds.
-C) no server_url: built-in LocalMainSim drives the job; bundles kept locally.
+B) auto server: virtual site (rule-based brain + virtual reach stacker) in the example server.
+C) no server_url: built-in virtual site; same seed -> same result as B; bundles kept locally.
 """
 import json, socket, subprocess, sys, tempfile, time, urllib.request, urllib.error
 from pathlib import Path
@@ -137,7 +137,7 @@ with tempfile.TemporaryDirectory(prefix='malign_link_test_') as tmp:
     srv_url = 'http://127.0.0.1:%d/malign/v1' % port
     auth = {'Authorization': 'Bearer k1'}
     cmd_url = srv_url + '/kits/KIT-T01/commands'
-    config(tmp / 'A', 'KIT-T01', UNITS, srv_url + '/bundles', api_key='k1', watchdog_s=1.5)
+    config(tmp / 'A', 'KIT-T01', UNITS, srv_url + '/bundles', api_key='k1', watchdog_s=1.5, sim_auto_sensing=False)
     units = SimUnits()
     h, info = start_host(tmp / 'A')
     server = None
@@ -259,36 +259,40 @@ with tempfile.TemporaryDirectory(prefix='malign_link_test_') as tmp:
         stop(h)
         stop(server)
 
-    # ------------------------------------------------------------------ B) auto server with JobBrain
+    # ------------------------------------------------------------------ B) auto server: virtual site in the server
     port = free_port()
     srv_url = 'http://127.0.0.1:%d/malign/v1' % port
-    server = start_server(port, tmp / 'mainB.sqlite3', '--rounds', '6', '--move-delay', '0.2')
+    server = start_server(port, tmp / 'mainB.sqlite3', '--rounds', '6', '--move-delay', '0.1')
     config(tmp / 'B', 'KIT-T02', ['B-1', 'B-2', 'B-3', 'B-4'], srv_url + '/bundles')
     h, info = start_host(tmp / 'B')
     try:
-        host(info, 'link/sim_machine_ready', {'machine_id': 'RS-01'})
-        st, done = run_sensing_source(info, SimUnits(9))
-        assert 1 <= done <= 6 and st['last_job']['result'] == 'end'
-        wait_for(lambda: host(info, 'link/status')['outbox']['pending'] == 0, 'auto job sent')
+        st = host(info, 'sim/start', {'hardware': 'target', 'machine': 'normal', 'seed': 123})
+        assert st['active'] and st['phase'] == 'approach'
+        assert host_err(info, 'sim/start', {'seed': 1}) == 409, 'one virtual job at a time'
+        st = wait_for(lambda: (lambda s: s if s.get('outcome') and not s['active'] else None)(host(info, 'sim/state')), 'virtual job', 40)
+        assert st['outcome'] == 'success' and 1 <= st['rounds'] <= 7, st['outcome']
+        wait_for(lambda: host(info, 'link/status')['state'] == 'IDLE' and host(info, 'link/status')['outbox']['pending'] == 0, 'kit idle')
         job = call(srv_url + '/jobs')[0]
-        assert job['status'] == 'end' and job['rounds'] == done
+        assert job['job_id'] == st['job_id'] and job['status'] == 'end'
         dec = call(srv_url + '/jobs/%s/decisions' % job['job_id'])
-        assert len(dec) == done and all(not d['hold'] for d in dec)
-        assert dec[0]['method'] == ['kit_grid'] * 4
-        assert set(dec[0]['correction']) == {'x_mm', 'y_mm', 'theta_rad', 'theta_deg'}
+        assert dec and dec[0]['case'] in ('P1', 'P4') and dec[-1]['action'] == 'lower_after_move'
+        rounds = [m for m in call(srv_url + '/kits/KIT-T02/messages?session_id=' + job['job_id']) if m['kind'] == 'round']
+        assert len(rounds) == len(dec) and all(count_items(u) == 23 for u in rounds[0]['units'])
     finally:
         stop(h)
         stop(server)
 
-    # ------------------------------------------------------------------ C) no server: LocalMainSim
-    config(tmp / 'C', 'KIT-T03', ['C-1', 'C-2', 'C-3', 'C-4'], '', sim_rounds=3, sim_move_delay_s=0.05)
+    # ------------------------------------------------------------------ C) no server: built-in virtual site
+    config(tmp / 'C', 'KIT-T03', ['C-1', 'C-2', 'C-3', 'C-4'], '', sim_move_delay_s=0.05)
     h, info = start_host(tmp / 'C')
     try:
-        host(info, 'link/sim_machine_ready', {})
-        st, done = run_sensing_source(info, SimUnits(3))
-        assert done == 3 and st['last_job']['result'] == 'end'
-        assert st['outbox']['pending'] > 0 and st['outbox']['sent'] == 0, 'store-only mode keeps everything locally'
-        assert st['state'] == 'IDLE' and st['fault_code'] == 0, 'no watchdog without a server'
+        host(info, 'sim/start', {'hardware': 'target', 'machine': 'normal', 'seed': 123})
+        st2 = wait_for(lambda: (lambda s: s if s.get('outcome') and not s['active'] else None)(host(info, 'sim/state')), 'local virtual job', 40)
+        assert (st2['outcome'], st2['rounds'], round(st2['truth_worst_mm'], 9)) == (st['outcome'], st['rounds'], round(st['truth_worst_mm'], 9)), \
+            'built-in and example server give the same result for the same seed'
+        ls = wait_for(lambda: (lambda s: s if s['state'] == 'IDLE' and s['last_job'] else None)(host(info, 'link/status')), 'kit idle')
+        assert ls['outbox']['pending'] > 0 and ls['outbox']['sent'] == 0, 'store-only mode keeps everything locally'
+        assert ls['fault_code'] == 0, 'no watchdog without a server'
     finally:
         stop(h)
 

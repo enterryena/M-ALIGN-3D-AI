@@ -11,12 +11,11 @@ the job sequence:
      (resense = measure the same round again without moving)
   5. server -> kit: end_job          then the machine does the main action (lower + lock)
 
-AUTO mode (default) does 2-5 by itself with malign_server_logic.JobBrain: per-corner
-history estimation (the server knows the moves it commanded), one rigid fit of the
-4 corners, gain K; the job ends when all corners are within 1 mm or after --rounds.
-The machine is assumed to apply the decided correction after --move-delay seconds
-(stage 3 adds a virtual reach stacker). With --manual, commands are only queued
-through the HTTP API (a real controller's job).
+AUTO mode (default) runs a virtual site per kit (app/sim_site.py): the rule-based brain
+(app/main_controller.py: corner weighting + outlier, 5 priority cases with the machine's
+own sensor, lowering interlock) and a virtual reach stacker (app/reachstacker_sim.py).
+The kit's simulated coil readers fetch readings from /sim/v1/kits/<kit>/readings.
+With --manual, commands are only queued through the HTTP API (a real controller's job).
 
     python malign_main_server.py --port 8750 [--rounds 6] [--move-delay 1] [--manual] [--api-key KEY]
 
@@ -30,6 +29,10 @@ Endpoints
   GET  /malign/v1/kits/<kit_id>/messages[?session_id=...]
   GET  /malign/v1/jobs                          jobs and their round counts / result
   GET  /malign/v1/jobs/<job_id>/decisions       server decisions per bundle (AUTO)
+Simulation only (AUTO):
+  POST /sim/v1/kits/<kit_id>/start   {"hardware","machine","fault","strategy","seed"}  start a virtual job
+  GET  /sim/v1/kits/<kit_id>/readings   the kit's simulated coil readings of the virtual site
+  GET  /sim/v1/kits/<kit_id>/state      virtual site state (truth, decisions, log)
 """
 import argparse
 import json
@@ -44,14 +47,17 @@ from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 
-import malign_server_logic as logic
-import malign_engine
+import sys
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))   # app/ : engine, brain, virtual site
+import malign_engine  # noqa: E402
+import sim_site  # noqa: E402
 
 KNOWN = {'MALIGN_round_bundle_v2': 'round', 'MALIGN_kit_event_v1': 'event'}
 ID = r'[A-Za-z0-9][A-Za-z0-9._-]{0,63}'
 KIT_PATH = re.compile(r'^/malign/v1/kits/(' + ID + r')/(commands|messages)$')
 READY_PATH = re.compile(r'^/malign/v1/machines/(' + ID + r')/ready$')
 DECISION_PATH = re.compile(r'^/malign/v1/jobs/(' + ID + r')/decisions$')
+SIM_PATH = re.compile(r'^/sim/v1/kits/(' + ID + r')/(start|readings|state)$')
 COMMANDS = ('start_job', 'sense', 'resense', 'end_job', 'stop', 'fault_reset', 'self_test')
 MAX_HOLD_RESENSE = 2
 MAX_BODY = 10 * 1024 * 1024
@@ -67,8 +73,10 @@ class Store:
         self.auto, self.rounds, self.move_delay = auto, rounds, move_delay
         self.lock = threading.RLock()
         self.model = malign_engine.Model() if auto else None
-        self.brains = {}      # job_id -> JobBrain (in memory: an example server restart forgets history)
+        self.sites = {}       # kit_id -> SimSite (in memory: an example server restart forgets running jobs)
         self.decisions = {}   # job_id -> [decision, ...]
+        self.outq = []        # commands produced by the sites, written to the DB on the next kit poll
+        self.outq_lock = threading.Lock()
         with self.db() as con:
             con.execute('''CREATE TABLE IF NOT EXISTS messages (
                 msg_id TEXT PRIMARY KEY, kit_id TEXT NOT NULL, session_id TEXT, kind TEXT NOT NULL,
@@ -136,9 +144,13 @@ class Store:
             ev = m.get('event')
             if ev == 'sim_machine_ready' and self.auto:
                 try:
-                    self._start_job(con, kit, (m.get('detail') or {}).get('machine_id'))
-                except ValueError:
+                    self.sim_start(kit, {})
+                except (ValueError, RuntimeError):
                     pass
+            elif self.auto and kit in self.sites:
+                self.sites[kit].on_message(m)
+            if ev == 'sim_machine_ready':
+                pass
             elif ev == 'job_start':
                 con.execute("UPDATE jobs SET status='running' WHERE job_id=?", (sid,))
                 con.execute("INSERT OR IGNORE INTO jobs VALUES (?,?,?, 'running', 0, ?, NULL)",
@@ -153,37 +165,34 @@ class Store:
                 con.execute('UPDATE jobs SET status=?, ended_at=? WHERE job_id=?', (ev[4:], now(), sid))
         elif kind == 'round':
             con.execute('UPDATE jobs SET rounds=MAX(rounds, ?) WHERE job_id=?', (m['round_no'], sid))
-            if self.auto:
-                self._auto_decide(con, kit, m)
+            if self.auto and kit in self.sites:
+                self.sites[kit].on_message(m)
 
     def _close_active(self, con, kit):
-        job = self._active_job(con, kit)
-        if job:
-            self.brains.pop(job, None)
+        pass
 
-    def _auto_decide(self, con, kit, m):
-        # Here a real server would also weigh the machine's own sensors (stage 3), drive the
-        # machine, confirm the move — and then ask for the next sensing.
-        sid = m['session_id']
-        brain = self.brains.get(sid)
-        if brain is None:
-            brain = self.brains[sid] = logic.JobBrain(self.model, max_rounds=self.rounds)
-        d = brain.decide(m['units'], resense=bool(m.get('resense')))
-        d = dict(d, measurement_id=m.get('measurement_id'), round_no=m['round_no'])
-        self.decisions.setdefault(sid, []).append(d)
-        if d['hold']:
-            n = sum(1 for x in self.decisions[sid] if x['round_no'] == m['round_no'] and x['hold'])
-            if n <= MAX_HOLD_RESENSE:
-                self._queue(con, kit, {'type': 'resense', 'session_id': sid, 'round_no': m['round_no']}, 0.2)
-            else:
-                self._queue(con, kit, {'type': 'stop', 'reason': 'no_valid_estimate'}, 0)
-                self.brains.pop(sid, None)
-        elif d['end']:
-            self._queue(con, kit, {'type': 'end_job', 'session_id': sid, 'result': 'main_action'}, self.move_delay)
-            self.brains.pop(sid, None)
-        else:
-            self._queue(con, kit, {'type': 'sense', 'session_id': sid, 'round_no': m['round_no'] + 1,
-                                   'applied_correction': d['correction']}, self.move_delay)
+    # ---- virtual site (AUTO)
+    def site(self, kit):
+        if kit not in self.sites:
+            def send(cmd, delay, kit=kit):
+                with self.outq_lock:
+                    self.outq.append((kit, cmd, delay))
+            self.sites[kit] = sim_site.SimSite(self.model, send, kit, approach_s=0.5, move_s=self.move_delay,
+                                               max_rounds=self.rounds)
+        return self.sites[kit]
+
+    def sim_start(self, kit, params):
+        if not self.auto:
+            raise ValueError('수동 모드에서는 가상 현장을 쓰지 않습니다')
+        st = self.site(kit).start(**{k: params[k] for k in ('hardware', 'machine', 'fault', 'strategy', 'seed') if k in params})
+        self.decisions[st['job_id']] = self.sites[kit].job['brain'].decisions
+        return st
+
+    def _flush_outq(self, con):
+        with self.outq_lock:
+            q, self.outq = self.outq, []
+        for kit, cmd, delay in q:
+            self._queue(con, kit, cmd, delay)
 
     def ingest(self, batch):
         if not isinstance(batch, dict) or batch.get('schema') != 'MALIGN_upload_batch_v2':
@@ -221,6 +230,7 @@ class Store:
                 except ValueError as exc:
                     if isinstance(mid, str):
                         rejected.append({'msg_id': mid, 'error': str(exc)})
+            self._flush_outq(con)
             ks = batch.get('kit_status') if isinstance(batch.get('kit_status'), dict) else {}
             con.execute('INSERT OR REPLACE INTO kits VALUES (?,?,?,?,?)',
                         (kit, now(), str(ks.get('state')), batch.get('heartbeat_seq'), ks.get('fault_code')))
@@ -285,6 +295,16 @@ def make_handler(store, api_key):
             m = DECISION_PATH.match(u.path)
             if m:
                 return self._json(store.decisions.get(m.group(1), []))
+            m = SIM_PATH.match(u.path)
+            if m and m.group(2) in ('readings', 'state'):
+                try:
+                    site = store.sites.get(m.group(1))
+                    if site is None:
+                        return self._json({'active': False} if m.group(2) == 'state' else {'error': 'no virtual job'},
+                                          200 if m.group(2) == 'state' else 409)
+                    return self._json(site.state() if m.group(2) == 'state' else {'units': site.kit_readings()})
+                except RuntimeError as exc:
+                    return self._json({'error': str(exc)}, 409)
             m = KIT_PATH.match(u.path)
             if m and m.group(2) == 'messages':
                 return self._json(store.messages(m.group(1), parse_qs(u.query).get('session_id', [None])[0]))
@@ -301,6 +321,12 @@ def make_handler(store, api_key):
                 path = urlparse(self.path).path
                 if path == '/malign/v1/bundles':
                     return self._json(store.ingest(obj))
+                m = SIM_PATH.match(path)
+                if m and m.group(2) == 'start':
+                    try:
+                        return self._json(store.sim_start(m.group(1), obj))
+                    except RuntimeError as exc:
+                        return self._json({'error': str(exc)}, 409)
                 m = READY_PATH.match(path)
                 if m:
                     return self._json(store.machine_ready(m.group(1), obj.get('kit_id')))

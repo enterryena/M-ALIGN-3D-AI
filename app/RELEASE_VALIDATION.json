@@ -2,6 +2,9 @@
   "version": "3.6.0",
   "date": "2026-11-13",
   "changes": [
+    "Stage 3: rule-based main server (main_controller.py) — weighted 4-corner fit with outlier rejection, 5 priority cases with the reach stacker's own sensor, disagreement handling, lowering interlock",
+    "Virtual site (reachstacker_sim.py, sim_site.py, sim_bridge.py): approach, correction moves, lower/lock/raise, machine-sensor modes, kit corner faults; built-in and example server give identical results; UI shows server decisions",
+    "Comparison experiment (tools/compare_strategies.py) and optional local AI operator via Ollama with whitelisted commands (tools/ai_operator.py)",
     "Stage 1: kit as field device — 7 commands (start_job/sense/resense/end_job/stop/fault_reset/self_test), 4 units x 23 items (bundle v2), FAULT/SELF_TEST states, watchdog, heartbeat",
     "Python port of the v3.5.4 engine (malign_engine.py) identical to JS trial by trial; per-unit device logic (kit_device.py); server-side history estimation + rigid fit (malign_server_logic.py)",
     "Kit link: main server directs each sensing (start_job / sense / end_job / stop); kit senses once per command",
@@ -15,7 +18,7 @@
   "tests": {
     "python_compile": "pass",
     "kit_link_end_to_end": "PASS - 7 commands, 23 items/unit, resense, self-test, FAULT/reset, watchdog, offline resend, restart-safe, auto JobBrain (Linux)",
-    "ui_link_end_to_end": "PASS - real JS UI: 1 job = 6 server-directed sensings with example auto server and with built-in sim server (Chromium Linux)",
+    "ui_link_end_to_end": "PASS - UI job on the virtual site with example server and built-in site (Chromium Linux)",
     "browser_ui_bridge_100": "PASS - 6 successes 94 failures unchanged (Chromium Linux)",
     "persistence_restart": "PASS - Linux run",
     "stable_path": "PASS - Linux simulated Windows profile",
@@ -25,6 +28,9 @@
     "actual_Windows_EXE": "NOT TESTED - requires Windows",
     "real_sensor_hardware": "NOT TESTED - no hardware adapter yet; simulator source only",
     "engine_port": "PASS - grid 68/1000, history 586/1000, target 299/300 identical to JS trial by trial (Linux)",
-    "split_reproduction": "PASS - kit/server split reproduces v3.5.4 trial by trial (grid 68/1000, history 586/1000)"
+    "split_reproduction": "PASS - kit/server split reproduces v3.5.4 trial by trial (grid 68/1000, history 586/1000)",
+    "main_controller": "PASS - rigid fit, outlier, P1-P5, disagreement, interlock, v3.5.4 mode identical (Linux)",
+    "ai_operator": "PASS - fake Ollama: whitelisted tools reach the server, other commands refused (real model NOT TESTED)",
+    "comparison_experiment": "300 jobs per row, docs/3단계_메인서버_가상현장.md"
   }
 }

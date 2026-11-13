@@ -1,8 +1,9 @@
-"""Real simulator UI -> kit link -> main server, following the machine job sequence.
+"""Real simulator UI -> kit link -> main server -> virtual reach stacker (stage 3).
 
-1 click = 1 job: machine ready -> start_job -> (sense -> bundle -> correction applied) x 6
--> end_job -> main action. Checked with the example AUTO main server, and with no
-server (built-in LocalMainSim). fetch() is bridged to the real local host.
+1 click = 1 job on the virtual site: approach -> in range -> start_job -> (sense -> bundle ->
+server decision -> machine move) x N -> lower -> lock. The screen shows the server's
+decisions and the machine's moves. Checked with the example AUTO server and with the
+built-in virtual site. fetch() is bridged to the real local host.
 """
 from pathlib import Path
 import json, os, socket, subprocess, sys, tempfile, time, urllib.request, urllib.error
@@ -49,11 +50,15 @@ def run_ui(data_dir, play):
     page.wait_for_function("document.getElementById('bankStatus').textContent.includes('PC 영구 저장')", timeout=20000)
     page.wait_for_function("document.getElementById('linkKit').textContent.length>3", timeout=20000)
     page.locator('#autoSeed').uncheck()
-    page.locator('#seed').fill('2026')
+    page.locator('#seed').fill('123')
+    page.locator('#scenario').select_option('target')
+    page.locator('#simMachine').select_option('normal')
+    page.locator('#simStrategy').select_option('weighted')
     page.locator('#run').click()
     page.wait_for_function("document.getElementById('phase').textContent.startsWith('9단계') && !document.getElementById('run').disabled",
                            timeout=90000)
-    out = {'history': page.locator('#history').inner_text(), 'bankTotal': None, 'kit': page.locator('#linkKit').inner_text()}
+    out = {'history': page.locator('#history').inner_text(), 'bankTotal': None, 'kit': page.locator('#linkKit').inner_text(),
+           'verdict': page.locator('#verdict').inner_text(), 'decision': page.locator('#simDecision').inner_text()}
     page.wait_for_function("document.getElementById('bankTotal').textContent==='1'", timeout=15000)
     out['bankTotal'] = 1
     return host, info, browser, errors, out
@@ -76,21 +81,14 @@ with tempfile.TemporaryDirectory(prefix='malign_ui_link_') as tmp, sync_playwrig
     try:
         host, info, browser, errors, out = run_ui(tmp / 'A', play)
         jobs = get(base + '/jobs')
-        assert len(jobs) == 1 and jobs[0]['status'] == 'end' and 1 <= jobs[0]['rounds'] <= 6, jobs
-        nr = jobs[0]['rounds']
+        assert len(jobs) == 1 and jobs[0]['status'] == 'end', jobs
         dec = get(base + '/jobs/%s/decisions' % jobs[0]['job_id'])
-        assert len(dec) == nr and dec[-1]['end'] is True
-        msgs = get(base + '/kits/KIT-UI/messages?session_id=' + jobs[0]['job_id'])
-        rounds = [m for m in msgs if m['kind'] == 'round']
-        assert [m['round_no'] for m in rounds] == list(range(1, nr + 1))
-        for m in rounds:
-            assert [u['unit_id'] for u in m['units']] == ['UI-1', 'UI-2', 'UI-3', 'UI-4']
-            assert all(len(u['sensor_uH']) == 5 and u['quality']['grade'] in ('good', 'caution', 'invalid') for u in m['units'])
-            assert m['kit_reference']['available'] and m['measurement_id'] == m['round_no']
-            assert m['source'] == 'simulation' and 'evaluation' not in json.dumps(m)
-        ev = [m['event'] for m in msgs if m['kind'] == 'event' and m['event'] != 'command_ack']
-        assert ev[0] == 'job_start' and ev[-1] == 'job_end', ev
-        assert out['history'].count('[센싱→메인 서버]') == nr
+        assert dec and dec[-1]['action'] == 'lower_after_move' and all('case' in d for d in dec)
+        rounds = [m for m in get(base + '/kits/KIT-UI/messages?session_id=' + jobs[0]['job_id']) if m['kind'] == 'round']
+        assert len(rounds) == len(dec) and [u['unit_id'] for u in rounds[0]['units']] == ['UI-1', 'UI-2', 'UI-3', 'UI-4']
+        assert out['verdict'] == '성공' and out['history'].count('서버 판단:') == len(dec), out['history']
+        assert '하강 → 결합 성공' in out['history'] and '보정 이동' in out['decision']
+        first_history = out['history']
         assert not errors, errors
     finally:
         if browser: browser.close()
@@ -103,11 +101,12 @@ with tempfile.TemporaryDirectory(prefix='malign_ui_link_') as tmp, sync_playwrig
     host = browser = None
     try:
         host, info, browser, errors, out = run_ui(tmp / 'B', play)
-        assert out['history'].count('[센싱→메인 서버]') == 6 and out['kit'].startswith('MALIGN-KIT-')
+        assert out['kit'].startswith('MALIGN-KIT-') and out['verdict'] == '성공'
+        assert out['history'].count('서버 판단:') == first_history.count('서버 판단:'), 'same seed -> same job on the built-in site'
         assert not errors, errors
     finally:
         if browser: browser.close()
         if host: host.terminate(); host.wait(timeout=8)
 
-print('PASS: UI 1 job = machine ready -> start_job -> server-directed sensings (4-unit v2 bundles, server decisions) -> end_job; '
+print('PASS: UI 1 job on the virtual site: server decisions + machine moves shown, lower/lock success; '
       'also stand-alone with built-in sim server; no JS errors', flush=True)

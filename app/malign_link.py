@@ -32,7 +32,8 @@ fit is sent as reference only.
 Store-and-forward: every bundle/event is first committed to a local SQLite outbox,
 then a background uploader POSTs pending ones in order and receives commands in the
 reply. Watchdog: during a job, no successful server exchange for watchdog_s -> FAULT.
-With no server_url and source 'simulation', LocalMainSim plays the server.
+In simulation (source 'simulation') a virtual site (sim_bridge / sim_site) provides the
+coil readings; with no server_url it also plays the main server and the reach stacker.
 """
 import json
 import logging
@@ -81,8 +82,9 @@ DEFAULT_CONFIG = {
     'active_poll_s': 0.5,      # upload/poll interval during a job
     'retry_max_s': 30,
     'watchdog_s': 10,          # during a job: no successful server exchange this long -> FAULT
-    'sim_rounds': 6,           # LocalMainSim only (no server_url): rounds before end_job
-    'sim_move_delay_s': 0.8,   # LocalMainSim only: time the "machine" takes to apply a correction
+    'sim_rounds': 6,           # built-in virtual site (no server_url): max correction rounds
+    'sim_move_delay_s': 0.8,   # virtual site: time the machine takes for one correction move
+    'sim_auto_sensing': True,  # simulation: the kit's coil readers answer from the virtual site
 }
 
 
@@ -153,6 +155,8 @@ def validate_config(cfg):
     for key in ('timeout_s', 'heartbeat_s', 'active_poll_s', 'retry_max_s', 'watchdog_s'):
         if _finite(cfg[key], key) <= 0:
             raise ValueError(key + ' 는 0보다 커야 합니다')
+    if not isinstance(cfg['sim_auto_sensing'], bool):
+        raise ValueError('sim_auto_sensing 은 true/false')
     if _finite(cfg['sim_move_delay_s'], 'sim_move_delay_s') < 0:
         raise ValueError('sim_move_delay_s 는 0 이상')
     return cfg
@@ -618,33 +622,6 @@ class Watchdog(threading.Thread):
         self.stop_event.set()
 
 
-# --------------------------------------------------------------------------- built-in main server (simulation, no server_url)
-class LocalMainSim:
-    """Plays the main server when no server_url is set and the source is the simulator.
-
-    machine ready -> start_job; each bundle -> (machine applies correction) -> sense,
-    until sim_rounds, then end_job. Self-test is answered by the sensing source."""
-
-    def __init__(self, link):
-        self.link = link
-        self.n = 0
-        link.observers.append(self.on_message)
-
-    def _later(self, cmd):
-        self.n += 1
-        cmd = dict(cmd, id='local-%d-%s' % (self.n, secrets.token_hex(2)))
-        t = threading.Timer(float(self.link.cfg['sim_move_delay_s']), self.link.apply_command, args=(cmd,))
-        t.daemon = True
-        t.start()
-
-    def on_message(self, msg):
-        if msg.get('event') == 'sim_machine_ready':
-            self._later({'type': 'start_job', 'machine_id': msg['detail'].get('machine_id')})
-        elif msg.get('kind') == 'round':
-            if msg['round_no'] >= self.link.cfg['sim_rounds']:
-                self._later({'type': 'end_job', 'session_id': msg['session_id'], 'result': 'main_action'})
-            else:
-                self._later({'type': 'sense', 'session_id': msg['session_id'], 'round_no': msg['round_no'] + 1})
 # --------------------------------------------------------------------------- uploader
 class Uploader(threading.Thread):
     """Background sender: pending messages -> main server, oldest first; commands come back in the reply."""
@@ -736,33 +713,43 @@ class Uploader(threading.Thread):
 
 
 # --------------------------------------------------------------------------- factory
-def default_processor():
-    """Device-side per-corner computation (numpy + Maxwell model), loaded lazily."""
-    import kit_device
+def _load_model():
     import malign_engine
-    model = malign_engine.Model()
+    return malign_engine.Model()
+
+
+def default_processor(model):
+    """Device-side per-corner computation (numpy + Maxwell model)."""
+    import kit_device
     return lambda k, sensor_uH, head_ok: kit_device.process_reading(model, k, sensor_uH, head_ok)
 
 
 class LinkRuntime:
-    def __init__(self, link, uploader, watchdog, cfg_path):
-        self.link, self.uploader, self.watchdog, self.cfg_path = link, uploader, watchdog, cfg_path
+    def __init__(self, link, uploader, watchdog, cfg_path, sim=None):
+        self.link, self.uploader, self.watchdog, self.cfg_path, self.sim = link, uploader, watchdog, cfg_path, sim
 
     def stop(self):
+        if self.sim:
+            self.sim.source.stop()
         self.watchdog.stop()
         self.uploader.stop()
 
 
-def open_link(folder, urlopen=None, start=True, processor=None):
+def open_link(folder, urlopen=None, start=True, processor=None, simulate=True):
+    """simulate: when source is 'simulation', attach the virtual site (sim_bridge):
+    built-in main server + reach stacker without server_url, or the example server's site with it."""
     cfg, cfg_path = load_config(folder)
     outbox = Outbox(pathlib.Path(folder) / 'outbox.sqlite3')
-    link = KitLink(outbox, cfg, processor=processor or default_processor())
+    model = _load_model()
+    link = KitLink(outbox, cfg, processor=processor or default_processor(model))
     uploader = Uploader(outbox, link, cfg, urlopen=urlopen)
     link.on_enqueue = uploader.wake
-    if not cfg['server_url'] and cfg['source'] == 'simulation':
-        LocalMainSim(link)
     watchdog = Watchdog(link)
+    sim = None
+    if simulate and cfg['source'] == 'simulation' and cfg['sim_auto_sensing']:
+        import sim_bridge
+        sim = sim_bridge.attach(link, model, start=start)
     if start:
         uploader.start()
         watchdog.start()
-    return LinkRuntime(link, uploader, watchdog, cfg_path)
+    return LinkRuntime(link, uploader, watchdog, cfg_path, sim)

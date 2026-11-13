@@ -27,6 +27,7 @@ import webbrowser
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
+import urllib.error
 
 import malign_link
 
@@ -229,7 +230,7 @@ class CaseBank:
         return str(target)
 
 
-def make_handler(bank, token, link=None):
+def make_handler(bank, token, link=None, sim_holder=None):
     class LocalHandler(BaseHTTPRequestHandler):
         server_version = 'MALIGN-Local/3.5'
         protocol_version = 'HTTP/1.1'
@@ -262,6 +263,25 @@ def make_handler(bank, token, link=None):
                 return False
             return True
 
+        def _sim(self, fn):
+            sim = getattr(sim_holder, 'sim', None)
+            if sim is None:
+                self._json({'error': '시뮬레이션 모드가 아닙니다 (source=hardware)'}, 404)
+                return
+            try:
+                self._json(fn(sim))
+            except RuntimeError as exc:
+                self._json({'error': str(exc)}, 409)
+            except urllib.error.HTTPError as exc:
+                try:
+                    msg = json.loads(exc.read().decode('utf-8')).get('error')
+                except Exception:
+                    msg = None
+                self._json({'error': msg or '메인 서버 가상 현장 오류: HTTP %d' % exc.code},
+                           409 if exc.code == 409 else 502)
+            except (OSError, ValueError) as exc:
+                self._json({'error': '%s: %s' % (type(exc).__name__, exc)}, 502 if isinstance(exc, OSError) else 400)
+
         def do_GET(self):
             if self.client_address[0] not in ('127.0.0.1', '::1'):
                 self._json({'error': 'loopback only'}, 403)
@@ -284,6 +304,8 @@ def make_handler(bank, token, link=None):
                     self._json({'error': 'link disabled'}, 404)
                 else:
                     self._json(link.status())
+            elif p == '/api/sim/state':
+                self._sim(lambda sim: sim.state())
             elif p == '/api/stats':
                 self._json(bank.stats())
             elif p == '/api/all':
@@ -312,6 +334,9 @@ def make_handler(bank, token, link=None):
                 if p == '/api/add':
                     n = bank.add(obj.get('records'))
                     self._json({'added': n})
+                elif p == '/api/sim/start':
+                    self._sim(lambda sim: sim.start({k: obj[k] for k in ('hardware', 'machine', 'fault', 'strategy', 'seed')
+                                                     if k in obj}))
                 elif p.startswith('/api/link/') and link is not None:
                     self._json(link_post(link, p[len('/api/link/'):], obj))
                 elif p == '/api/clear':
@@ -357,9 +382,9 @@ def link_post(link, action, obj):
     raise LookupError('not found')
 
 
-def create_server(bank, link=None):
+def create_server(bank, link=None, sim_holder=None):
     token = secrets.token_urlsafe(32)
-    srv = ThreadingHTTPServer(('127.0.0.1', 0), make_handler(bank, token, link))
+    srv = ThreadingHTTPServer(('127.0.0.1', 0), make_handler(bank, token, link, sim_holder))
     srv.daemon_threads = True
     return srv, token
 
@@ -384,7 +409,7 @@ def start():
     link_dir = folder / 'Link' if args.data_dir else folder.parent / 'Link'
     runtime = malign_link.open_link(link_dir)
     link, link_cfg_path = runtime.link, runtime.cfg_path
-    server, token = create_server(bank, link)
+    server, token = create_server(bank, link, runtime)
     port = server.server_port
     url = f'http://127.0.0.1:{port}/'
     th = threading.Thread(target=server.serve_forever, daemon=True)

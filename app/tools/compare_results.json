@@ -1,0 +1,967 @@
+{
+ "n": 300,
+ "world_seed": 2026,
+ "aux_seed": 7,
+ "rows": [
+  {
+   "set": "A",
+   "hardware": "target",
+   "strategy": "v354",
+   "machine": "none",
+   "fault": "none",
+   "fault_corner": null,
+   "n": 300,
+   "success": 299,
+   "false_lower": 1,
+   "held": 0,
+   "success_ci95": [
+    0.9813628354450568,
+    0.9994113574238592
+   ],
+   "avg_rounds": 5.323333333333333,
+   "avg_sensings": 5.323333333333333,
+   "resense_per_job": 0.0,
+   "seconds": 21.67674207687378
+  },
+  {
+   "set": "A",
+   "hardware": "target",
+   "strategy": "equal",
+   "machine": "none",
+   "fault": "none",
+   "fault_corner": null,
+   "n": 300,
+   "success": 300,
+   "false_lower": 0,
+   "held": 0,
+   "success_ci95": [
+    0.9873565700022643,
+    0.9999999999999999
+   ],
+   "avg_rounds": 5.36,
+   "avg_sensings": 5.8133333333333335,
+   "resense_per_job": 0.0,
+   "seconds": 26.436588525772095
+  },
+  {
+   "set": "A",
+   "hardware": "target",
+   "strategy": "diagonal",
+   "machine": "none",
+   "fault": "none",
+   "fault_corner": null,
+   "n": 300,
+   "success": 300,
+   "false_lower": 0,
+   "held": 0,
+   "success_ci95": [
+    0.9873565700022643,
+    0.9999999999999999
+   ],
+   "avg_rounds": 4.516666666666667,
+   "avg_sensings": 4.6,
+   "resense_per_job": 0.0,
+   "seconds": 17.933890342712402
+  },
+  {
+   "set": "A",
+   "hardware": "target",
+   "strategy": "weighted",
+   "machine": "none",
+   "fault": "none",
+   "fault_corner": null,
+   "n": 300,
+   "success": 299,
+   "false_lower": 0,
+   "held": 1,
+   "success_ci95": [
+    0.9813628354450568,
+    0.9994113574238592
+   ],
+   "avg_rounds": 5.343333333333334,
+   "avg_sensings": 5.8133333333333335,
+   "resense_per_job": 0.0,
+   "seconds": 26.953299522399902
+  },
+  {
+   "set": "A",
+   "hardware": "target",
+   "strategy": "v354",
+   "machine": "none",
+   "fault": "head_dead",
+   "fault_corner": 1,
+   "n": 300,
+   "success": 270,
+   "false_lower": 30,
+   "held": 0,
+   "success_ci95": [
+    0.8608327216490343,
+    0.9290525343527771
+   ],
+   "avg_rounds": 5.82,
+   "avg_sensings": 5.82,
+   "resense_per_job": 0.0,
+   "seconds": 25.642181634902954
+  },
+  {
+   "set": "A",
+   "hardware": "target",
+   "strategy": "equal",
+   "machine": "none",
+   "fault": "head_dead",
+   "fault_corner": 1,
+   "n": 300,
+   "success": 209,
+   "false_lower": 1,
+   "held": 90,
+   "success_ci95": [
+    0.6424305301606226,
+    0.7459297207069346
+   ],
+   "avg_rounds": 5.863333333333333,
+   "avg_sensings": 6.696666666666666,
+   "resense_per_job": 0.0,
+   "seconds": 32.7913134098053
+  },
+  {
+   "set": "A",
+   "hardware": "target",
+   "strategy": "diagonal",
+   "machine": "none",
+   "fault": "head_dead",
+   "fault_corner": 1,
+   "n": 300,
+   "success": 182,
+   "false_lower": 60,
+   "held": 58,
+   "success_ci95": [
+    0.5503742249074199,
+    0.6602618433597298
+   ],
+   "avg_rounds": 5.536666666666667,
+   "avg_sensings": 6.19,
+   "resense_per_job": 0.0,
+   "seconds": 29.437440633773804
+  },
+  {
+   "set": "A",
+   "hardware": "target",
+   "strategy": "weighted",
+   "machine": "none",
+   "fault": "head_dead",
+   "fault_corner": 1,
+   "n": 300,
+   "success": 300,
+   "false_lower": 0,
+   "held": 0,
+   "success_ci95": [
+    0.9873565700022643,
+    0.9999999999999999
+   ],
+   "avg_rounds": 5.033333333333333,
+   "avg_sensings": 5.336666666666667,
+   "resense_per_job": 0.0,
+   "seconds": 22.70586609840393
+  },
+  {
+   "set": "A",
+   "hardware": "target",
+   "strategy": "v354",
+   "machine": "none",
+   "fault": "drift",
+   "fault_corner": 1,
+   "n": 300,
+   "success": 300,
+   "false_lower": 0,
+   "held": 0,
+   "success_ci95": [
+    0.9873565700022643,
+    0.9999999999999999
+   ],
+   "avg_rounds": 5.323333333333333,
+   "avg_sensings": 5.323333333333333,
+   "resense_per_job": 0.0,
+   "seconds": 21.887831211090088
+  },
+  {
+   "set": "A",
+   "hardware": "target",
+   "strategy": "equal",
+   "machine": "none",
+   "fault": "drift",
+   "fault_corner": 1,
+   "n": 300,
+   "success": 299,
+   "false_lower": 0,
+   "held": 1,
+   "success_ci95": [
+    0.9813628354450568,
+    0.9994113574238592
+   ],
+   "avg_rounds": 5.433333333333334,
+   "avg_sensings": 5.943333333333333,
+   "resense_per_job": 0.0,
+   "seconds": 28.315446615219116
+  },
+  {
+   "set": "A",
+   "hardware": "target",
+   "strategy": "diagonal",
+   "machine": "none",
+   "fault": "drift",
+   "fault_corner": 1,
+   "n": 300,
+   "success": 298,
+   "false_lower": 1,
+   "held": 1,
+   "success_ci95": [
+    0.9760219257685385,
+    0.9981698899670288
+   ],
+   "avg_rounds": 4.473333333333334,
+   "avg_sensings": 4.566666666666666,
+   "resense_per_job": 0.0,
+   "seconds": 18.804662942886353
+  },
+  {
+   "set": "A",
+   "hardware": "target",
+   "strategy": "weighted",
+   "machine": "none",
+   "fault": "drift",
+   "fault_corner": 1,
+   "n": 300,
+   "success": 299,
+   "false_lower": 0,
+   "held": 1,
+   "success_ci95": [
+    0.9813628354450568,
+    0.9994113574238592
+   ],
+   "avg_rounds": 5.286666666666667,
+   "avg_sensings": 5.716666666666667,
+   "resense_per_job": 0.0,
+   "seconds": 26.91880750656128
+  },
+  {
+   "set": "A",
+   "hardware": "target",
+   "strategy": "v354",
+   "machine": "none",
+   "fault": "head_dead",
+   "fault_corner": 2,
+   "n": 300,
+   "success": 274,
+   "false_lower": 26,
+   "held": 0,
+   "success_ci95": [
+    0.8760432544899761,
+    0.940171510045229
+   ],
+   "avg_rounds": 5.786666666666667,
+   "avg_sensings": 5.786666666666667,
+   "resense_per_job": 0.0,
+   "seconds": 26.58579659461975
+  },
+  {
+   "set": "A",
+   "hardware": "target",
+   "strategy": "equal",
+   "machine": "none",
+   "fault": "head_dead",
+   "fault_corner": 2,
+   "n": 300,
+   "success": 202,
+   "false_lower": 0,
+   "held": 98,
+   "success_ci95": [
+    0.6183611701576165,
+    0.7239224407765018
+   ],
+   "avg_rounds": 5.87,
+   "avg_sensings": 6.72,
+   "resense_per_job": 0.0,
+   "seconds": 37.66100311279297
+  },
+  {
+   "set": "A",
+   "hardware": "target",
+   "strategy": "diagonal",
+   "machine": "none",
+   "fault": "head_dead",
+   "fault_corner": 2,
+   "n": 300,
+   "success": 300,
+   "false_lower": 0,
+   "held": 0,
+   "success_ci95": [
+    0.9873565700022643,
+    0.9999999999999999
+   ],
+   "avg_rounds": 4.516666666666667,
+   "avg_sensings": 4.6,
+   "resense_per_job": 0.0,
+   "seconds": 18.685163974761963
+  },
+  {
+   "set": "A",
+   "hardware": "target",
+   "strategy": "weighted",
+   "machine": "none",
+   "fault": "head_dead",
+   "fault_corner": 2,
+   "n": 300,
+   "success": 300,
+   "false_lower": 0,
+   "held": 0,
+   "success_ci95": [
+    0.9873565700022643,
+    0.9999999999999999
+   ],
+   "avg_rounds": 4.96,
+   "avg_sensings": 5.21,
+   "resense_per_job": 0.0,
+   "seconds": 23.815077304840088
+  },
+  {
+   "set": "A",
+   "hardware": "target",
+   "strategy": "v354",
+   "machine": "none",
+   "fault": "drift",
+   "fault_corner": 2,
+   "n": 300,
+   "success": 298,
+   "false_lower": 2,
+   "held": 0,
+   "success_ci95": [
+    0.9760219257685385,
+    0.9981698899670288
+   ],
+   "avg_rounds": 5.416666666666667,
+   "avg_sensings": 5.416666666666667,
+   "resense_per_job": 0.0,
+   "seconds": 23.78593158721924
+  },
+  {
+   "set": "A",
+   "hardware": "target",
+   "strategy": "equal",
+   "machine": "none",
+   "fault": "drift",
+   "fault_corner": 2,
+   "n": 300,
+   "success": 296,
+   "false_lower": 0,
+   "held": 4,
+   "success_ci95": [
+    0.9662239391535502,
+    0.9948031223153205
+   ],
+   "avg_rounds": 5.306666666666667,
+   "avg_sensings": 5.75,
+   "resense_per_job": 0.0,
+   "seconds": 26.893566608428955
+  },
+  {
+   "set": "A",
+   "hardware": "target",
+   "strategy": "diagonal",
+   "machine": "none",
+   "fault": "drift",
+   "fault_corner": 2,
+   "n": 300,
+   "success": 300,
+   "false_lower": 0,
+   "held": 0,
+   "success_ci95": [
+    0.9873565700022643,
+    0.9999999999999999
+   ],
+   "avg_rounds": 4.516666666666667,
+   "avg_sensings": 4.6,
+   "resense_per_job": 0.0,
+   "seconds": 18.327695846557617
+  },
+  {
+   "set": "A",
+   "hardware": "target",
+   "strategy": "weighted",
+   "machine": "none",
+   "fault": "drift",
+   "fault_corner": 2,
+   "n": 300,
+   "success": 299,
+   "false_lower": 0,
+   "held": 1,
+   "success_ci95": [
+    0.9813628354450568,
+    0.9994113574238592
+   ],
+   "avg_rounds": 5.303333333333334,
+   "avg_sensings": 5.75,
+   "resense_per_job": 0.0,
+   "seconds": 28.81512451171875
+  },
+  {
+   "set": "A",
+   "hardware": "base",
+   "strategy": "v354",
+   "machine": "none",
+   "fault": "none",
+   "fault_corner": null,
+   "n": 300,
+   "success": 187,
+   "false_lower": 113,
+   "held": 0,
+   "success_ci95": [
+    0.5672673858683439,
+    0.6762805680655479
+   ],
+   "avg_rounds": 5.993333333333333,
+   "avg_sensings": 5.993333333333333,
+   "resense_per_job": 0.0,
+   "seconds": 29.206132173538208
+  },
+  {
+   "set": "A",
+   "hardware": "base",
+   "strategy": "equal",
+   "machine": "none",
+   "fault": "none",
+   "fault_corner": null,
+   "n": 300,
+   "success": 128,
+   "false_lower": 24,
+   "held": 148,
+   "success_ci95": [
+    0.37197260006995525,
+    0.4832151029963794
+   ],
+   "avg_rounds": 6.0,
+   "avg_sensings": 6.996666666666667,
+   "resense_per_job": 0.0,
+   "seconds": 39.487685441970825
+  },
+  {
+   "set": "A",
+   "hardware": "base",
+   "strategy": "diagonal",
+   "machine": "none",
+   "fault": "none",
+   "fault_corner": null,
+   "n": 300,
+   "success": 87,
+   "false_lower": 198,
+   "held": 15,
+   "success_ci95": [
+    0.2415637129951771,
+    0.3437465276038718
+   ],
+   "avg_rounds": 5.49,
+   "avg_sensings": 6.066666666666666,
+   "resense_per_job": 0.0,
+   "seconds": 31.04585361480713
+  },
+  {
+   "set": "A",
+   "hardware": "base",
+   "strategy": "weighted",
+   "machine": "none",
+   "fault": "none",
+   "fault_corner": null,
+   "n": 300,
+   "success": 133,
+   "false_lower": 18,
+   "held": 149,
+   "success_ci95": [
+    0.388185929862749,
+    0.4999136588703277
+   ],
+   "avg_rounds": 6.0,
+   "avg_sensings": 7.0,
+   "resense_per_job": 0.0,
+   "seconds": 38.104753732681274
+  },
+  {
+   "set": "A",
+   "hardware": "base",
+   "strategy": "v354",
+   "machine": "none",
+   "fault": "head_dead",
+   "fault_corner": 1,
+   "n": 300,
+   "success": 132,
+   "false_lower": 168,
+   "held": 0,
+   "success_ci95": [
+    0.3849382095794712,
+    0.49657900202025707
+   ],
+   "avg_rounds": 5.996666666666667,
+   "avg_sensings": 5.996666666666667,
+   "resense_per_job": 0.0,
+   "seconds": 28.626450300216675
+  },
+  {
+   "set": "A",
+   "hardware": "base",
+   "strategy": "equal",
+   "machine": "none",
+   "fault": "head_dead",
+   "fault_corner": 1,
+   "n": 300,
+   "success": 80,
+   "false_lower": 17,
+   "held": 203,
+   "success_ci95": [
+    0.21980519258939787,
+    0.31942840807621214
+   ],
+   "avg_rounds": 6.0,
+   "avg_sensings": 6.993333333333333,
+   "resense_per_job": 0.0,
+   "seconds": 35.64548969268799
+  },
+  {
+   "set": "A",
+   "hardware": "base",
+   "strategy": "diagonal",
+   "machine": "none",
+   "fault": "head_dead",
+   "fault_corner": 1,
+   "n": 300,
+   "success": 49,
+   "false_lower": 191,
+   "held": 60,
+   "success_ci95": [
+    0.12580582169498175,
+    0.2093740878368269
+   ],
+   "avg_rounds": 5.753333333333333,
+   "avg_sensings": 6.496666666666667,
+   "resense_per_job": 0.0,
+   "seconds": 31.834885835647583
+  },
+  {
+   "set": "A",
+   "hardware": "base",
+   "strategy": "weighted",
+   "machine": "none",
+   "fault": "head_dead",
+   "fault_corner": 1,
+   "n": 300,
+   "success": 108,
+   "false_lower": 87,
+   "held": 105,
+   "success_ci95": [
+    0.3077684186012506,
+    0.4157717417981154
+   ],
+   "avg_rounds": 5.956666666666667,
+   "avg_sensings": 6.923333333333333,
+   "resense_per_job": 0.0,
+   "seconds": 34.64748239517212
+  },
+  {
+   "set": "A",
+   "hardware": "base",
+   "strategy": "v354",
+   "machine": "none",
+   "fault": "drift",
+   "fault_corner": 1,
+   "n": 300,
+   "success": 174,
+   "false_lower": 126,
+   "held": 0,
+   "success_ci95": [
+    0.5234821059002049,
+    0.6344949453001573
+   ],
+   "avg_rounds": 5.983333333333333,
+   "avg_sensings": 5.983333333333333,
+   "resense_per_job": 0.0,
+   "seconds": 26.439398288726807
+  },
+  {
+   "set": "A",
+   "hardware": "base",
+   "strategy": "equal",
+   "machine": "none",
+   "fault": "drift",
+   "fault_corner": 1,
+   "n": 300,
+   "success": 136,
+   "false_lower": 29,
+   "held": 135,
+   "success_ci95": [
+    0.3979441581242692,
+    0.5099025620088528
+   ],
+   "avg_rounds": 5.996666666666667,
+   "avg_sensings": 6.99,
+   "resense_per_job": 0.0,
+   "seconds": 36.7986364364624
+  },
+  {
+   "set": "A",
+   "hardware": "base",
+   "strategy": "diagonal",
+   "machine": "none",
+   "fault": "drift",
+   "fault_corner": 1,
+   "n": 300,
+   "success": 83,
+   "false_lower": 203,
+   "held": 14,
+   "success_ci95": [
+    0.22910976871830163,
+    0.3298709633473536
+   ],
+   "avg_rounds": 5.51,
+   "avg_sensings": 6.1466666666666665,
+   "resense_per_job": 0.0,
+   "seconds": 29.153862476348877
+  },
+  {
+   "set": "A",
+   "hardware": "base",
+   "strategy": "weighted",
+   "machine": "none",
+   "fault": "drift",
+   "fault_corner": 1,
+   "n": 300,
+   "success": 111,
+   "false_lower": 20,
+   "held": 169,
+   "success_ci95": [
+    0.3173308011545093,
+    0.42595649064490193
+   ],
+   "avg_rounds": 5.983333333333333,
+   "avg_sensings": 6.973333333333334,
+   "resense_per_job": 0.0,
+   "seconds": 36.19992923736572
+  },
+  {
+   "set": "A",
+   "hardware": "base",
+   "strategy": "v354",
+   "machine": "none",
+   "fault": "head_dead",
+   "fault_corner": 2,
+   "n": 300,
+   "success": 132,
+   "false_lower": 168,
+   "held": 0,
+   "success_ci95": [
+    0.3849382095794712,
+    0.49657900202025707
+   ],
+   "avg_rounds": 5.996666666666667,
+   "avg_sensings": 5.996666666666667,
+   "resense_per_job": 0.0,
+   "seconds": 27.283947944641113
+  },
+  {
+   "set": "A",
+   "hardware": "base",
+   "strategy": "equal",
+   "machine": "none",
+   "fault": "head_dead",
+   "fault_corner": 2,
+   "n": 300,
+   "success": 80,
+   "false_lower": 34,
+   "held": 186,
+   "success_ci95": [
+    0.21980519258939787,
+    0.31942840807621214
+   ],
+   "avg_rounds": 5.993333333333333,
+   "avg_sensings": 6.986666666666666,
+   "resense_per_job": 0.0,
+   "seconds": 36.16154718399048
+  },
+  {
+   "set": "A",
+   "hardware": "base",
+   "strategy": "diagonal",
+   "machine": "none",
+   "fault": "head_dead",
+   "fault_corner": 2,
+   "n": 300,
+   "success": 87,
+   "false_lower": 198,
+   "held": 15,
+   "success_ci95": [
+    0.2415637129951771,
+    0.3437465276038718
+   ],
+   "avg_rounds": 5.49,
+   "avg_sensings": 6.066666666666666,
+   "resense_per_job": 0.0,
+   "seconds": 29.66301465034485
+  },
+  {
+   "set": "A",
+   "hardware": "base",
+   "strategy": "weighted",
+   "machine": "none",
+   "fault": "head_dead",
+   "fault_corner": 2,
+   "n": 300,
+   "success": 113,
+   "false_lower": 84,
+   "held": 103,
+   "success_ci95": [
+    0.3237194319344521,
+    0.432732614131656
+   ],
+   "avg_rounds": 5.933333333333334,
+   "avg_sensings": 6.866666666666666,
+   "resense_per_job": 0.0,
+   "seconds": 34.926599740982056
+  },
+  {
+   "set": "A",
+   "hardware": "base",
+   "strategy": "v354",
+   "machine": "none",
+   "fault": "drift",
+   "fault_corner": 2,
+   "n": 300,
+   "success": 182,
+   "false_lower": 118,
+   "held": 0,
+   "success_ci95": [
+    0.5503742249074199,
+    0.6602618433597298
+   ],
+   "avg_rounds": 5.99,
+   "avg_sensings": 5.99,
+   "resense_per_job": 0.0,
+   "seconds": 26.939051389694214
+  },
+  {
+   "set": "A",
+   "hardware": "base",
+   "strategy": "equal",
+   "machine": "none",
+   "fault": "drift",
+   "fault_corner": 2,
+   "n": 300,
+   "success": 130,
+   "false_lower": 14,
+   "held": 156,
+   "success_ci95": [
+    0.3784503374689363,
+    0.48990211986409515
+   ],
+   "avg_rounds": 5.993333333333333,
+   "avg_sensings": 6.983333333333333,
+   "resense_per_job": 0.0,
+   "seconds": 36.249528646469116
+  },
+  {
+   "set": "A",
+   "hardware": "base",
+   "strategy": "diagonal",
+   "machine": "none",
+   "fault": "drift",
+   "fault_corner": 2,
+   "n": 300,
+   "success": 87,
+   "false_lower": 198,
+   "held": 15,
+   "success_ci95": [
+    0.2415637129951771,
+    0.3437465276038718
+   ],
+   "avg_rounds": 5.49,
+   "avg_sensings": 6.066666666666666,
+   "resense_per_job": 0.0,
+   "seconds": 29.150675535202026
+  },
+  {
+   "set": "A",
+   "hardware": "base",
+   "strategy": "weighted",
+   "machine": "none",
+   "fault": "drift",
+   "fault_corner": 2,
+   "n": 300,
+   "success": 119,
+   "false_lower": 17,
+   "held": 164,
+   "success_ci95": [
+    0.342949880504215,
+    0.45299642836198367
+   ],
+   "avg_rounds": 5.996666666666667,
+   "avg_sensings": 6.993333333333333,
+   "resense_per_job": 0.0,
+   "seconds": 36.14345383644104
+  },
+  {
+   "set": "B",
+   "hardware": "target",
+   "strategy": "weighted",
+   "machine": "normal",
+   "fault": "none",
+   "fault_corner": null,
+   "n": 300,
+   "success": 283,
+   "false_lower": 0,
+   "held": 17,
+   "success_ci95": [
+    0.9111333346485289,
+    0.9643228240868122
+   ],
+   "avg_rounds": 4.83,
+   "avg_sensings": 5.24,
+   "resense_per_job": 0.06,
+   "seconds": 21.981032371520996
+  },
+  {
+   "set": "B",
+   "hardware": "target",
+   "strategy": "weighted",
+   "machine": "unstable",
+   "fault": "none",
+   "fault_corner": null,
+   "n": 300,
+   "success": 250,
+   "false_lower": 0,
+   "held": 50,
+   "success_ci95": [
+    0.7870024256968671,
+    0.8712352876379759
+   ],
+   "avg_rounds": 4.386666666666667,
+   "avg_sensings": 5.426666666666667,
+   "resense_per_job": 0.8933333333333333,
+   "seconds": 19.776686429977417
+  },
+  {
+   "set": "B",
+   "hardware": "target",
+   "strategy": "weighted",
+   "machine": "none",
+   "fault": "none",
+   "fault_corner": null,
+   "n": 300,
+   "success": 299,
+   "false_lower": 0,
+   "held": 1,
+   "success_ci95": [
+    0.9813628354450568,
+    0.9994113574238592
+   ],
+   "avg_rounds": 5.343333333333334,
+   "avg_sensings": 5.8133333333333335,
+   "resense_per_job": 0.0,
+   "seconds": 27.12370753288269
+  },
+  {
+   "set": "B",
+   "hardware": "target",
+   "strategy": "weighted",
+   "machine": "biased",
+   "fault": "none",
+   "fault_corner": null,
+   "n": 300,
+   "success": 258,
+   "false_lower": 0,
+   "held": 42,
+   "success_ci95": [
+    0.8161675002526941,
+    0.8947292301489361
+   ],
+   "avg_rounds": 5.36,
+   "avg_sensings": 6.696666666666666,
+   "resense_per_job": 0.8066666666666666,
+   "seconds": 30.63557267189026
+  },
+  {
+   "set": "B",
+   "hardware": "base",
+   "strategy": "weighted",
+   "machine": "normal",
+   "fault": "none",
+   "fault_corner": null,
+   "n": 300,
+   "success": 75,
+   "false_lower": 20,
+   "held": 205,
+   "success_ci95": [
+    0.20436911491211526,
+    0.30195260008675257
+   ],
+   "avg_rounds": 5.62,
+   "avg_sensings": 6.69,
+   "resense_per_job": 0.31,
+   "seconds": 35.804136991500854
+  },
+  {
+   "set": "B",
+   "hardware": "base",
+   "strategy": "weighted",
+   "machine": "unstable",
+   "fault": "none",
+   "fault_corner": null,
+   "n": 300,
+   "success": 10,
+   "false_lower": 3,
+   "held": 287,
+   "success_ci95": [
+    0.018204749873650852,
+    0.0602624514575691
+   ],
+   "avg_rounds": 3.3366666666666664,
+   "avg_sensings": 4.426666666666667,
+   "resense_per_job": 0.9933333333333333,
+   "seconds": 15.478161811828613
+  },
+  {
+   "set": "B",
+   "hardware": "base",
+   "strategy": "weighted",
+   "machine": "none",
+   "fault": "none",
+   "fault_corner": null,
+   "n": 300,
+   "success": 133,
+   "false_lower": 18,
+   "held": 149,
+   "success_ci95": [
+    0.388185929862749,
+    0.4999136588703277
+   ],
+   "avg_rounds": 6.0,
+   "avg_sensings": 7.0,
+   "resense_per_job": 0.0,
+   "seconds": 36.76908302307129
+  },
+  {
+   "set": "B",
+   "hardware": "base",
+   "strategy": "weighted",
+   "machine": "biased",
+   "fault": "none",
+   "fault_corner": null,
+   "n": 300,
+   "success": 25,
+   "false_lower": 10,
+   "held": 265,
+   "success_ci95": [
+    0.05708047735632001,
+    0.12012238097512637
+   ],
+   "avg_rounds": 5.903333333333333,
+   "avg_sensings": 7.713333333333333,
+   "resense_per_job": 0.87,
+   "seconds": 38.32790684700012
+  }
+ ]
+}

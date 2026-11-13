@@ -14,7 +14,7 @@ if not exist "desktop_host.py" (
   pause
   exit /b 1
 )
-for %%F in (malign_engine.py kit_device.py matrix5_data.json) do if not exist "%%F" (
+for %%F in (malign_engine.py kit_device.py matrix5_data.json main_controller.py reachstacker_sim.py sim_site.py sim_bridge.py sim_job.py) do if not exist "%%F" (
   echo ERROR: %%F missing. Extract the whole ZIP first.
   pause
   exit /b 1
@@ -75,8 +75,10 @@ if errorlevel 1 goto :failed
 if errorlevel 1 goto :failed
 "%PYBIN%" tests\test_kit_link.py
 if errorlevel 1 goto :failed
+"%PYBIN%" tests\test_main_controller.py
+if errorlevel 1 goto :failed
 echo [4/4] Building one-file GUI EXE...
-"%PYBIN%" -m PyInstaller --noconfirm --clean --onefile --windowed --name "MALIGN_Desktop" --hidden-import malign_link --hidden-import kit_device --hidden-import malign_engine --add-data "matrix5_data.json;." --add-data "MALIGN_Desktop.html;." --add-data "UNINSTALL_MALIGN.ps1;." "desktop_host.py"
+"%PYBIN%" -m PyInstaller --noconfirm --clean --onefile --windowed --name "MALIGN_Desktop" --hidden-import malign_link --hidden-import kit_device --hidden-import malign_engine --hidden-import main_controller --hidden-import reachstacker_sim --hidden-import sim_site --hidden-import sim_bridge --hidden-import sim_job --add-data "matrix5_data.json;." --add-data "MALIGN_Desktop.html;." --add-data "UNINSTALL_MALIGN.ps1;." "desktop_host.py"
 if errorlevel 1 goto :failed
 if not exist "dist\MALIGN_Desktop.exe" goto :failed
 echo.
