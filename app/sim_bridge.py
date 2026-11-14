@@ -8,6 +8,7 @@ Either way the kit itself is unchanged: it only sees commands and sends bundles.
 """
 import json
 import threading
+import time
 import urllib.parse
 import urllib.request
 
@@ -51,6 +52,44 @@ class LocalSim:
     def state(self):
         return self.site.state()
 
+    # ---- container yard (trucks, slots, obstacles) driven by the same main server
+    yard = None
+
+    def yard_start(self, p):
+        import yard_ops
+        if self.yard is not None:
+            self.yard.stop()
+            time.sleep(0.3)
+        cfg = self.link.cfg
+        ctrl = p.get('controller', 'autopilot')
+        if ctrl not in ('ai', 'autopilot'):
+            raise ValueError('controller: ai / autopilot')
+        align = {k: p[k] for k in ('hardware', 'machine', 'fault', 'strategy') if k in p}
+        self.yard = yard_ops.YardOps(site=self.site, controller=ctrl, ai_url=cfg['ai_ollama_url'],
+                                     ai_model=p.get('ai_model') or cfg['ai_model'], seed=p.get('seed'),
+                                     speed=float(p.get('speed', 1.0)), people=bool(p.get('people', True)),
+                                     debris=bool(p.get('debris', True)), align_opts=align).start()
+        return self.yard.state()
+
+    def yard_stop(self):
+        if self.yard is not None:
+            self.yard.stop()
+        return {'stopped': True}
+
+    def yard_state(self):
+        return self.yard.state() if self.yard is not None else {'running': False}
+
+    def yard_request(self, container, dest):
+        if self.yard is None or not self.yard.running:
+            raise RuntimeError('야드 운영이 시작되지 않았습니다')
+        return self.yard.request(str(container), str(dest))
+
+    def yard_speed(self, speed):
+        if self.yard is None:
+            raise RuntimeError('야드 운영이 시작되지 않았습니다')
+        self.yard.speed = max(0.25, min(8.0, float(speed)))
+        return {'speed': self.yard.speed}
+
 
 class RemoteSim:
     def __init__(self, link):
@@ -80,6 +119,10 @@ class RemoteSim:
 
     def state(self):
         return self._call('/state')
+
+    def _no_yard(self, *a, **k):
+        raise RuntimeError('야드 운영은 내장 메인 서버(server_url 비움)에서만 지원합니다')
+    yard_start = yard_stop = yard_state = yard_request = yard_speed = _no_yard
 
 
 def attach(link, M, start=True):
