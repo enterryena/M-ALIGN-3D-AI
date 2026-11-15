@@ -135,7 +135,7 @@ class ToolBox:
             cmd, resense = {'type': 'sense', 'session_id': sid}, False
         self.job['phase'] = 'sensing'
         self.site.event('sense', resense=resense)
-        msg = self.site.request_bundle(cmd)
+        msg = self.site.request_bundle(cmd, job=self.job)
         if msg is None:
             return {'error': 'kit did not answer (timeout)'}
         self.machine = self.rs.machine_sensor()
@@ -245,6 +245,8 @@ class ToolBox:
         return {'refused': reason}
 
     def call(self, name, args):
+        if self.site.job is not self.job or (self.job['outcome'] is not None and name != 'read_machine_sensor'):
+            return {'refused': 'job finished or replaced', 'finished': True}   # a stale thread must not touch a newer job
         fn = {'approach_container': self.approach_container, 'kit_sense': self.kit_sense,
               'read_machine_sensor': self.read_machine_sensor, 'suggest_correction': self.suggest_correction,
               'move_spreader': self.move_spreader, 'lower_and_lock': self.lower_and_lock,

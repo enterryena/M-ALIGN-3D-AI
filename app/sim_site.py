@@ -67,7 +67,8 @@ class SimSite:
                         'frames': [{'t': time.time(), 'errors': rs.corner_errors(), 'label': '접근 시작'}],
                         'log': [], 'outcome': None, 'last_decision': None, 'machine_last': None,
                         'resense_pending': False, 'started_at': _now(), 'worst0': rs.worst_mm(),
-                        'plan_hook': plan_hook, 'plan': None}
+                        'plan_hook': plan_hook, 'plan': None,
+                        'bundle_event': threading.Event(), 'bundle': None}
             if controller == 'rule':
                 self._log('기계: 컨테이너 대략 위치(원거리 정보)로 접근 시작')
                 self.event('approach_start')
@@ -112,8 +113,8 @@ class SimSite:
             if not j or msg.get('session_id') != j['job_id']:
                 return
             if msg.get('kind') == 'round' and j['settings']['controller'] != 'rule':
-                self.bundle = msg
-                self.bundle_event.set()
+                j['bundle'] = msg            # per job: a stale tool thread of an older job can never take it
+                j['bundle_event'].set()
             elif msg.get('kind') == 'round':
                 self._on_bundle(j, msg)
             elif msg.get('event') in ('job_aborted', 'fault') and j['phase'] not in ('done', 'held', 'failed'):
@@ -193,15 +194,18 @@ class SimSite:
             self._frame(label)
 
     # ---- used by ai_driver.ToolBox (autopilot / AI)
-    def request_bundle(self, cmd, timeout=15.0):
-        self.bundle_event.clear()
-        self.bundle = None
+    def request_bundle(self, cmd, timeout=15.0, job=None):
+        j = job or self.job
+        if j is not self.job or j['outcome'] is not None:
+            return None                  # job finished / replaced: send nothing
+        j['bundle_event'].clear()
+        j['bundle'] = None
         tag = {'start_job': '작업 시작(start_job)', 'sense': '센싱(sense)', 'resense': '재측정(resense)'}[cmd['type']]
         self.log('서버', '서버 → 키트: ' + tag)
         self.send(cmd, 0)
-        if not self.bundle_event.wait(timeout):
+        if not j['bundle_event'].wait(timeout) or self.job is not j:
             return None
-        msg = self.bundle
+        msg = j['bundle']
         self.log('키트', '키트 → 서버: 측정 #%s (신뢰도 %s)' % (msg.get('measurement_id'),
                                                        '/'.join(u['quality']['grade'] for u in msg['units'])))
         return msg
