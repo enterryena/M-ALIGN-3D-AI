@@ -79,14 +79,26 @@ def main():
     yard_ops.YardOps._align_site = recorded
     import case_memory
     y = yard_ops.YardOps(site=site, controller='autopilot', seed=31, speed=10, vary=True,
-                         memory=case_memory.CaseMemory(tmp / 'Link' / 'yard_cases.sqlite3')).start()
+                         memory=case_memory.CaseMemory(tmp / 'Link' / 'yard_cases.sqlite3'),
+                         kit_state=lambda: rt.link.status()['state']).start()
     sim.yard = y
     t0 = time.time()
     while len(jobs) < N and time.time() - t0 < 600:
         time.sleep(0.5)
     y.stop()
-    time.sleep(0.5)
     yard_ops.YardOps._align_site = orig
+    # a job cut off by stopping the yard is not a finished alignment
+    cut = [j for j in jobs if j['outcome'] == 'aborted']
+    jobs = [j for j in jobs if j['outcome'] != 'aborted']
+
+    def kit_idle(timeout=20):
+        end = time.time() + timeout
+        while time.time() < end:
+            if rt.link.status()['state'] == 'IDLE':
+                return True
+            time.sleep(0.1)
+        return False
+    kit_idle()
 
     # outbox rows per session
     import sqlite3
@@ -97,7 +109,7 @@ def main():
     for sid, kind, payload in rows:
         by_sid.setdefault(sid, []).append((kind, json.loads(payload)))
 
-    report = {'jobs': [], 'yard_stats': y.stats, 'sim_time_s': round(y.t), 'checks': {}}
+    report = {'jobs': [], 'cut_by_stop': len(cut), 'yard_stats': y.stats, 'sim_time_s': round(y.t), 'checks': {}}
     fails = []
     for jb in jobs:
         sid = jb['job_id']
@@ -140,6 +152,7 @@ def main():
     for jb in jobs:
         params = {k: jb['settings'][k] for k in ('hardware', 'machine', 'fault', 'strategy')}   # incl. varied site conditions
         plan = jb['plan']          # the case memory's choice is part of the job: replay it
+        kit_idle()
         site.start(seed=jb['seed'], controller='autopilot', machine_id='REPLAY',
                    plan_hook=(lambda d, plan=plan: plan) if plan else None, **params)
         wait_done(site)

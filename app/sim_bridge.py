@@ -75,7 +75,8 @@ class LocalSim:
                                      ai_model=p.get('ai_model') or cfg['ai_model'], seed=p.get('seed'),
                                      speed=float(p.get('speed', 1.0)), people=bool(p.get('people', True)),
                                      debris=bool(p.get('debris', True)), align_opts=align,
-                                     memory=self.memory, vary=bool(p.get('vary', False))).start()
+                                     memory=self.memory, vary=bool(p.get('vary', False)),
+                                     kit_state=lambda: self.link.status()['state']).start()
         return self.yard.state()
 
     def yard_stop(self):

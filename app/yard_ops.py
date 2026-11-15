@@ -52,7 +52,7 @@ def _truck_shape(x, z, yaw):
 class YardOps:
     def __init__(self, site=None, controller='autopilot', ai_url='http://127.0.0.1:11434', ai_model='qwen2.5:7b',
                  seed=None, speed=1.0, people=True, debris=True, align_opts=None, aligner=None,
-                 initial=7, dt=0.1, chat=None, memory=None, vary=False):
+                 initial=7, dt=0.1, chat=None, memory=None, vary=False, kit_state=None):
         self.site = site
         self.controller = controller
         self.ai_url, self.ai_model = ai_url, ai_model
@@ -66,6 +66,7 @@ class YardOps:
         self.chat = chat or self._ollama
         self.memory = memory
         self.vary = vary
+        self.kit_state = kit_state      # callable -> kit link state; a new job waits for IDLE (stop of the last one applied)
         self.plan_info = None
         self.lock = threading.RLock()
         self.cond = threading.Condition(self.lock)
@@ -1220,6 +1221,10 @@ horns, detour. Fixed objects (cone, pallet): detour if detour_extra_m is short (
             params.update(task['cond'])
         if ctrl == 'ai':
             params['ai_model'] = self.ai_model
+        if self.kit_state is not None:
+            end = time.time() + 10
+            while time.time() < end and self.kit_state() != 'IDLE':
+                time.sleep(0.05)
         self.log('서버', 'M-ALIGN 키트 정렬 시작 (%s%s)' % (cid_of(task), ', %d회차' % (attempt + 1) if attempt else ''))
         try:
             site.start(**params)
