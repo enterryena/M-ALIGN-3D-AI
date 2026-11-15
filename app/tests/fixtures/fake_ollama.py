@@ -96,6 +96,8 @@ def yard_policy(msgs, task_mode):
     if info['kind'] == 'truck':
         return tool('wait', seconds=5)
     if info['moving']:
+        if info.get('detours', 0) >= 2:
+            return tool('wait', seconds=5)
         return tool('sound_horn') if info['horns'] < 2 else tool('detour')
     extra = info.get('detour_extra_m')
     return tool('detour') if extra is not None and extra < 30 else tool('request_clear')
