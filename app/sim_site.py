@@ -46,7 +46,7 @@ class SimSite:
 
     # ---- control from the screen / API
     def start(self, hardware='target', machine='normal', fault='none', strategy='weighted', seed=None,
-              machine_id='SIM-REACHSTACKER-1', controller='rule', ai_model=None):
+              machine_id='SIM-REACHSTACKER-1', controller='rule', ai_model=None, plan_hook=None):
         if hardware not in HARDWARE or machine not in MACHINE_MODES or fault not in FAULTS or strategy not in STRATEGIES:
             raise ValueError('hardware/machine/fault/strategy 값 오류')
         if controller not in CONTROLLERS:
@@ -66,7 +66,8 @@ class SimSite:
                         'brain': ControllerBrain(self.M, strategy, True, True, self.max_rounds, K=P['K']),
                         'frames': [{'t': time.time(), 'errors': rs.corner_errors(), 'label': '접근 시작'}],
                         'log': [], 'outcome': None, 'last_decision': None, 'machine_last': None,
-                        'resense_pending': False, 'started_at': _now(), 'worst0': rs.worst_mm()}
+                        'resense_pending': False, 'started_at': _now(), 'worst0': rs.worst_mm(),
+                        'plan_hook': plan_hook, 'plan': None}
             if controller == 'rule':
                 self._log('기계: 컨테이너 대략 위치(원거리 정보)로 접근 시작')
                 self.event('approach_start')
@@ -275,6 +276,7 @@ class SimSite:
                                                        'correction', 'predicted_worst_mm', 'action', 'reason',
                                                        'corner_est_mm')} if d else None,
                     'decisions': len(j['brain'].decisions),
+                    'plan': None if not j.get('plan') else {k: j['plan'].get(k) for k in ('plan', 'ko', 'K', 'max_rounds', 'use_machine', 'similar', 'expected', 'why')},
                     'stage': j['stage'], 'locked': j['locked'],
                     'pose': {'tx_mm': j['rs'].world.tx, 'ty_mm': j['rs'].world.ty,
                              'th_deg': math.degrees(j['rs'].world.th)},

@@ -56,6 +56,7 @@ class LocalSim:
 
     # ---- container yard (trucks, slots, obstacles) driven by the same main server
     yard = None
+    memory = None
 
     def yard_start(self, p):
         import yard_ops
@@ -67,10 +68,14 @@ class LocalSim:
         if ctrl not in ('ai', 'autopilot'):
             raise ValueError('controller: ai / autopilot')
         align = {k: p[k] for k in ('hardware', 'machine', 'fault', 'strategy') if k in p}
+        import case_memory
+        if self.memory is None:     # cases persist next to the kit's outbox (survive restarts)
+            self.memory = case_memory.CaseMemory(self.link.outbox.file_path.parent / 'yard_cases.sqlite3')
         self.yard = yard_ops.YardOps(site=self.site, controller=ctrl, ai_url=cfg['ai_ollama_url'],
                                      ai_model=p.get('ai_model') or cfg['ai_model'], seed=p.get('seed'),
                                      speed=float(p.get('speed', 1.0)), people=bool(p.get('people', True)),
-                                     debris=bool(p.get('debris', True)), align_opts=align).start()
+                                     debris=bool(p.get('debris', True)), align_opts=align,
+                                     memory=self.memory, vary=bool(p.get('vary', False))).start()
         return self.yard.state()
 
     def yard_stop(self):

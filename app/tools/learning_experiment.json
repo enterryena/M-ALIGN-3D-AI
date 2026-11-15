@@ -1,0 +1,66 @@
+{
+ "jobs": 1000,
+ "seconds": 238,
+ "fixed": {
+  "early": {
+   "first_attempt": 0.758,
+   "within_3": 0.878,
+   "mean_attempts": 1.39,
+   "false_lower": 11
+  },
+  "late": {
+   "first_attempt": 0.778,
+   "within_3": 0.866,
+   "mean_attempts": 1.38,
+   "false_lower": 16
+  }
+ },
+ "memory": {
+  "early": {
+   "first_attempt": 0.782,
+   "within_3": 0.908,
+   "mean_attempts": 1.33,
+   "false_lower": 12
+  },
+  "late": {
+   "first_attempt": 0.812,
+   "within_3": 0.91,
+   "mean_attempts": 1.31,
+   "false_lower": 16
+  }
+ },
+ "plans_used": {
+  "STD": 740,
+  "SOFT": 234,
+  "KIT": 115,
+  "KIT_SOFT": 232
+ },
+ "memory_summary": {
+  "cases": 1321,
+  "success": 909,
+  "recent_rate": 0.74,
+  "false_lower": 28,
+  "by_plan": {
+   "STD": {
+    "n": 740,
+    "ok": 531,
+    "false_lower": 10
+   },
+   "SOFT": {
+    "n": 234,
+    "ok": 119,
+    "false_lower": 6
+   },
+   "KIT": {
+    "n": 115,
+    "ok": 70,
+    "false_lower": 4
+   },
+   "KIT_SOFT": {
+    "n": 232,
+    "ok": 189,
+    "false_lower": 8
+   }
+  }
+ }
+}

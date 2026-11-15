@@ -25,6 +25,7 @@ import time
 import urllib.error
 import urllib.request
 
+import case_memory
 import yard_world as Y
 
 CAPACITY = len(Y.SLOTS)
@@ -51,7 +52,7 @@ def _truck_shape(x, z, yaw):
 class YardOps:
     def __init__(self, site=None, controller='autopilot', ai_url='http://127.0.0.1:11434', ai_model='qwen2.5:7b',
                  seed=None, speed=1.0, people=True, debris=True, align_opts=None, aligner=None,
-                 initial=7, dt=0.1, chat=None):
+                 initial=7, dt=0.1, chat=None, memory=None, vary=False):
         self.site = site
         self.controller = controller
         self.ai_url, self.ai_model = ai_url, ai_model
@@ -63,13 +64,17 @@ class YardOps:
         self.aligner = aligner
         self.dt = dt
         self.chat = chat or self._ollama
+        self.memory = memory
+        self.vary = vary
+        self.plan_info = None
         self.lock = threading.RLock()
         self.cond = threading.Condition(self.lock)
         self.running = False
         self.t = 0.0
         self.log_lines = []
         self.stats = {'inbound': 0, 'outbound': 0, 'user': 0, 'horns': 0, 'detours': 0, 'clears': 0, 'waits': 0,
-                      'contacts': 0, 'align_fail': 0, 'guard_refusals': 0, 'ai_decisions': 0, 'rule_decisions': 0}
+                      'contacts': 0, 'align_fail': 0, 'guard_refusals': 0, 'ai_decisions': 0, 'rule_decisions': 0,
+                      'retries': 0, 'retry_success': 0, 'cases_added': 0}
         self.ai_fail = 0
         self.n_cont = 0
         self.containers = {}
@@ -864,6 +869,7 @@ horns, detour. Fixed objects (cone, pallet): detour if detour_extra_m is short (
     def _do_task(self, task):
         cid = task['container']
         sx, sz, syaw, sy = self._pose_of(task['source'])
+        task['src'] = (sx, sz, syaw, sy)
         src_ex = (cid, task['source']) if task['kind'] == 'unload' else (cid,)
         # 1 drive to the container (line-up point), roll in
         self.task['step'] = '컨테이너로 이동'
@@ -1128,36 +1134,93 @@ horns, detour. Fixed objects (cone, pallet): detour if detour_extra_m is short (
 
     # ------------------------------------------------------------------ kit alignment
     def _align(self, task):
+        """Kit alignment with retries. Each attempt: the case memory picks the plan from similar past cases;
+        after a failure the reason narrows the next plan (and may call for a re-approach); every attempt is stored."""
         with self.lock:
             self.st['mode'] = 'aligning'
+        tried, reason = [], None
         try:
             for attempt in range(3):
-                if self.aligner is not None:
+                if attempt and reason in case_memory.REAPPROACH:
+                    self._reapproach(task, reason)
+                    with self.lock:
+                        self.st['mode'] = 'aligning'
+                if self.aligner is not None:      # tests: stub alignment (bool, or dict with ok/reason/plan)
                     ok = self.aligner(self, task)
+                    res = dict(ok) if isinstance(ok, dict) else {'ok': ok, 'reason': None if ok else 'not_converged'}
+                    res.setdefault('plan', None)
                 else:
-                    ok = self._align_site(task, attempt)
-                if ok:
+                    res = self._align_site(task, attempt, reason, tried)
+                if res['plan']:
+                    tried.append(res['plan'])
+                if res['ok']:
+                    if attempt:
+                        self.stats['retry_success'] += 1
+                        self.log('서버', '재시도 %d회차 성공 (%s)' % (attempt + 1, res['plan'] or '-'))
                     return True
+                reason = res['reason']
                 self.stats['align_fail'] += 1
                 if not self.running:
                     return False
-                self.log('서버', '정렬·결합 실패 → 다시 시도 (%d/3)' % (attempt + 2))
+                if attempt < 2:
+                    self.stats['retries'] += 1
+                    self.log('서버', '정렬·결합 실패 (원인: %s) → 재시도 %d/3%s' % (
+                        case_memory.REASON_KO.get(reason, reason), attempt + 2,
+                        ' · 재접근' if reason in case_memory.REAPPROACH else ''))
             return False
         finally:
             with self.lock:
                 self.st['mode'] = 'idle'
                 self.align_state = None
 
-    def _align_site(self, task, attempt):
+    def _reapproach(self, task, reason):
+        """Back out to the line-up point and roll in again: a new approach gives the kit a new start."""
+        sx, sz, syaw, sy = task['src']
+        self.log('기계', '재접근: 스프레더 상승 → 후진 %.0f m → 다시 진입 (%s)' % (Y.PRE, case_memory.REASON_KO.get(reason, reason)))
+        with self.lock:
+            self.st['h_target'] = TRAVEL_H
+        self.wait_until(lambda: abs(self.st['h'] - TRAVEL_H) < 0.005, 60)
+        src_ex = (task['container'], task['source'])
+        self._creep(Y.predock_pose(sx, sz, syaw), -1, ignore=src_ex)
+        self._creep(Y.dock_pose(sx, sz, syaw), 1, ignore=src_ex)
+        with self.lock:
+            self.st['h_target'] = sy + Y.H + KIT_GAP
+        self.wait_until(lambda: abs(self.st['h'] - self.st['h_target']) < 0.005, 60)
+
+    def _align_site(self, task, attempt, reason=None, tried=()):
         site = self.site
         if site is None:
-            return True
+            return {'ok': True, 'reason': None, 'plan': None}
         ctrl = 'ai' if (self.controller == 'ai' and self.ai_fail < 3) else 'autopilot'
+        hardware = self.align_opts.get('hardware', 'target')
+        box = {}
+
+        def plan_hook(first_decision):
+            f = case_memory.features_from(first_decision, hardware, attempt, reason)
+            box['features'] = f
+            if self.memory is None:
+                return None
+            p = self.memory.choose(f, tried, reason)
+            box['plan'] = p['plan']
+            with self.lock:
+                self.plan_info = dict(p, task=task['id'], container=task.get('container'), attempt=attempt + 1, features=f)
+            return p
         params = dict(self.align_opts, controller=ctrl, seed=self.rnd.randrange(1, 1 << 31),
-                      machine_id='YARD-RS-1')
+                      machine_id='YARD-RS-1', plan_hook=plan_hook)
+        if self.vary:
+            # site conditions change job to job (weather, sensor health); they persist through the retries of a task
+            if 'cond' not in task:
+                r = self.rnd.random()
+                machine = 'normal' if r < .5 else 'unstable' if r < .75 else 'biased' if r < .9 else 'none'
+                r = self.rnd.random()
+                task['cond'] = {'machine': machine, 'fault': 'none' if r < .85 else 'drift' if r < .95 else 'head_dead'}
+                self.log('현장', '현장 조건(시뮬 진실, 서버는 모름): 기존 센서 %s · 키트 %s' % (
+                    {'normal': '정상', 'unstable': '불안정(악천후)', 'biased': '편향(고장)', 'none': '꺼짐'}[machine],
+                    {'none': '정상', 'drift': '코너2 교정 틀어짐', 'head_dead': '코너2 헤드 고장'}[task['cond']['fault']]))
+            params.update(task['cond'])
         if ctrl == 'ai':
             params['ai_model'] = self.ai_model
-        self.log('서버', 'M-ALIGN 키트 정렬 시작 (%s)' % cid_of(task))
+        self.log('서버', 'M-ALIGN 키트 정렬 시작 (%s%s)' % (cid_of(task), ', %d회차' % (attempt + 1) if attempt else ''))
         try:
             site.start(**params)
         except RuntimeError:
@@ -1165,6 +1228,7 @@ horns, detour. Fixed objects (cone, pallet): detour if detour_extra_m is short (
             time.sleep(0.2)
             site.start(**params)
         last_log = 0
+        outcome = None
         while self.running:
             s = site.state()
             with self.lock:
@@ -1177,10 +1241,23 @@ horns, detour. Fixed objects (cone, pallet): detour if detour_extra_m is short (
             if not s.get('active'):
                 if s.get('outcome') == 'aborted' and ctrl == 'ai':
                     self.ai_fail = 3
-                return s.get('outcome') == 'success'
+                outcome = s.get('outcome')
+                break
             time.sleep(0.15)
-        site.abort('yard_stopped')
-        return False
+        else:
+            site.abort('yard_stopped')
+            return {'ok': False, 'reason': 'aborted', 'plan': box.get('plan')}
+        j = site.job
+        decisions = j['brain'].decisions if j else []
+        why = case_memory.failure_reason(outcome, decisions, box.get('features'))
+        if self.memory is not None and box.get('features') and outcome != 'aborted':
+            self.memory.add(box['features'], box.get('plan') or case_memory.DEFAULT, outcome, job_id=j['job_id'],
+                            task=task['id'], rounds=j['brain'].rounds,
+                            moves=sum(1 for e in j['events'] if e['kind'] == 'move'), reason=why,
+                            sim_truth={'machine': j['settings']['machine'], 'fault': j['settings']['fault'],
+                                       'start_worst_mm': round(j['worst0'], 2), 'final_worst_mm': round(j['rs'].worst_mm(), 2)})
+            self.stats['cases_added'] += 1
+        return {'ok': outcome == 'success', 'reason': why, 'plan': box.get('plan')}
 
     # ------------------------------------------------------------------ state for the 3D view
     def state(self):
@@ -1222,6 +1299,9 @@ horns, detour. Fixed objects (cone, pallet): detour if detour_extra_m is short (
                 'occupied': sum(1 for s in self.slots.values() if s['holder']),
                 'capacity': CAPACITY,
                 'align': al,
+                'memory': self.memory.summary() if self.memory is not None else None,
+                'plan': None if not self.plan_info else {k: self.plan_info.get(k) for k in (
+                    'plan', 'ko', 'why', 'similar', 'expected', 'scores', 'task', 'container', 'attempt', 'features')},
                 'log': self.log_lines[-80:],
             }
 

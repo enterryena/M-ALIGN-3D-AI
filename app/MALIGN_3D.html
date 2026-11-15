@@ -48,6 +48,7 @@ button.sec{background:#1d2c38;border:1px solid var(--line);font-weight:500;font-
  <div><label for="machine">기존 센서</label><select id="machine"><option value="normal">정상</option><option value="unstable">불안정</option><option value="none">없음</option><option value="biased">편향(고장)</option></select></div></div>
  <label class="chk"><input type="checkbox" id="people" checked> 사람·서비스 차량 (움직이는 장애물)</label>
  <label class="chk"><input type="checkbox" id="debris" checked> 라바콘·팔레트 (고정 장애물)</label>
+ <label class="chk"><input type="checkbox" id="vary" checked> 현장 조건 변화 (기존 센서 상태·키트 고장)</label>
  <div class="row"><div><label for="speed">속도</label><select id="speed"><option value="1">1×</option><option value="2" selected>2×</option><option value="4">4×</option><option value="8">8×</option></select></div>
  <div><label for="seed">시드</label><input id="seed" placeholder="무작위"></div></div>
  <div class="row"><button id="start">▶ 야드 시작</button><button id="stop" class="sec" style="margin-top:8px">■ 정지</button></div>
@@ -64,6 +65,9 @@ button.sec{background:#1d2c38;border:1px solid var(--line);font-weight:500;font-
  <div>사용자 지시<b id="k_user">0</b></div><div>경적<b id="k_horn">0</b></div><div>우회/치움<b id="k_det">0</b></div></div>
  <div id="dec" style="font-size:11px;color:var(--muted);margin-top:6px">판단 없음</div>
  <div id="req"></div>
+ <h2 style="margin-top:8px">사례 누적 · 유도</h2>
+ <div class="kv"><div>누적 사례<b id="m_n">0</b></div><div>최근 50 성공<b id="m_rate">-</b></div><div>재시도 성공<b id="m_retry">0/0</b></div></div>
+ <div id="m_plan" style="font-size:11px;color:var(--muted);margin-top:6px">계획 선택 없음</div>
  <div id="alignbox" style="display:none"><h2 style="margin-top:8px">M-ALIGN 정렬 (실제 코너 오차)</h2><div class="cgrid" id="cgrid"></div></div>
 </div>
 <div class="panel" id="log"><h2>AI · 서버 · 현장 기록</h2><div id="logbody"></div></div>
@@ -368,6 +372,11 @@ function sync(st){
   else $('alert').style.display = 'none';
   const d = st.decision; $('dec').innerHTML = d ? `최근 장애물 판단: <b style="color:var(--ink)">${esc(d.object)}</b> → ${esc({horn: '경적', wait: '대기', detour: '우회', clear: '작업반 호출', stop: '작업 중단'}[d.action] || d.action)} <span>(${esc(d.why || '')})</span>` : '장애물 판단 없음';
   $('req').innerHTML = st.requests.length ? '사용자 우선 지시: ' + st.requests.map(r => `<b style="color:#46c7ff">${esc(r.id)}</b> ${esc(r.container)}→${esc(r.dest)}`).join(', ') : '';
+  // case memory / plan
+  const mem = st.memory, pl = st.plan;
+  $('m_n').textContent = mem ? mem.cases : '-'; $('m_rate').textContent = mem && mem.recent_rate != null ? Math.round(mem.recent_rate * 100) + '%' : '-';
+  $('m_retry').textContent = k.retry_success + '/' + k.retries;
+  $('m_plan').innerHTML = pl ? `${esc(pl.container || '')} ${pl.attempt}회차 계획: <b style="color:var(--ink)">${esc(pl.plan)}</b> ${esc(pl.ko || '')}<br>${esc(pl.why || '')}` : '계획 선택 없음';
   // alignment corners
   const A = st.align;
   if (A && A.truth_corner_errors_mm){ $('alignbox').style.display = 'block';
@@ -444,7 +453,7 @@ setInterval(poll, 150); poll();
 
 $('start').addEventListener('click', async () => {
   const body = {controller: $('controller').value, ai_model: $('model').value.trim(), hardware: $('hardware').value, machine: $('machine').value,
-    people: $('people').checked, debris: $('debris').checked, speed: Number($('speed').value)};
+    people: $('people').checked, debris: $('debris').checked, vary: $('vary').checked, speed: Number($('speed').value)};
   if ($('seed').value.trim()) body.seed = Number($('seed').value);
   try { for (const id in cont){ scene.remove(cont[id].g); } for (const k of Object.keys(cont)) delete cont[k];
     for (const id in debrisObjs){ scene.remove(debrisObjs[id].g); delete debrisObjs[id]; }

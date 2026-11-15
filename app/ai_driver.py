@@ -140,6 +140,17 @@ class ToolBox:
             return {'error': 'kit did not answer (timeout)'}
         self.machine = self.rs.machine_sensor()
         self.last_decision = self.site.advise(self.advisor, msg, self.machine, resense)
+        hook = self.job.get('plan_hook')
+        if hook is not None and cmd['type'] == 'start_job':
+            # case memory: after the first sensing the server picks how to run the loop (gain, rounds, machine
+            # sensor use) from similar past cases; the same bundle is re-decided with that plan.
+            plan = hook(self.last_decision)
+            if plan:
+                self.job['plan'] = plan
+                self.advisor = ControllerBrain(self.site.M, 'weighted', plan['use_machine'], True,
+                                               max_rounds=plan['max_rounds'], K=plan['K'])
+                self.last_decision = self.site.advise(self.advisor, msg, self.machine, resense)
+                self.site.log('서버', '사례 기반 계획: %s — %s' % (plan['plan'], plan.get('why', '')))
         self.last = msg
         self.moves_since_sense = 0
         self.job['phase'] = 'ready'

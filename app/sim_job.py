@@ -24,7 +24,10 @@ def kit_units(M, readings):
 
 
 def run_job(M, P, world_rnd, aux_rnd, strategy='weighted', machine_mode='none', fault='none',
-            max_rounds=6, interlock=True, use_machine=True, trace=False, fault_corner=1, brain_kw=None):
+            max_rounds=6, interlock=True, use_machine=True, trace=False, fault_corner=1, brain_kw=None,
+            plan_hook=None):
+    """plan_hook(first_decision) -> plan dict (K, use_machine, max_rounds) or None: after the kit's first
+    sensing the server may pick how to run the loop (case memory); the same bundle is then re-decided."""
     rs = VirtualReachStacker(M, P, world_rnd, aux_rnd, machine_mode, fault, fault_corner)
     rs.approach()
     w0 = rs.worst_mm()
@@ -37,7 +40,14 @@ def run_job(M, P, world_rnd, aux_rnd, strategy='weighted', machine_mode='none', 
     outcome = None
     while outcome is None:
         units = kit_units(M, rs.kit_readings())
-        d = brain.decide(units, rs.machine_sensor(), resense=resense)
+        machine = rs.machine_sensor()
+        d = brain.decide(units, machine, resense=resense)
+        if plan_hook is not None and sensings == 0:
+            plan = plan_hook(d)
+            if plan:
+                brain = ControllerBrain(M, strategy, plan['use_machine'], interlock, plan['max_rounds'], K=plan['K'],
+                                        estimator=P['estimator'])
+                d = brain.decide(units, machine, resense=resense)
         sensings += 1
         if d['action'] == 'resense':
             resense = True

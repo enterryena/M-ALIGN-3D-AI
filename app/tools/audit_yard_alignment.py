@@ -43,6 +43,7 @@ def snapshot(site):
     j = site.job
     brain = j['brain']
     return {'job_id': j['job_id'], 'seed': j['seed'], 'settings': dict(j['settings']), 'outcome': j['outcome'],
+            'plan': j.get('plan'),
             'truth_worst_mm': j['rs'].worst_mm(), 'worst0_mm': j['worst0'],
             'moves': [(e['x_mm'], e['y_mm'], e['theta_deg']) for e in j['events'] if e['kind'] == 'move'],
             'kinds': [e['kind'] for e in j['events']],
@@ -70,13 +71,15 @@ def main():
     jobs = []
     orig = yard_ops.YardOps._align_site
 
-    def recorded(self, task, attempt):
-        ok = orig(self, task, attempt)
+    def recorded(self, task, *args, **kw):
+        ok = orig(self, task, *args, **kw)
         if site.job is not None:
             jobs.append(dict(snapshot(site), task=task['id'], container=task.get('container'), kind=task['kind']))
         return ok
     yard_ops.YardOps._align_site = recorded
-    y = yard_ops.YardOps(site=site, controller='autopilot', seed=31, speed=10).start()
+    import case_memory
+    y = yard_ops.YardOps(site=site, controller='autopilot', seed=31, speed=10, vary=True,
+                         memory=case_memory.CaseMemory(tmp / 'Link' / 'yard_cases.sqlite3')).start()
     sim.yard = y
     t0 = time.time()
     while len(jobs) < N and time.time() - t0 < 600:
@@ -117,7 +120,8 @@ def main():
         lowered = 'lower' in jb['kinds']
         locked_ok = (jb['outcome'] == 'success') == (jb['truth_worst_mm'] <= 5.0) if lowered else jb['outcome'] != 'success'
         last_pred = next((d['predicted_worst_mm'] for d in reversed(jb['decisions']) if d['predicted_worst_mm'] is not None), None)
-        rec = {'job': sid, 'task': jb['task'], 'container': jb['container'], 'kind': jb['kind'], 'seed': jb['seed'],
+        rec = {'job': sid, 'task': jb['task'], 'plan': (jb['plan'] or {}).get('plan'),
+               'site': '%s/%s' % (jb['settings']['machine'], jb['settings']['fault']), 'container': jb['container'], 'kind': jb['kind'], 'seed': jb['seed'],
                'outcome': jb['outcome'], 'start_worst_mm': round(jb['worst0_mm'], 2), 'final_worst_mm': round(jb['truth_worst_mm'], 2),
                'kit_bundles': len(bundles), 'senses': senses, 'items_per_unit': items,
                'measurement_ids_increasing': mids == sorted(mids) and len(set(mids)) == len(mids),
@@ -134,8 +138,10 @@ def main():
     # 5. replay the same seeds as stand-alone single jobs (the 3D-align / panel path)
     replay_same = 0
     for jb in jobs:
-        params = {k: jb['settings'][k] for k in ('hardware', 'machine', 'fault', 'strategy')}
-        site.start(seed=jb['seed'], controller='autopilot', machine_id='REPLAY', **params)
+        params = {k: jb['settings'][k] for k in ('hardware', 'machine', 'fault', 'strategy')}   # incl. varied site conditions
+        plan = jb['plan']          # the case memory's choice is part of the job: replay it
+        site.start(seed=jb['seed'], controller='autopilot', machine_id='REPLAY',
+                   plan_hook=(lambda d, plan=plan: plan) if plan else None, **params)
         wait_done(site)
         r = snapshot(site)
         same = (r['outcome'] == jb['outcome'] and abs(r['truth_worst_mm'] - jb['truth_worst_mm']) < 1e-9
@@ -148,8 +154,10 @@ def main():
     report['checks'] = {'jobs': len(jobs), 'pass': len(jobs) - len([f for f in fails if not f.startswith('replay')]),
                         'replay_identical': replay_same, 'lock_success': succ, 'failures': fails}
     OUT.write_text(json.dumps(report, ensure_ascii=False, indent=1), encoding='utf-8')
-    print(json.dumps(report['checks'], ensure_ascii=False))
+    report['memory'] = y.memory.summary()
+    print(json.dumps(report['checks'], ensure_ascii=False), 'memory', json.dumps(report['memory']))
     for j in report['jobs']:
+        print('%-8s %-16s ' % (j['plan'], j['site']), end='')
         print('%-26s %-6s %-4s seed=%-11s %s start %5.1f mm -> final %4.2f mm | bundles %d/%d items %s moves %d '
               'advisor=%s order=%s lower@%s' % (j['job'], j['task'], j['kind'], j['seed'], j['outcome'], j['start_worst_mm'],
                                                j['final_worst_mm'], j['kit_bundles'], j['senses'], j['items_per_unit'], j['moves'],
