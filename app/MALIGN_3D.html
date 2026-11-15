@@ -9,7 +9,7 @@
 *{box-sizing:border-box}html,body{margin:0;height:100%;overflow:hidden;background:#b7c9d5;font-family:"Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif;color:var(--ink)}
 canvas#scene{display:block;width:100vw;height:100vh}
 .panel{position:absolute;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;backdrop-filter:blur(10px);box-shadow:0 5px 24px rgba(0,0,0,.15)}
-#ctrl{left:12px;top:12px;width:262px;max-height:calc(100vh - 24px);overflow:auto}#ctrl h1{font-size:15px;margin:0 0 6px}
+#ctrl{left:12px;top:12px;width:262px;max-height:calc(100vh - 24px);overflow-y:scroll}#ctrl h1{font-size:15px;margin:0 0 6px}
 #ctrl label{display:block;font-size:11px;color:var(--muted);margin:6px 0 3px}
 #ctrl select,#ctrl input:not([type=checkbox]){width:100%;background:#0d1720;color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:5px 7px;font-size:12px}
 .chk{display:flex!important;gap:6px;align-items:center;color:var(--ink)!important;font-size:12px!important}
@@ -28,7 +28,9 @@ button.sec{background:#1d2c38;border:1px solid var(--line);font-weight:500;font-
 .c b{display:block;font-size:15px}
 #req{font-size:11px;color:var(--muted);margin-top:6px}
 #log{right:12px;bottom:12px;width:430px;max-height:38vh;display:flex;flex-direction:column}
-#logbody{overflow:auto;font-size:12px;line-height:1.45}
+#logbody{overflow-y:scroll;font-size:12px;line-height:1.45}
+*{scrollbar-width:auto;scrollbar-color:#7fa3c4 rgba(255,255,255,.08)}
+::-webkit-scrollbar{width:11px}::-webkit-scrollbar-track{background:rgba(255,255,255,.06);border-radius:6px}::-webkit-scrollbar-thumb{background:#7fa3c4;border-radius:6px}
 .l{padding:1px 0;border-bottom:1px dashed rgba(255,255,255,.06)}.who{display:inline-block;min-width:50px;font-weight:700;margin-right:6px}.tt{color:var(--muted);font-size:10px;margin-right:4px}
 .w-AI{color:var(--ai)}.w-안전장치{color:var(--bad)}.w-도구{color:#c9a6ff}.w-키트{color:#5fe1d0}.w-서버{color:var(--warn)}.w-기계{color:#ffd27a}.w-트럭{color:#9fd3ff}.w-사용자{color:#46c7ff}.w-현장{color:#b6e08a}
 #help{left:12px;bottom:12px;font-size:11px;color:var(--muted);max-width:330px}
