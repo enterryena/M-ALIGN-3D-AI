@@ -81,11 +81,17 @@ def main():
             pg = b.new_page(viewport={'width': 1500, 'height': 900})
             pg.on('pageerror', lambda e: errors.append(str(e)))
             pg.goto(info['url'] + '3d')
-            time.sleep(2)
+            pg.wait_for_function('window.MALIGN_YARD !== undefined', timeout=60000)
+            time.sleep(1)
             pg.select_option('#controller', 'autopilot')
             pg.select_option('#speed', '8')
             pg.fill('#seed', '12')
             pg.click('#start')
+            t1 = time.time()
+            while time.time() - t1 < 30 and not call(info['url'] + 'api/yard/state', None, H).get('running'):
+                time.sleep(0.5)
+            if not call(info['url'] + 'api/yard/state', None, H).get('running'):
+                raise AssertionError('start button did not start the yard: ' + pg.inner_text('#sub'))
         else:
             call(info['url'] + 'api/yard/start', {'controller': 'autopilot', 'speed': 8, 'seed': 12}, H)
         end = time.time() + a.timeout
