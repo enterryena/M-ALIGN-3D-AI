@@ -47,7 +47,8 @@ def main():
     ap.add_argument('--exe')
     ap.add_argument('--shot')
     ap.add_argument('--tasks', type=int, default=2)
-    ap.add_argument('--timeout', type=float, default=300)
+    ap.add_argument('--timeout', type=float, default=400)
+    ap.add_argument('--stacks', help='write periodic thread dumps of the host here (hang diagnosis)')
     a = ap.parse_args()
     tmp = pathlib.Path(tempfile.mkdtemp())
     (tmp / 'Link').mkdir()
@@ -55,7 +56,8 @@ def main():
     info_file = tmp / 'info.json'
     cmd = ([a.exe] if a.exe else [sys.executable, str(ROOT / 'desktop_host.py')]) + \
         ['--headless', '--data-dir', str(tmp), '--info-file', str(info_file)]
-    proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    env = dict(os.environ, MALIGN_DEBUG_STACKS=str(pathlib.Path(a.stacks or (tmp / 'stacks.txt')).resolve()))
+    proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=env)
     try:
         end = time.time() + 120
         while not info_file.exists() and time.time() < end:
@@ -73,7 +75,9 @@ def main():
         if a.shot:
             from playwright.sync_api import sync_playwright
             pw = sync_playwright().start()
-            b = pw.chromium.launch(args=['--use-angle=swiftshader', '--enable-unsafe-swiftshader'])
+            exe = os.environ.get('MALIGN_CHROMIUM')
+            b = pw.chromium.launch(executable_path=exe if exe and os.path.exists(exe) else None,
+                                   args=['--no-sandbox', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'])
             pg = b.new_page(viewport={'width': 1500, 'height': 900})
             pg.on('pageerror', lambda e: errors.append(str(e)))
             pg.goto(info['url'] + '3d')
@@ -87,12 +91,21 @@ def main():
         end = time.time() + a.timeout
         st = None
         shot_done = False
+        last_print = 0
         while time.time() < end:
+            t_req = time.time()
             st = call(info['url'] + 'api/yard/state', None, H)
             s = st['stats']
+            if time.time() - last_print > 15:
+                last_print = time.time()
+                tk = st.get('task') or {}
+                print('  t=%6.1f  %-9s %-14s in %d out %d  (state %.2fs)' % (st['t'], st['stacker']['mode'], tk.get('step', '-'),
+                      s['inbound'], s['outbound'], time.time() - t_req), flush=True)
             if a.shot and not shot_done and st['stacker']['mode'] == 'driving' and st.get('path'):
                 pg.screenshot(path=a.shot)
                 shot_done = True
+                b.close()       # free the CPU (software WebGL) for the rest of the run
+                pw.stop()
             if s['inbound'] + s['outbound'] >= a.tasks and (shot_done or not a.shot):
                 break
             time.sleep(1)
@@ -101,8 +114,8 @@ def main():
         if a.shot:
             if not shot_done:
                 pg.screenshot(path=a.shot)
-            b.close()
-            pw.stop()
+                b.close()
+                pw.stop()
             assert not errors, errors
         assert s['inbound'] + s['outbound'] >= a.tasks, 'yard made no progress'
         assert s['contacts'] == 0, 'contact with a person/vehicle'

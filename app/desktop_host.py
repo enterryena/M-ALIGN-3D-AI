@@ -433,6 +433,10 @@ def start():
     url = f'http://127.0.0.1:{port}/'
     th = threading.Thread(target=server.serve_forever, daemon=True)
     th.start()
+    if os.environ.get('MALIGN_DEBUG_STACKS'):     # test-only: periodic thread dumps to find hangs
+        import faulthandler
+        _stack_file = open(os.environ['MALIGN_DEBUG_STACKS'], 'w', encoding='utf-8')
+        faulthandler.dump_traceback_later(float(os.environ.get('MALIGN_DEBUG_STACKS_S', '20')), repeat=True, file=_stack_file)
     if args.headless:
         info = json.dumps({'url': url, 'token': token, 'database': str(bank.file_path),
                            'link_config': str(link_cfg_path), 'kit_id': link.kit_id})
