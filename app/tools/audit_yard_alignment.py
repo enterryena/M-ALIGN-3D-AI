@@ -162,6 +162,12 @@ def main():
         replay_same += same
         if not same:
             fails.append('replay:' + jb['job_id'])
+            report.setdefault('replay_diff', []).append({
+                'job': jb['job_id'], 'yard': [jb['outcome'], round(jb['truth_worst_mm'], 3), len(jb['moves'])],
+                'replay': [r['outcome'], round(r['truth_worst_mm'], 3), len(r['moves'])],
+                'first_moves': [jb['moves'][:2], r['moves'][:2]], 'kit_state': rt.link.status()['state'],
+                'replay_guard': r['guard'][:3], 'replay_kinds': r['kinds'][:12]})
+            print('REPLAY DIFF', json.dumps(report['replay_diff'][-1], ensure_ascii=False))
     rt.stop()
     succ = sum(1 for j in report['jobs'] if j['outcome'] == 'success')
     report['checks'] = {'jobs': len(jobs), 'pass': len(jobs) - len([f for f in fails if not f.startswith('replay')]),
