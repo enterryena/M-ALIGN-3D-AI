@@ -5,10 +5,10 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>M-ALIGN 3D · AI 컨테이너 야드</title>
 <style>
-:root{--ink:#e9f1f6;--muted:#9fb3c2;--panel:rgba(14,24,33,.84);--line:rgba(255,255,255,.12);--ok:#3ddc97;--bad:#ff5d5d;--warn:#ffc04d;--ai:#8fb8ff}
-*{box-sizing:border-box}html,body{margin:0;height:100%;overflow:hidden;background:#9fbcd0;font-family:"Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif;color:var(--ink)}
+:root{--ink:#e9f1f6;--muted:#9fb3c2;--panel:rgba(12,22,30,.88);--line:rgba(255,255,255,.12);--ok:#3ddc97;--bad:#ff5d5d;--warn:#ffc04d;--ai:#8fb8ff}
+*{box-sizing:border-box}html,body{margin:0;height:100%;overflow:hidden;background:#b7c9d5;font-family:"Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif;color:var(--ink)}
 canvas#scene{display:block;width:100vw;height:100vh}
-.panel{position:absolute;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;backdrop-filter:blur(4px)}
+.panel{position:absolute;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;backdrop-filter:blur(10px);box-shadow:0 5px 24px rgba(0,0,0,.15)}
 #ctrl{left:12px;top:12px;width:262px;max-height:calc(100vh - 24px);overflow:auto}#ctrl h1{font-size:15px;margin:0 0 6px}
 #ctrl label{display:block;font-size:11px;color:var(--muted);margin:6px 0 3px}
 #ctrl select,#ctrl input:not([type=checkbox]){width:100%;background:#0d1720;color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:5px 7px;font-size:12px}
@@ -52,6 +52,7 @@ button.sec{background:#1d2c38;border:1px solid var(--line);font-weight:500;font-
  <div><label for="seed">시드</label><input id="seed" placeholder="무작위"></div></div>
  <div class="row"><button id="start">▶ 야드 시작</button><button id="stop" class="sec" style="margin-top:8px">■ 정지</button></div>
  <label class="chk"><input type="checkbox" id="exag" checked> 정렬 오차 30배 확대 표시</label>
+ <label class="chk"><input type="checkbox" id="shadows" checked> 그림자 표시</label>
  <div class="row"><button class="sec" data-cam="all">전체</button><button class="sec" data-cam="follow">따라가기</button><button class="sec" data-cam="align">정렬 보기</button></div>
  <div style="font-size:11px;margin-top:8px"><a href="/3d-align" target="_blank" style="color:var(--ai)">단일 정렬 화면 (코너 상세) ↗</a></div>
 </div>
@@ -84,16 +85,17 @@ const esc = s => String(s).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', 
 // ---------------- scene ----------------
 const canvas = $('scene');
 const renderer = new THREE.WebGLRenderer({canvas, antialias: true, preserveDrawingBuffer: true});
-renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1)); renderer.shadowMap.enabled = true;
-const scene = new THREE.Scene(); scene.background = new THREE.Color(0x9fbcd0); scene.fog = new THREE.Fog(0x9fbcd0, 110, 260);
+renderer.setPixelRatio(Math.min(1.5, window.devicePixelRatio || 1)); renderer.shadowMap.enabled = true;
+renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.55;
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0xb7c9d5); scene.fog = new THREE.Fog(0xb7c9d5, 120, 300);
 const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 600);
-const HOME = {pos: new THREE.Vector3(-8, 78, 78), look: new THREE.Vector3(0, 0, 0)};
+const HOME = {pos: new THREE.Vector3(-52, 52, 72), look: new THREE.Vector3(0, 0, 0)};
 camera.position.copy(HOME.pos);
 const controls = new OrbitControls(camera, canvas); controls.target.copy(HOME.look); controls.enableDamping = true; controls.maxPolarAngle = Math.PI * .48;
-scene.add(new THREE.HemisphereLight(0xdfefff, 0x4a4a40, 1.1));
-const sun = new THREE.DirectionalLight(0xffffff, 1.9); sun.position.set(30, 60, 20); sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, {left: -70, right: 70, top: 70, bottom: -70, far: 200}); scene.add(sun);
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), new THREE.MeshStandardMaterial({color: 0x6b6f72, roughness: .95}));
+scene.add(new THREE.HemisphereLight(0xe4f1ff, 0x4a4a40, 1.1));
+const sun = new THREE.DirectionalLight(0xfff1dc, 2.15); sun.position.set(35, 70, 36); sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, {left: -80, right: 80, top: 80, bottom: -80, far: 200}); scene.add(sun);
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), new THREE.MeshStandardMaterial({color: 0x757b7c, roughness: 1}));
 ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
 const std = (c, o = {}) => new THREE.MeshStandardMaterial(Object.assign({color: c, roughness: .7, metalness: .1}, o));
 function box(w, h, d, mat, x = 0, y = 0, z = 0){ const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); m.castShadow = m.receiveShadow = true; return m; }
@@ -113,14 +115,82 @@ function rectLine(cx, cz, yaw, hx, hz, color, y = .03){ const g = new THREE.Line
 
 const L = 6.058, W = 2.438, H = 2.591, CX = 2.9265, CY = 1.1295, DOCK = W / 2 + 6.3;
 const CORNERS = [[-CX, CY], [CX, CY], [CX, -CY], [-CX, -CY]];
-// yard markings
+// ---------------- terminal environment (low-poly) ----------------
+const asphalt = std(0x434b4f, {roughness: 1}), concrete = std(0x828a8c, {roughness: 1}), apronMat = std(0x8d9496, {roughness: 1});
+const lineWhite = new THREE.MeshBasicMaterial({color: 0xdce0d7}), lineYellow = new THREE.MeshBasicMaterial({color: 0xe8b954});
+const trim = std(0xb5bfc4, {metalness: .45, roughness: .52}), gantry = std(0xa5b3ad, {metalness: .35, roughness: .66});
+function placeRect(w, d, mat, x, z, y = .018){ const m = box(w, .025, d, mat, x, y, z); m.castShadow = false; scene.add(m); return m; }
+placeRect(94, 77, concrete, 0, -2.75, .008);                                    // yard pavement (stacker area)
+placeRect(240, 7, asphalt, 0, 38, .012);                                        // truck lane
+for (let x = -110; x <= 110; x += 6) placeRect(2.7, .13, lineYellow, x, 38, .045);
+for (const z of [34.6, 41.4]) placeRect(240, .1, lineWhite, 0, z, .045);
+// service road (car loop) and its centre dashes
+placeRect(84, 4.6, asphalt, 0, -32, .016); placeRect(84, 4.6, asphalt, 0, 14, .016);
+placeRect(4.6, 50.6, asphalt, -40, -9, .016); placeRect(4.6, 50.6, asphalt, 40, -9, .016);
+for (let x = -36; x <= 36; x += 6){ placeRect(2.4, .12, lineWhite, x, -32, .05); placeRect(2.4, .12, lineWhite, x, 14, .05); }
+for (let z = -28; z <= 10; z += 6){ placeRect(.12, 2.4, lineWhite, -40, z, .05); placeRect(.12, 2.4, lineWhite, 40, z, .05); }
+placeRect(54, 7.5, apronMat, -4, 4, .02); placeRect(54, 7.5, apronMat, -4, -14, .02);     // stacking aprons (rows A, B)
+placeRect(54, 6, apronMat, -4, 32, .02);                                         // truck bays apron
+// yellow guide lines along the stacker approach aisles
+for (let i = 0; i < 12; i++){ placeRect(1.6, .18, lineYellow, -30 + i * 4.8, 11.5, .055); placeRect(1.6, .18, lineYellow, -30 + i * 4.8, -21.5, .055); }
 scene.add(rectLine(0, -2.75, 0, 46, 37.25, 0xf2d24b));                      // where the stacker may drive
-const lane = new THREE.Mesh(new THREE.PlaneGeometry(200, 5), new THREE.MeshStandardMaterial({color: 0x55595c, roughness: 1}));
-lane.rotation.x = -Math.PI / 2; lane.position.set(0, .01, 38); scene.add(lane);
-const laneTxt = flatText('트럭 차로 →', 8, 2.6, '#d9dde0'); laneTxt.position.set(-38, .03, 38); scene.add(laneTxt);
-for (const [x, z] of [[-36, -26], [28, -27], [-38, 20], [30, 21]]){ const p = new THREE.Mesh(new THREE.CylinderGeometry(.22, .3, 11, 12), std(0x9aa3a8, {metalness: .5})); p.position.set(x, 5.5, z); p.castShadow = true; scene.add(p);
-  scene.add(box(1.4, .25, .5, std(0xeeeeee, {emissive: 0xfff4c8, emissiveIntensity: .5}), x, 11, z)); }
-scene.add(box(8, 3.4, 4, std(0xc9ccc5), 40, 1.7, -37.5)); { const t = label('현장 사무소', 3.4, 1.2); t.position.set(40, 4.6, -37.5); scene.add(t); }
+const laneTxt = flatText('트럭 차로 →', 8, 2.6, '#d9dde0'); laneTxt.position.set(-38, .06, 38); scene.add(laneTxt);
+// lighting masts (they are real obstacles in the planner: same positions)
+const lampGlow = new THREE.MeshBasicMaterial({color: 0xf9edc5});
+for (const [x, z] of [[-36, -26], [28, -27], [-38, 20], [30, 21]]){ const pole = new THREE.Group(); pole.position.set(x, 0, z); scene.add(pole);
+  pole.add(box(.5, .4, .5, std(0x6d7375), 0, .2, 0)); pole.add(box(.24, 13, .24, std(0x8c9797, {metalness: .7}), 0, 6.5, 0));
+  pole.add(box(2.0, .15, .33, gantry, .9, 13.1, 0)); pole.add(box(.65, .08, .28, lampGlow, 1.3, 13, 0)); }
+// site office
+{ const o = new THREE.Group(); o.position.set(40, 0, -37.5); scene.add(o);
+  o.add(box(8, 3.4, 4, std(0xc9ccc5), 0, 1.7, 0)); o.add(box(8.4, .25, 4.4, std(0x5b6870), 0, 3.5, 0));
+  for (const x of [-2.6, 0, 2.6]) o.add(box(1.4, .9, .05, std(0x52778a, {roughness: .12, metalness: .28}), x, 2.1, 2.03));
+  const t = label('현장 사무소', 3.4, 1.2); t.position.set(0, 5, 0); o.add(t); }
+
+// corrugated container (one geometry per side instead of many ribs)
+function corrugatedSide(length, height, depth, flip = 1){
+  const points = [], faces = [], y0 = .19, y1 = height - .13, n = Math.round(length / .29);
+  for (let i = 0; i <= n * 2; i++){ const x = -length / 2 + (i / (n * 2)) * length, z = flip * (depth / 2 + .016 + (i % 2 === 0 ? .033 : 0));
+    points.push(x, y0, z, x, y1, z); if (i > 0){ const a = (i - 1) * 2, b = i * 2; faces.push(a, a + 1, b, a + 1, b + 1, b); } }
+  const geom = new THREE.BufferGeometry(); geom.setAttribute('position', new THREE.Float32BufferAttribute(points, 3)); geom.setIndex(faces); geom.computeVertexNormals(); return geom;
+}
+const frameMat = std(0x273b46, {roughness: .6, metalness: .25}), castMat = std(0x263843, {metalness: .36});
+function cargoBox(col, extra = true){
+  const g = new THREE.Group(), mat = std(col, {metalness: .1, roughness: .8, side: THREE.DoubleSide});
+  const main = box(L, H, W, mat, 0, H / 2, 0); g.add(main);
+  for (const f of [1, -1]){ const side = new THREE.Mesh(corrugatedSide(L, H, W, f), mat); side.castShadow = true; g.add(side); }
+  for (const x of [-2.99, 2.99]){ g.add(box(.08, 2.56, .085, frameMat, x, 1.30, 1.225)); g.add(box(.08, 2.56, .085, frameMat, x, 1.30, -1.225)); }
+  for (const y of [.12, 2.53]){ g.add(box(5.95, .07, .08, frameMat, 0, y, 1.22)); g.add(box(5.95, .07, .08, frameMat, 0, y, -1.22)); }
+  if (extra){ for (const x of [-1.44, 1.44]) g.add(box(.026, 2.32, .04, trim, x, 1.30, -1.247));
+    for (let y = .35; y < 2.4; y += .68) g.add(box(5.96, .025, .044, frameMat, 0, y, -1.249)); }
+  return {g, main};
+}
+// distant stacks, warehouse and a working gantry crane (decor, outside the yard)
+function placeStacks(x, z, rows = 2, layers = 2, axis = 'x'){
+  const cols = [0x476c85, 0x9c5940, 0x597265, 0xb9ae8e, 0x4a7193, 0xa46d3e];
+  for (let a = 0; a < rows; a++) for (let layer = 0; layer < layers; layer++){
+    const {g} = cargoBox(cols[(a * 3 + layer + Math.abs(Math.round(x + z))) % cols.length], false);
+    g.position.set(x + (axis === 'x' ? a * 6.18 : 0), layer * 2.6, z + (axis === 'z' ? a * 2.65 : 0)); scene.add(g); } }
+placeStacks(-30, -52, 4, 3); placeStacks(14, -52, 3, 2); placeStacks(-34, 50, 5, 2); placeStacks(16, 50, 3, 3);
+placeStacks(-60, -22, 3, 2, 'z'); placeStacks(-60, 6, 4, 3, 'z');
+{ const wh = new THREE.Group(); wh.position.set(-84, 0, -6); scene.add(wh);
+  wh.add(box(24, 9, 42, std(0x71818a), 0, 4.5, 0)); wh.add(box(25, .5, 43, std(0x4c5961), 0, 9.2, 0));
+  for (let z = -16; z <= 16; z += 8) wh.add(box(.12, 6.1, 4.3, std(0x2d454f), 12.12, 3.2, z)); }
+const crane = new THREE.Group(); crane.position.set(70, 0, -10); scene.add(crane);
+for (const z of [-15, 15]){ for (const x of [-5, 5]) crane.add(box(.62, 17, .62, gantry, x, 8.5, z)); crane.add(box(11, .65, .8, gantry, 0, 16.7, z)); }
+for (const x of [-5, 5]) crane.add(box(.15, .15, 30.7, gantry, x, 17.5, 0));
+crane.add(box(13, 1.12, 32, gantry, 0, 18.1, 0));
+const trolley = new THREE.Group(); crane.add(trolley); trolley.position.set(0, 17.3, 0); trolley.add(box(3, .65, 2.6, std(0xe8b84d), 0, 0, 0));
+const craneRopes = []; for (const x of [-1.1, 1.1]) for (const z of [-.8, .8]){ const r = box(.05, 1, .05, trim); crane.add(r); craneRopes.push({r, x, z}); }
+const craneLoad = cargoBox(0x8e573d, false).g; crane.add(craneLoad);
+function updateCrane(seconds){
+  const t = seconds % 34, lerp = (a, b, k) => a + (b - a) * Math.max(0, Math.min(1, k)); let z, y, on;
+  if (t < 4){ z = -11; y = 0; on = false; } else if (t < 8){ z = -11; y = lerp(0, 9, (t - 4) / 4); on = true; }
+  else if (t < 13){ z = lerp(-11, .4, (t - 8) / 5); y = 9; on = true; } else if (t < 17){ z = .4; y = lerp(9, 0, (t - 13) / 4); on = true; }
+  else if (t < 21){ z = .4; y = 0; on = false; } else if (t < 24){ z = .4; y = lerp(0, 9, (t - 21) / 3); on = true; }
+  else if (t < 29){ z = lerp(.4, -11, (t - 24) / 5); y = 9; on = true; } else if (t < 33){ z = -11; y = lerp(9, 0, (t - 29) / 4); on = true; } else { z = -11; y = 0; on = false; }
+  craneLoad.position.set(0, y, z); trolley.position.z = z; const top = y + 2.59;
+  for (const c of craneRopes){ c.r.visible = on; if (on){ c.r.scale.y = Math.max(.1, 17.3 - top); c.r.position.set(c.x, (17.3 + top) / 2, z + c.z); } }
+}
 
 // ---------------- dynamic objects ----------------
 const pickables = [];
@@ -141,12 +211,9 @@ function makeBay(b){
 }
 const cont = {};
 function makeContainer(c){
-  const g = new THREE.Group(); const mat = std(new THREE.Color(c.color), {roughness: .8});
-  const b = box(L, H, W, mat, 0, H / 2, 0); b.userData = {cid: c.id}; g.add(b); pickables.push(b);
-  const ed = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(L, H, W)), new THREE.LineBasicMaterial({color: 0x222222})); ed.position.y = H / 2; g.add(ed);
-  for (let i = -11; i <= 11; i += 2) g.add(box(.05, H * .9, W + .01, std(new THREE.Color(c.color).multiplyScalar(.82)), i * .26, H / 2, 0));
+  const {g, main: b} = cargoBox(new THREE.Color(c.color)); b.userData = {cid: c.id}; pickables.push(b);
   const holes = [];
-  for (let k = 0; k < 4; k++){ g.add(box(.178, .118, .162, std(0x3c4247, {metalness: .5}), CORNERS[k][0], H - .059, CORNERS[k][1]));
+  for (let k = 0; k < 4; k++){ g.add(box(.178, .118, .162, castMat, CORNERS[k][0], H - .059, CORNERS[k][1]));
     const hole = new THREE.Mesh(new THREE.CircleGeometry(.05, 16), new THREE.MeshBasicMaterial({color: 0x050505})); hole.scale.set(1.25, .62, 1);
     hole.rotation.x = -Math.PI / 2; hole.position.set(CORNERS[k][0], H + .003, CORNERS[k][1]); g.add(hole); holes.push(hole); }
   const lb = label(c.id, 2.0, .9); lb.position.set(0, H + 1.3, 0); g.add(lb);
@@ -156,15 +223,21 @@ function makeContainer(c){
 }
 const truckObjs = {};
 function makeTruck(t){
-  const g = new THREE.Group();   // origin = container centre on the trailer, local +z = forward
-  const body = std(0x2b4c7e);
-  g.add(box(2.3, .35, 12.4, std(0x3a3f44), 0, 1.1, 1.0));
-  const cab = box(2.5, 2.7, 2.3, body, 0, 2.0, 6.3); cab.userData = {truck: t.id}; g.add(cab); pickables.push(cab);
-  g.add(box(2.2, .9, .1, std(0x9fd3ff, {roughness: .1}), 0, 2.6, 7.47));
-  const deck = box(2.4, .12, 6.4, std(0x555a5f), 0, 1.24, 0); deck.userData = {truck: t.id}; g.add(deck); pickables.push(deck);
-  for (const z of [-2.2, -1.0, 4.2, 6.6]) for (const x of [-1.1, 1.1]){ const w = new THREE.Mesh(new THREE.CylinderGeometry(.5, .5, .4, 16), std(0x1d1f21)); w.rotation.z = Math.PI / 2; w.position.set(x, .5, z); g.add(w); }
-  const lb = label(t.id, 1.8, .8, 'rgba(43,76,126,.9)'); lb.position.set(0, 4.0, 6.3); g.add(lb);
-  scene.add(g); return {g};
+  const g = new THREE.Group(), o = new THREE.Group(); o.position.z = 2.6; g.add(o);   // origin = container centre on the trailer, +z forward
+  const cabCol = {T1: 0xe0e4d9, T2: 0xd4a53e, T3: 0x86b7b2}[t.id] || 0xd9ecea;
+  const cabM = std(cabCol, {metalness: .24, roughness: .58}), chassis = std(0x303a40), glass = std(0x7096a6, {metalness: .1, roughness: .18});
+  o.add(box(2.5, .50, 9.0, chassis, 0, .94, -1.9));
+  const cab = box(2.48, 2.15, 2.65, cabM, 0, 2.12, 2.10); cab.userData = {truck: t.id}; o.add(cab); pickables.push(cab);
+  o.add(box(2.18, .9, .055, glass, 0, 2.59, 3.46)); for (const x of [-1.26, 1.26]) o.add(box(.045, .82, 1.2, glass, x, 2.56, 2.17));
+  o.add(box(2.5, .25, .34, std(0x31363b), 0, 1.06, 3.6)); o.add(box(2.1, .55, .16, std(0x444c4e), 0, 1.65, 3.47));
+  for (const x of [-.9, .9]){ o.add(box(.39, .25, .08, lampGlow, x, 1.51, 3.58)); o.add(box(.33, .23, .08, std(0xd94b3a), x, 1.10, -6.53)); }
+  const deck = box(2.48, .18, 6.3, std(0x848b8c), 0, 1.42, -2.65); deck.userData = {truck: t.id}; o.add(deck); pickables.push(deck);
+  const wheelmat = std(0x1f2427, {roughness: .98}), hub = std(0x9ca5a5, {metalness: .66, roughness: .3}), spins = [];
+  for (const z of [2.2, -3.8, -5.15]) for (const x of [-1.28, 1.28]){ const w = new THREE.Group(); w.position.set(x, .66, z); o.add(w); spins.push(w);
+    const tyre = new THREE.Mesh(new THREE.CylinderGeometry(.65, .65, .34, 20), wheelmat); tyre.rotation.z = Math.PI / 2; w.add(tyre);
+    const rim = new THREE.Mesh(new THREE.CylinderGeometry(.29, .29, .36, 16), hub); rim.rotation.z = Math.PI / 2; w.add(rim); }
+  const lb = label(t.id, 1.8, .8, 'rgba(43,76,126,.9)'); lb.position.set(0, 4.2, 4.7); g.add(lb);
+  scene.add(g); return {g, spins};
 }
 function makeWorker(w, vest = 0xff7a00){
   const g = new THREE.Group();
@@ -196,33 +269,57 @@ function makeDebris(d){
   g.position.set(d.x, 0, d.z); g.rotation.y = d.yaw; scene.add(g); return {g, ring, crew};
 }
 
-// ---------------- reach stacker (same model as the alignment view) ----------------
-const yellow = std(0xf2b705, {roughness: .55}), dark = std(0x222629, {roughness: .9}), steel = std(0x8d969c, {metalness: .6, roughness: .4});
-const stacker = new THREE.Group(); scene.add(stacker);
-stacker.add(box(3.4, 1.4, 8.2, yellow, 0, 1.55, -1.0)); stacker.add(box(3.2, 1.5, 1.6, dark, 0, 1.6, -5.3));
-stacker.add(box(1.5, 1.9, 1.7, std(0x30363b, {roughness: .3}), -.9, 3.15, -1.4));
-stacker.add(box(1.3, 1.5, 1.5, std(0x9fd3ff, {roughness: .1, opacity: .45, transparent: true}), -.9, 3.25, -1.4));
-const wheels = [];
-for (const [x, z] of [[-1.75, 2.2], [1.75, 2.2], [-1.75, -3.6], [1.75, -3.6]]){
-  const w = new THREE.Group(); w.position.set(x, .85, z); const m = new THREE.Mesh(new THREE.CylinderGeometry(.85, .85, .7, 24), dark); m.rotation.z = Math.PI / 2; m.castShadow = true; w.add(m); stacker.add(w); wheels.push(w); }
-const beacon = box(.3, .3, .3, std(0xff8a00, {emissive: 0xff8a00, emissiveIntensity: 1}), -.9, 4.25, -1.4); stacker.add(beacon);
+// ---------------- reach stacker (detailed model, rear-axle steering, telescoping boom) ----------------
+const yellow = std(0xf0b51e, {roughness: .47, metalness: .12}), dark = std(0x20272c, {roughness: .9}), steel = std(0x9da8ad, {metalness: .66, roughness: .37});
+const rubber = std(0x191d20, {roughness: .97}), wheelMetal = std(0xa5aeb0, {roughness: .36, metalness: .7}), cabGlass = std(0x52778a, {roughness: .12, metalness: .28});
+const stacker = new THREE.Group(); scene.add(stacker);   // local +z = forward
+stacker.add(box(3.3, .85, 8.5, dark, 0, 1.34, -.85)); stacker.add(box(3.5, 1.55, 4.4, yellow, 0, 2.02, -2.75));
+stacker.add(box(3.65, 1.0, 1.6, std(0xe7aa17, {roughness: .56}), 0, 1.75, -5.32)); stacker.add(box(3.75, .48, .6, dark, 0, .83, -5.95));
+stacker.add(box(3.8, .25, .65, dark, 0, .92, 3.33));
+for (const sx of [-1, 1]){ stacker.add(box(.18, .6, 4.4, std(0x252b2e), sx * 1.72, 1.35, -.30)); stacker.add(box(.17, .19, 2.2, steel, sx * 1.75, 2.04, -3.2)); stacker.add(box(.24, .19, 1.15, steel, sx * 1.76, 2.16, 1.8)); }
+const cabG = new THREE.Group(); cabG.position.set(-1.03, 2.60, -.45); stacker.add(cabG);
+cabG.add(box(1.78, 1.85, 1.96, dark, 0, .75, 0)); cabG.add(box(1.57, 1.40, 1.80, cabGlass, 0, .89, .03)); cabG.add(box(1.9, .22, 2.15, yellow, 0, 1.77, .02));
+for (const sx of [-.78, .78]){ cabG.add(box(.074, 1.45, .06, dark, sx, .85, 1.01)); cabG.add(box(.07, 1.45, .06, dark, sx, .85, -.96)); }
+cabG.add(box(1.57, .085, .06, dark, 0, .79, 1.005)); cabG.add(box(.32, .10, .75, steel, -1.14, 1.27, 1.07)); cabG.add(box(.43, .27, .10, dark, -1.14, 1.25, 1.33));
+cabG.add(box(.75, .18, .27, std(0xe8e7d0), 0, 1.81, 1.11));
+for (let z = -4.6; z < -2.0; z += .36) stacker.add(box(.05, .43, .07, dark, 1.8, 2.4, z));
+for (let i = 0; i < 4; i++) stacker.add(box(.14, .07, .65, steel, -1.75, .85 + i * .29, 1.15));
+const steeringWheels = [], allWheelSpins = [];
+function wheelAssembly(x, z, rear){
+  const pivot = new THREE.Group(); pivot.position.set(x, .86, z); stacker.add(pivot);
+  const spin = new THREE.Group(); pivot.add(spin); allWheelSpins.push(spin);
+  const tyre = new THREE.Mesh(new THREE.CylinderGeometry(.91, .91, .65, 32), rubber); tyre.rotation.z = Math.PI / 2; tyre.castShadow = true; spin.add(tyre);
+  const side = new THREE.Mesh(new THREE.CylinderGeometry(.71, .71, .68, 28), std(0x24292d)); side.rotation.z = Math.PI / 2; spin.add(side);
+  const rim = new THREE.Mesh(new THREE.CylinderGeometry(.46, .46, .72, 24), wheelMetal); rim.rotation.z = Math.PI / 2; spin.add(rim);
+  const hub = new THREE.Mesh(new THREE.CylinderGeometry(.18, .18, .76, 20), dark); hub.rotation.z = Math.PI / 2; spin.add(hub);
+  for (let i = 0; i < 8; i++){ const a = i * Math.PI / 4, bolt = new THREE.Mesh(new THREE.SphereGeometry(.035, 7, 6), steel); bolt.position.set(x > 0 ? .4 : -.4, Math.sin(a) * .28, Math.cos(a) * .28); spin.add(bolt); }
+  if (rear) steeringWheels.push(pivot);
+}
+for (const x of [-1.8, 1.8]){ wheelAssembly(x, 2.2, false); wheelAssembly(x, -3.55, true); }
+const WHEELBASE = 5.75, STEER_MAX = .56;
+const beacon = box(.3, .3, .3, std(0xff8a00, {emissive: 0xff8a00, emissiveIntensity: 1}), -1.03, 4.6, -.45); stacker.add(beacon);
 const hornTxt = label('♪ 빵빵!', 2.6, 1.0, 'rgba(255,93,93,.92)'); hornTxt.position.set(0, 6.5, -1); hornTxt.visible = false; stacker.add(hornTxt);
 // obstacle sensor fan (16 m)
 const fanMat = new THREE.MeshBasicMaterial({color: 0x46c7ff, transparent: true, opacity: .10, side: THREE.DoubleSide, depthWrite: false});
 const fan = new THREE.Mesh(new THREE.CircleGeometry(16, 32, -Math.PI / 2 - .55, 1.1), fanMat); fan.rotation.x = -Math.PI / 2; fan.position.y = .05; stacker.add(fan);
-const boom = box(.8, .9, 1, yellow); scene.add(boom);
-const cyl = box(.25, .25, 1, steel); scene.add(cyl);
+const boom = box(1.26, 1.25, 1, yellow); scene.add(boom);
+const boomInner = box(.85, .78, 1, steel); scene.add(boomInner);
+const boomTip = box(1.15, .92, .76, dark); scene.add(boomTip);
+const cyl = box(.32, .32, 1, steel); scene.add(cyl);
+const cylSleeve = box(.48, .48, 1, dark); scene.add(cylSleeve);
 const spreader = new THREE.Group(); scene.add(spreader);
-spreader.add(box(5.9, .32, .42, yellow, 0, .35, 0)); spreader.add(box(.36, .3, 2.5, yellow, CX, .32, 0)); spreader.add(box(.36, .3, 2.5, yellow, -CX, .32, 0));
-spreader.add(box(1.4, .55, 1.0, dark, 0, .75, 0));
-for (let k = 0; k < 4; k++){ const c = new THREE.Mesh(new THREE.ConeGeometry(.055, .12, 4), std(0x9aa3a8, {metalness: .6})); c.rotation.x = Math.PI; c.position.set(CORNERS[k][0], .01, CORNERS[k][1]); spreader.add(c); }
+spreader.add(box(5.93, .4, .52, yellow, 0, .43, 0)); spreader.add(box(.42, .38, 2.53, yellow, CX, .42, 0)); spreader.add(box(.42, .38, 2.53, yellow, -CX, .42, 0));
+for (const x of [-2.92, 2.92]) for (const z of [-1.13, 1.13]) spreader.add(box(.22, .48, .28, steel, x, .28, z));
+spreader.add(box(1.65, .73, 1.05, dark, 0, .95, 0)); spreader.add(box(1.65, .12, .8, steel, 0, 1.42, 0));
+const lockCones = [];
+for (let k = 0; k < 4; k++){ const c = new THREE.Mesh(new THREE.ConeGeometry(.065, .12, 6), std(0xaab4b9, {metalness: .6})); c.rotation.x = Math.PI; c.position.set(CORNERS[k][0], .03, CORNERS[k][1]); spreader.add(c); lockCones.push(c); }
 const pathLine = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({vertexColors: true, transparent: true, opacity: .85, side: THREE.DoubleSide, depthWrite: false}));
 pathLine.frustumCulled = false; scene.add(pathLine);
 const alertRing = new THREE.Mesh(new THREE.RingGeometry(1.6, 2.0, 40), new THREE.MeshBasicMaterial({color: 0xff3b3b, transparent: true, opacity: .9, side: THREE.DoubleSide}));
 alertRing.rotation.x = -Math.PI / 2; alertRing.position.y = .06; alertRing.visible = false; scene.add(alertRing);
 
 // ---------------- state sync ----------------
-let S = null, pose = {x: 34, z: -4, yaw: 0, h: H + 2.6}, built = false, selected = null, lastLogKey = '';
+let steerNow = 0, S = null, pose = {x: 34, z: -4, yaw: 0, h: H + 2.6}, built = false, selected = null, lastLogKey = '';
 const workerObjs = {}; let carObj = null;
 function lerpAng(a, b, f){ let d = b - a; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return a + d * f; }
 function buildStatic(st){ if (built) return; built = true; st.slots.forEach(makeSlot); st.bays.forEach(makeBay); }
@@ -287,9 +384,17 @@ function sync(st){
 function place(dt){
   if (!S) return;
   const f = 1 - Math.exp(-dt * 12), s = S.stacker;
+  const px0 = pose.x, pz0 = pose.z, py0 = pose.yaw;
   pose.x += (s.x - pose.x) * f; pose.z += (s.z - pose.z) * f; pose.yaw = lerpAng(pose.yaw, s.yaw, f); pose.h += (s.h - pose.h) * f;
   stacker.position.set(pose.x, 0, pose.z); stacker.rotation.y = pose.yaw;
-  for (let i = 0; i < 2; i++) wheels[2 + i].rotation.y = 0;
+  // wheels: spin by travelled distance, rear axle steers by the turn rate (no pivot turns)
+  const ds = (pose.x - px0) * Math.sin(pose.yaw) + (pose.z - pz0) * Math.cos(pose.yaw);
+  let dyaw = pose.yaw - py0; while (dyaw > Math.PI) dyaw -= 2 * Math.PI; while (dyaw < -Math.PI) dyaw += 2 * Math.PI;
+  const target = Math.abs(ds) > 1e-4 ? Math.max(-STEER_MAX, Math.min(STEER_MAX, -Math.atan(WHEELBASE * dyaw / ds))) : steerNow;
+  steerNow += (target - steerNow) * Math.min(1, dt * 6);
+  for (const w of steeringWheels) w.rotation.y = steerNow;
+  for (const w of allWheelSpins) w.rotation.x += ds / .91;
+  for (const c of lockCones) c.material.color.set(s.carry || s.mode === 'aligning' && S.align && S.align.phase === 'done' ? 0x3ddc97 : 0xaab4b9);
   beacon.material.emissiveIntensity = (s.mode === 'driving' && Math.floor(performance.now() / 300) % 2) ? 1.4 : .3;
   hornTxt.visible = s.horn;
   const blocked = s.mode === 'blocked';
@@ -303,16 +408,21 @@ function place(dt){
   spreader.position.set(pose.x + fx + ox, pose.h, pose.z + fz + oz); spreader.rotation.y = pose.yaw + oth;
   const head = new THREE.Vector3(spreader.position.x, spreader.position.y + 1.05, spreader.position.z);
   const [px, pz] = rot(pose.yaw, 0, -2.4), pivot = new THREE.Vector3(pose.x + px, 3.0, pose.z + pz);
-  const mid = pivot.clone().add(head).multiplyScalar(.5);
-  boom.position.copy(mid); boom.scale.set(1, 1, pivot.distanceTo(head)); boom.lookAt(head);
-  const [bx, bz] = rot(pose.yaw, 0, 1.8), base = new THREE.Vector3(pose.x + bx, 1.9, pose.z + bz);
-  cyl.position.copy(base.clone().add(mid).multiplyScalar(.5)); cyl.scale.set(1, 1, base.distanceTo(mid)); cyl.lookAt(mid);
+  const len = pivot.distanceTo(head), dir = head.clone().sub(pivot).normalize();
+  boom.position.copy(pivot.clone().addScaledVector(dir, len * .32)); boom.scale.set(1, 1, len * .64); boom.lookAt(head);
+  boomInner.position.copy(pivot.clone().addScaledVector(dir, len * .78)); boomInner.scale.set(1, 1, len * .42); boomInner.lookAt(head);
+  boomTip.position.copy(head.clone().addScaledVector(dir, -.23)); boomTip.lookAt(head);
+  const [bx, bz] = rot(pose.yaw, 0, 1.65), base = new THREE.Vector3(pose.x + bx, 1.85, pose.z + bz), hydTop = pivot.clone().lerp(head, .62);
+  cyl.position.copy(base.clone().add(hydTop).multiplyScalar(.5)); cyl.scale.set(1, 1, base.distanceTo(hydTop)); cyl.lookAt(hydTop);
+  const sleeveEnd = base.clone().lerp(hydTop, .53);
+  cylSleeve.position.copy(base.clone().add(sleeveEnd).multiplyScalar(.5)); cylSleeve.scale.set(1, 1, base.distanceTo(sleeveEnd)); cylSleeve.lookAt(hydTop);
   // containers
   for (const id in cont){ const o = cont[id], c = o.data;
     if (c.where === 'stacker'){ o.g.position.set(pose.x + fx, pose.h - H, pose.z + fz); o.g.rotation.y = pose.yaw; }
     else { o.g.position.x += (c.x - o.g.position.x) * f; o.g.position.z += (c.z - o.g.position.z) * f; o.g.position.y += (c.y - o.g.position.y) * f; o.g.rotation.y = lerpAng(o.g.rotation.y, c.yaw, f); }
   }
   for (const id in truckObjs){ const o = truckObjs[id], t = o.data; o.g.visible = t.state !== 'away';
+    const tds = Math.hypot(t.x - o.g.position.x, t.z - o.g.position.z) * f; if (tds < 5) for (const w of o.spins) w.rotation.x += tds / .65;
     o.g.position.x += (t.x - o.g.position.x) * f; o.g.position.z += (t.z - o.g.position.z) * f; o.g.rotation.y = lerpAng(o.g.rotation.y, t.yaw, f);
     if (Math.abs(t.x - o.g.position.x) > 20) o.g.position.set(t.x, 0, t.z); }
   for (const id in workerObjs){ const o = workerObjs[id], w = o.data; o.g.position.x += (w.x - o.g.position.x) * f; o.g.position.z += (w.z - o.g.position.z) * f; o.g.rotation.y = lerpAng(o.g.rotation.y, w.yaw, f); o.phone.visible = w.state === 'phone'; }
@@ -387,7 +497,8 @@ function resize(){ const w = window.innerWidth, h = window.innerHeight; renderer
 window.addEventListener('resize', resize); resize();
 let last = performance.now();
 function loop(now){ const dt = Math.min(.1, (now - last) / 1000); last = now;
-  place(dt); camera_update();
+  place(dt); camera_update(); updateCrane(now / 1000);
+  const sh = $('shadows').checked; if (renderer.shadowMap.enabled !== sh){ renderer.shadowMap.enabled = sh; scene.traverse(o => { if (o.material) o.material.needsUpdate = true; }); }
   if (camGoal){ const g = 1 - Math.pow(.03, dt); camera.position.lerp(camGoal.pos, g); controls.target.lerp(camGoal.look, g);
     if (camMode === 'free' && camera.position.distanceTo(camGoal.pos) < .05) camGoal = null; }
   controls.update(); renderer.render(scene, camera); requestAnimationFrame(loop); }

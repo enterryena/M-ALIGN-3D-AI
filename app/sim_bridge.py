@@ -7,6 +7,7 @@ server_url set: the virtual site runs in the example main server; the kit's simu
 Either way the kit itself is unchanged: it only sees commands and sends bundles.
 """
 import json
+import secrets
 import threading
 import time
 import urllib.parse
@@ -20,6 +21,7 @@ class LocalSim:
         cfg = link.cfg
         self.link = link
         self.n = 0
+        self.run_id = secrets.token_hex(3)
         self.site = SimSite(M, self._send, link.kit_id, approach_s=1.0, move_s=float(cfg['sim_move_delay_s']),
                             max_rounds=int(cfg['sim_rounds']), ai_url=cfg['ai_ollama_url'], ai_model=cfg['ai_model'])
         link.observers.append(self._observe)
@@ -27,7 +29,7 @@ class LocalSim:
 
     def _send(self, cmd, delay):
         self.n += 1
-        cmd = dict(cmd, id='local-%d' % self.n)
+        cmd = dict(cmd, id='local-%s-%d' % (self.run_id, self.n))   # unique across restarts (the kit drops repeated ids)
         t = threading.Timer(max(0.0, float(delay)), self.link.apply_command, args=(cmd,))
         t.daemon = True
         t.start()
