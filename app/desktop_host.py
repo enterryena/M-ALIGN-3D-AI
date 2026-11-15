@@ -494,16 +494,17 @@ def start():
             link_text.set('키트 전송 상태 확인 실패: ' + str(exc))
         if root.winfo_exists():
             root.after(1600, update_stats)
-    def open_browser():
+    def open_browser(page=''):
         try:
-            if not webbrowser.open(url):
+            if not webbrowser.open(url + page):
                 raise RuntimeError('기본 브라우저에서 열지 못했습니다.')
         except Exception as exc:
             messagebox.showwarning('브라우저 열기 실패', str(exc) + '\n주소 복사 버튼을 눌러 Chrome/Edge 주소창에 붙여넣으세요.')
-    ttk.Button(bar, text='시뮬레이터 열기', command=open_browser).pack(side='left', padx=(0, 7))
+    ttk.Button(bar, text='🎮 3D AI 야드 열기', command=lambda: open_browser('3d')).pack(side='left', padx=(0, 7))
+    ttk.Button(bar, text='보정 시뮬레이터(기존)', command=open_browser).pack(side='left', padx=(0, 7))
     def copy_url():
         root.clipboard_clear()
-        root.clipboard_append(url)
+        root.clipboard_append(url + '3d')
         root.update()
         messagebox.showinfo('주소 복사', '로컬 시뮬레이터 주소를 복사했습니다.\n' + url)
     ttk.Button(bar, text='주소 복사', command=copy_url).pack(side='left', padx=(0, 7))
@@ -593,7 +594,7 @@ def start():
         server.server_close()
         root.destroy()
     root.protocol('WM_DELETE_WINDOW', close)
-    root.after(180, open_browser)
+    root.after(180, lambda: open_browser('3d'))     # the 3D AI yard is the main screen; the original panel stays one click away
     root.after(400, update_stats)
     root.mainloop()
 
