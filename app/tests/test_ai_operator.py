@@ -34,7 +34,7 @@ fake = ThreadingHTTPServer(('127.0.0.1', 0), FakeOllama)
 threading.Thread(target=fake.serve_forever, daemon=True).start()
 ollama = 'http://127.0.0.1:%d' % fake.server_port
 port = free_port()
-with tempfile.TemporaryDirectory() as tmp:
+with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
     srv = subprocess.Popen([sys.executable, str(ROOT / 'server_example' / 'malign_main_server.py'), '--host', '127.0.0.1',
                             '--port', str(port), '--db', str(pathlib.Path(tmp) / 'm.sqlite3')], stdout=subprocess.PIPE, text=True)
     srv.stdout.readline()

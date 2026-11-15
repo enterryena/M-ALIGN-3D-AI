@@ -34,7 +34,7 @@ def run_job(info, ctrl, seed=123, timeout=90):
 
 fake = ThreadingHTTPServer(('127.0.0.1', 0), FakeOllama)
 threading.Thread(target=fake.serve_forever, daemon=True).start()
-with tempfile.TemporaryDirectory() as tmp:
+with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:  # Windows may hold the closed host's DB a moment longer
     tmp = pathlib.Path(tmp)
     (tmp / 'Link').mkdir()
     (tmp / 'Link' / 'link_config.json').write_text(json.dumps({
