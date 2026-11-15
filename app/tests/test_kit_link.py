@@ -137,7 +137,7 @@ with tempfile.TemporaryDirectory(prefix='malign_link_test_') as tmp:
     srv_url = 'http://127.0.0.1:%d/malign/v1' % port
     auth = {'Authorization': 'Bearer k1'}
     cmd_url = srv_url + '/kits/KIT-T01/commands'
-    config(tmp / 'A', 'KIT-T01', UNITS, srv_url + '/bundles', api_key='k1', watchdog_s=1.5, sim_auto_sensing=False)
+    config(tmp / 'A', 'KIT-T01', UNITS, srv_url + '/bundles', api_key='k1', watchdog_s=4.0, sim_auto_sensing=False)
     units = SimUnits()
     h, info = start_host(tmp / 'A')
     server = None
