@@ -411,6 +411,7 @@ def start():
     ap = argparse.ArgumentParser(description=APP_TITLE)
     ap.add_argument('--headless', action='store_true', help='test mode; run local server until interrupted')
     ap.add_argument('--data-dir', default=None, help='test-only database path override')
+    ap.add_argument('--info-file', default=None, help='test-only: also write the headless url/token JSON here (windowed EXE has no stdout)')
     args = ap.parse_args()
     folder = pathlib.Path(args.data_dir) if args.data_dir else archive_folder()
     bank = CaseBank(folder / 'cases.sqlite3')
@@ -433,8 +434,11 @@ def start():
     th = threading.Thread(target=server.serve_forever, daemon=True)
     th.start()
     if args.headless:
-        print(json.dumps({'url': url, 'token': token, 'database': str(bank.file_path),
-                          'link_config': str(link_cfg_path), 'kit_id': link.kit_id}), flush=True)
+        info = json.dumps({'url': url, 'token': token, 'database': str(bank.file_path),
+                           'link_config': str(link_cfg_path), 'kit_id': link.kit_id})
+        if args.info_file:
+            pathlib.Path(args.info_file).write_text(info, encoding='utf-8')
+        print(info, flush=True)
         try:
             while True:
                 time.sleep(0.2)

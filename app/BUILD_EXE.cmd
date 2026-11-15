@@ -79,6 +79,8 @@ if errorlevel 1 goto :failed
 if errorlevel 1 goto :failed
 "%PYBIN%" tests\test_ai_3d.py
 if errorlevel 1 goto :failed
+"%PYBIN%" tests\test_yard.py
+if errorlevel 1 goto :failed
 echo [4/4] Building one-file GUI EXE...
 "%PYBIN%" -m PyInstaller --noconfirm --clean --onefile --windowed --name "MALIGN_Desktop" --hidden-import malign_link --hidden-import kit_device --hidden-import malign_engine --hidden-import main_controller --hidden-import reachstacker_sim --hidden-import sim_site --hidden-import sim_bridge --hidden-import sim_job --add-data "matrix5_data.json;." --add-data "MALIGN_Desktop.html;." --add-data "MALIGN_3D.html;." --add-data "MALIGN_3D_ALIGN.html;." --hidden-import yard_world --hidden-import yard_ops --add-data "vendor;vendor" --hidden-import ai_driver --add-data "UNINSTALL_MALIGN.ps1;." "desktop_host.py"
 if errorlevel 1 goto :failed

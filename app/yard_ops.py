@@ -33,6 +33,8 @@ COLORS = ('#d2601a', '#2a6fb0', '#2f8a4a', '#9b2d2d', '#7a7a7a', '#c8a024', '#5b
 TRAVEL_H = Y.H + 2.6                  # spreader height while driving empty
 CARRY_LIFT = 2.2                      # container bottom height while carrying
 TRUCK_BED = 1.5                       # container bottom on a trailer
+KIT_GAP = 0.020                       # kit coils sense 20 mm above the corner castings (Maxwell nominal gap)
+HOIST_V = 0.45                        # spreader hoist / lower speed, m/s (reach stackers ~0.25-0.45 m/s)
 SENSOR_RANGE = 16.0
 SAFE_GAP = 0.6                        # footprint gap that counts as "path blocked"
 V_FWD, V_REV, ACC, DEC = 3.0, 1.5, 0.8, 1.5
@@ -188,7 +190,7 @@ class YardOps:
             self._step_debris()
             self._step_stacker(dt)
             st = self.st
-            st['h'] += max(-1.2 * dt, min(1.2 * dt, st['h_target'] - st['h']))
+            st['h'] += max(-HOIST_V * dt, min(HOIST_V * dt, st['h_target'] - st['h']))
             self.cond.notify_all()
 
     # trucks ------------------------------------------------------------
@@ -873,8 +875,8 @@ horns, detour. Fixed objects (cone, pallet): detour if detour_extra_m is short (
         # 2 kit alignment + lock
         self.task['step'] = 'M-ALIGN 정렬·결합'
         with self.lock:
-            self.st['h_target'] = sy + Y.H + 0.32
-        self.wait_until(lambda: abs(self.st['h'] - self.st['h_target']) < 0.02, 20)
+            self.st['h_target'] = sy + Y.H + KIT_GAP
+        self.wait_until(lambda: abs(self.st['h'] - self.st['h_target']) < 0.005, 40)
         if not self._align(task):
             with self.lock:
                 self.st['h_target'] = TRAVEL_H
@@ -894,7 +896,7 @@ horns, detour. Fixed objects (cone, pallet): detour if detour_extra_m is short (
             c.update(where='stacker', slot=None, truck=None)
             self.st['carry'] = cid
             self.st['h_target'] = CARRY_LIFT + Y.H
-        self.wait_until(lambda: abs(self.st['h'] - self.st['h_target']) < 0.02, 30)
+        self.wait_until(lambda: abs(self.st['h'] - self.st['h_target']) < 0.005, 60)
         self.task['step'] = '후진으로 빠지기'
         self._creep(Y.predock_pose(sx, sz, syaw), -1, ignore=src_ex)
         # 4 drive to the destination
@@ -910,7 +912,7 @@ horns, detour. Fixed objects (cone, pallet): detour if detour_extra_m is short (
         self.task['step'] = '내려놓기'
         with self.lock:
             self.st['h_target'] = dy + Y.H
-        self.wait_until(lambda: abs(self.st['h'] - self.st['h_target']) < 0.02, 30)
+        self.wait_until(lambda: abs(self.st['h'] - self.st['h_target']) < 0.005, 60)
         with self.lock:
             c = self.containers[cid]
             c.update(x=dx, z=dz, yaw=dyaw, y=dy, since=self.t)
@@ -925,7 +927,7 @@ horns, detour. Fixed objects (cone, pallet): detour if detour_extra_m is short (
             self.st['carry'] = None
             self.st['h_target'] = TRAVEL_H
         self.log('기계', '%s 트위스트록 해제 → %s 에 내려놓음' % (cid, task['dest']))
-        self.wait_until(lambda: self.st['h'] > TRAVEL_H - 0.5, 30)
+        self.wait_until(lambda: self.st['h'] > TRAVEL_H - 0.5, 60)
         self.task['step'] = '후진으로 빠지기'
         self._creep(Y.predock_pose(dx, dz, dyaw), -1, ignore=(task['dest'], cid))
         return True
