@@ -97,6 +97,13 @@ class ToolBox:
         self.resenses_sent = 0
 
     # ---- helpers
+    def _phase(self, phase):
+        """A tool thread may still be inside a call when its job is stopped or aborted: never move a finished job
+        back to an active phase (the next job could then not start)."""
+        with self.site.lock:
+            if self.job['outcome'] is None:
+                self.job['phase'] = phase
+
     def _summary(self, msg):
         d = self.last_decision or {}
         corners = []
@@ -120,7 +127,7 @@ class ToolBox:
         self.site.event('approach_start')
         time.sleep(self.site.approach_s)
         self.rs.approach()
-        self.job['phase'] = 'ready'
+        self._phase('ready')
         self.site.event('in_range')
         return {'in_range': True, 'sensing_range_mm': 30}
 
@@ -148,7 +155,7 @@ class ToolBox:
             self.rounds_sent += 1
         elif cmd['type'] == 'resense':
             self.resenses_sent += 1
-        self.job['phase'] = 'sensing'
+        self._phase('sensing')
         self.site.event('sense', resense=resense)
         msg = self.site.request_bundle(cmd, job=self.job)
         if msg is None:
@@ -175,7 +182,7 @@ class ToolBox:
                 self.site.log('서버', '사례 기반 계획: %s — %s' % (plan['plan'], plan.get('why', '')))
         self.last = msg
         self.moves_since_sense = 0
-        self.job['phase'] = 'ready'
+        self._phase('ready')
         return self._summary(msg)
 
     def read_machine_sensor(self):

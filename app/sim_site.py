@@ -244,6 +244,10 @@ class SimSite:
         return {'locked': locked, 'worst_corner_mm': round(rs.worst_mm(), 2)}
 
     def stop_job(self, reason, outcome='held'):
+        with self.lock:
+            return self._stop_job(reason, outcome)
+
+    def _stop_job(self, reason, outcome='held'):
         j = self.job
         if j['outcome'] is None:
             j['phase'] = 'held'
@@ -255,12 +259,13 @@ class SimSite:
         return {'stopped': True}
 
     def abort(self, reason):
-        j = self.job
-        if j and j['outcome'] is None:
-            j['phase'] = 'aborted'
-            j['outcome'] = 'aborted'
-            self.event('abort', reason=reason)
-            self.send({'type': 'stop', 'reason': reason}, 0)
+        with self.lock:                 # atomic against a tool thread updating the phase
+            j = self.job
+            if j and j['outcome'] is None:
+                j['phase'] = 'aborted'
+                j['outcome'] = 'aborted'
+                self.event('abort', reason=reason)
+                self.send({'type': 'stop', 'reason': reason}, 0)
 
     def _frame(self, label, move=None):
         self.job['frames'].append({'t': time.time(), 'errors': self.job['rs'].corner_errors(), 'label': label,
