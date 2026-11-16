@@ -288,3 +288,92 @@ def max_turn_rate(path):
             continue
         worst = max(worst, dy / ds)
     return worst
+
+
+# ---- people and the service car (realistic behaviour lives in yard_actors.py)
+# Pedestrian walkways: perimeter (west / south) + the corridor between rows A and B (container backs face it,
+# the stacker never docks there). Crosswalks where a walkway crosses the service road.
+WALK_NODES = {
+    'SW': (-47.5, -41.6), 'W': (-47.5, -5.0), 'NW': (-47.5, 30.0),          # west walkway (outside the stacker area)
+    'P1': (-24.0, -5.0), 'P2': (-14.0, -5.0), 'P3': (-4.0, -5.0), 'P4': (6.0, -5.0), 'P5': (16.0, -5.0),
+    'E': (47.5, -5.0), 'SE': (47.5, -41.6), 'S': (35.2, -41.6), 'OF': (35.2, -39.6),   # OF = site office door
+}
+WALK_EDGES = [('SW', 'W'), ('W', 'NW'), ('W', 'P1'), ('P1', 'P2'), ('P2', 'P3'), ('P3', 'P4'),
+              ('P4', 'P5'), ('P5', 'E'), ('E', 'SE'), ('SE', 'S'), ('S', 'SW'), ('S', 'OF')]
+CROSSWALKS = ()
+WORK_SPOTS = ('NW', 'OF', 'P1', 'P2', 'P3', 'P4', 'P5')
+WALK_HALF_W = 1.1
+CAR_LOOP = [(-52.0, -46.5), (52.0, -46.5), (52.0, 41.5), (-52.0, 41.5)]   # perimeter service road, outside the
+                                                                          # stacker's working area; north leg runs
+                                                                          # beside the truck lane (opposite way)
+CAR_CORNER_R = 6.0
+PARKING = (18.0, -50.0, math.pi / 2)                                       # off-road bay beside the south road
+
+
+def seg_dist(px, pz, a, b):
+    ax, az = a
+    bx, bz = b
+    dx, dz = bx - ax, bz - az
+    L2 = dx * dx + dz * dz
+    t = 0.0 if L2 == 0 else max(0.0, min(1.0, ((px - ax) * dx + (pz - az) * dz) / L2))
+    return math.hypot(px - ax - t * dx, pz - az - t * dz)
+
+
+def on_walkway(x, z):
+    return any(seg_dist(x, z, WALK_NODES[a], WALK_NODES[b]) <= WALK_HALF_W + 0.2 for a, b in WALK_EDGES)
+
+
+def walk_route(a, b):
+    """Shortest node route on the walkway graph (Dijkstra)."""
+    import heapq as hq
+    adj = {}
+    for u, v in WALK_EDGES:
+        d = math.dist(WALK_NODES[u], WALK_NODES[v])
+        adj.setdefault(u, []).append((v, d))
+        adj.setdefault(v, []).append((u, d))
+    dist, prev, pq = {a: 0.0}, {}, [(0.0, a)]
+    while pq:
+        d, u = hq.heappop(pq)
+        if u == b:
+            break
+        if d > dist.get(u, 1e18):
+            continue
+        for v, w in adj[u]:
+            if d + w < dist.get(v, 1e18):
+                dist[v], prev[v] = d + w, u
+                hq.heappush(pq, (d + w, v))
+    out = [b]
+    while out[-1] != a:
+        out.append(prev[out[-1]])
+    return out[::-1]
+
+
+def nearest_node(x, z):
+    return min(WALK_NODES, key=lambda k: math.hypot(WALK_NODES[k][0] - x, WALK_NODES[k][1] - z))
+
+
+def car_loop_path(step=0.5):
+    """Rounded-corner service road loop as (x, z, yaw) samples with cumulative length."""
+    pts = []
+    n = len(CAR_LOOP)
+    r = CAR_CORNER_R
+    for i in range(n):
+        p0, p1, p2 = CAR_LOOP[i - 1], CAR_LOOP[i], CAR_LOOP[(i + 1) % n]
+        d_in = (p1[0] - p0[0], p1[1] - p0[1]); li = math.hypot(*d_in); d_in = (d_in[0] / li, d_in[1] / li)
+        d_out = (p2[0] - p1[0], p2[1] - p1[1]); lo = math.hypot(*d_out); d_out = (d_out[0] / lo, d_out[1] / lo)
+        a = (p1[0] - d_in[0] * r, p1[1] - d_in[1] * r)
+        b = (p1[0] + d_out[0] * r, p1[1] + d_out[1] * r)
+        ya, yb = math.atan2(d_in[0], d_in[1]), math.atan2(d_out[0], d_out[1])
+        pts.append((a[0], a[1], ya))
+        pts.extend(p[:3] for p in straight((a[0], a[1], ya), (b[0], b[1], yb), 1, step))
+    # straight legs between corners (densify)
+    out = []
+    for i in range(len(pts)):
+        p, q = pts[i], pts[(i + 1) % len(pts)]
+        out.append(p)
+        L = math.hypot(q[0] - p[0], q[1] - p[1])
+        k = int(L / step)
+        for j in range(1, k):
+            t = j / k
+            out.append((p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t, p[2]))
+    return out

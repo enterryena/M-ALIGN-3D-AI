@@ -26,6 +26,7 @@ import urllib.error
 import urllib.request
 
 import case_memory
+import yard_actors as A
 import yard_world as Y
 
 CAPACITY = len(Y.SLOTS)
@@ -41,6 +42,10 @@ SAFE_GAP = 0.6                        # footprint gap that counts as "path block
 V_FWD, V_REV, ACC, DEC = 3.0, 1.5, 0.8, 1.5
 TRUCK_V = 5.0
 CREW_S = 15.0
+TRUCK_CLEAR = 0.8         # the stacker keeps this far from a moving truck's path; trucks creep past a stopped one at 0.5
+STOP_BEFORE = {'worker': 3.0, 'car': 2.5, 'truck': 2.5, 'parked_car': 1.5, 'cone': 1.5, 'pallet': 1.5}   # m, stop short of
+PERSON_GAP = 3.0          # a person within 3 m of the swept path counts as "in the way" (exclusion zone)
+SLOW_NEAR_PERSON, V_NEAR_PERSON = 8.0, 1.0
 TRUCK_RECT = (1.3, 6.5, 1.5)          # half width, half length, forward offset of the rect centre
 
 
@@ -98,13 +103,10 @@ class YardOps:
         sx, sz, syaw = Y.HOME
         self.st = {'x': sx, 'z': sz, 'yaw': syaw}
         if people:
-            for i in range(2):
-                p = self._walk_point()
-                self.workers.append({'id': 'W%d' % (i + 1), 'x': p[0], 'z': p[1], 'yaw': 0.0, 'target': None,
-                                     'v': 1.2, 'pause': 0.0, 'yield_until': -1, 'stubborn': False, 'state': 'walk'})
-            self.car_route = [(-40.0, -32.0), (40.0, -32.0), (40.0, 14.0), (-40.0, 14.0)]
-            self.car = {'id': 'V1', 'x': -40.0, 'z': -32.0, 'yaw': math.pi / 2, 'leg': 1, 'v': 4.0,
-                        'park_until': -1, 'next_park': 40.0, 'wait': 0.0, 'state': 'drive'}
+            for i, node in enumerate(('W', 'P3', 'OF')):
+                self.workers.append(A.new_worker(self, 'W%d' % (i + 1), node))
+            self.car = A.new_car(self)
+        self.metrics = {'worker_min_gap_lawful': 1e9, 'worker_steps': 0, 'worker_on_walkway': 0}
         self.debris = []
         self.n_debris = 0
         self.next_debris = 35.0
@@ -149,9 +151,12 @@ class YardOps:
                 ts = self.trucks[tid]['state']
                 if ts in ('arriving', 'leaving'):     # the lane <-> bay swing area is the truck's while it moves
                     sh.append(self._swing_zone(b, ts))
+                    sh.extend(self._inflate(r, TRUCK_CLEAR) for r in self._truck_sweep(self.trucks[tid]))
         for d in self.debris:
             if d['known']:
                 sh.append(self._inflate(d['shape'], SAFE_GAP))
+        if self.car and A.car_is_static(self.car):
+            sh.append(self._inflate(A.car_shape(self.car['x'], self.car['z'], self.car['yaw']), SAFE_GAP))
         if temp:
             sh.extend(self.temp)
         return sh
@@ -168,12 +173,19 @@ class YardOps:
         """Obstacles the stacker's sensors can run into (not in the planner's map unless detected)."""
         out = []
         for w in self.workers:
-            out.append(({'id': w['id'], 'kind': 'worker', 'moving': True, 'name': '작업자 ' + w['id']},
+            out.append(({'id': w['id'], 'kind': 'worker', 'moving': True,
+                         'name': '작업자 %s%s' % (w['id'], ' (무단횡단)' if w['jay'] else '')},
                         ('circle', w['x'], w['z'], 0.4)))
         if self.car:
             c = self.car
-            out.append(({'id': c['id'], 'kind': 'car', 'moving': True, 'name': '서비스 차량 ' + c['id']},
-                        ('rect', c['x'], c['z'], c['yaw'], 0.95, 2.2)))
+            if A.car_is_static(c):
+                out.append(({'id': c['id'], 'kind': 'parked_car', 'moving': False, 'known': True,
+                             'name': ('주차 차량 ' if c['state'] == 'parked' else '정지 차량 ') + c['id']},
+                            A.car_shape(c['x'], c['z'], c['yaw'])))
+            else:
+                out.append(({'id': c['id'], 'kind': 'car', 'moving': True,
+                             'name': '서비스 차량 %s%s' % (c['id'], ' (도로 정차)' if c['state'] == 'road_stop' else '')},
+                            A.car_shape(c['x'], c['z'], c['yaw'])))
         for d in self.debris:
             out.append(({'id': d['id'], 'kind': d['kind'], 'moving': False, 'known': d['known'],
                          'name': {'cone': '라바콘', 'pallet': '팔레트'}[d['kind']] + ' ' + d['id']}, d['shape']))
@@ -181,9 +193,10 @@ class YardOps:
             if t['state'] in ('arriving', 'leaving'):
                 info = {'id': t['id'], 'kind': 'truck', 'moving': True, 'name': '트럭 ' + t['id']}
                 out.append((info, _truck_shape(t['x'], t['z'], t['yaw'])))
-                zone = self._swing_zone(self.bays[t['bay']], t['state'])
-                if Y.footprint_clearance(self.st['x'], self.st['z'], self.st['yaw'], [zone]) > 0:   # inside already: let it leave
-                    out.append((dict(info, name='트럭 %s 진입·출차 구역' % t['id'], zone=True), zone))
+                sweep = self._truck_sweep(t)
+                if Y.footprint_clearance(self.st['x'], self.st['z'], self.st['yaw'], sweep) > TRUCK_CLEAR:
+                    zi = dict(info, name='트럭 %s 진입·출차 경로' % t['id'], zone=True)
+                    out.extend((zi, sh) for sh in sweep)      # (already inside: let the stacker get out first)
         return out
 
     # ------------------------------------------------------------------ world step
@@ -237,6 +250,16 @@ class YardOps:
                     self._set_truck_path(t)
                     self.log('트럭', '%s 출발 (%s)' % (t['id'], '컨테이너 %s 싣고 반출' % t['container'] if t['container'] else '빈 차'))
 
+    def _truck_sweep(self, t, ahead=32.0, step=2.0):
+        """Where a moving truck is about to be: its rectangle along the next `ahead` metres of its path."""
+        out = [_truck_shape(t['x'], t['z'], t['yaw'])]
+        s, end = t['s'], t['cum'][-1]
+        d = step
+        while d <= ahead and s + d <= end:
+            out.append(_truck_shape(*self._interp(t['path'], t['cum'], s + d)))
+            d += step
+        return out
+
     @staticmethod
     def _swing_zone(bay, state):
         dx = -5.5 if state == 'arriving' else 5.5      # bay + the lane swing, with a margin below the bay front
@@ -254,14 +277,29 @@ class YardOps:
         bay = self.bays[t['bay']]
         in_lane = t['state'] == 'arriving' and t['x'] < bay['x'] - 18.5
         if in_lane and t['x'] > bay['x'] - 30:
-            if Y.footprint_clearance(self.st['x'], self.st['z'], self.st['yaw'], [self._swing_zone(bay, 'arriving')]) < 0:
+            if Y.footprint_clearance(self.st['x'], self.st['z'], self.st['yaw'], self._truck_sweep(t)) < 0.5:
                 return
         if t['state'] == 'leaving' and t['s'] < 1.0:
-            if Y.footprint_clearance(self.st['x'], self.st['z'], self.st['yaw'], [self._swing_zone(bay, 'leaving')]) < 0:
+            if Y.footprint_clearance(self.st['x'], self.st['z'], self.st['yaw'], self._truck_sweep(t)) < 0.5:
                 return
-        nx, nz, ny = self._interp(t['path'], t['cum'], t['s'] + 3.0)
-        if Y.footprint_clearance(self.st['x'], self.st['z'], self.st['yaw'], [_truck_shape(nx, nz, ny)]) < 0.3:
-            return
+        nx, nz, ny = self._interp(t['path'], t['cum'], t['s'] + 6.0)
+        ahead = [_truck_shape(nx, nz, ny)]
+        gap = Y.footprint_clearance(self.st['x'], self.st['z'], self.st['yaw'], ahead)
+        for w in self.workers:
+            gap = min(gap, Y.shape_dist(ahead[0], w['x'], w['z']) - 0.4)
+        if self.car and Y.shape_dist(ahead[0], self.car['x'], self.car['z']) - 1.0 < 0.3:
+            return                                  # trucks have priority over the service car (it waits); emergency only
+        machine_still = self.st['v'] < 0.05
+        need = 1.0 if machine_still else 2.0       # a stopped machine may be passed slowly with 1 m clearance
+        if gap < need:                        # keep a safe distance; after a while creep if there is still room
+            t['hold'] = t.get('hold', 0.0) + dt
+            if t['hold'] < 8.0 or gap < (0.5 if machine_still else 0.8):   # past a stopped machine: dead slow, 0.5 m
+                return
+            dt = dt * 0.25
+        else:
+            t['hold'] = 0.0
+            if gap < 3.0:
+                dt = dt * 0.4                       # close by: slow
         fx, fz = math.sin(t['yaw']), math.cos(t['yaw'])
         for o in self.trucks.values():
             if o is not t and o['state'] in ('arriving', 'leaving'):
@@ -314,75 +352,17 @@ class YardOps:
         return self._interp(st['path'], st['cum'], st['s'] + ahead)
 
     def _step_workers(self, dt):
-        for w in self.workers:
-            if w['pause'] > 0:
-                w['pause'] -= dt
-                if w['pause'] <= 0 and w['state'] == 'phone':
-                    w['state'] = 'walk'
-                    w['stubborn'] = False
-                continue
-            if w['target'] is None:
-                p = self._path_point_ahead(self.rnd.uniform(11, 15)) if self.t > w['yield_until'] and self.rnd.random() < 0.35 else None
-                if p:
-                    w['target'], w['cross'] = (p[0], p[1]), True
-                else:
-                    w['target'], w['cross'] = self._walk_point(), False
-                w['v'] = 1.2
-            tx, tz = w['target']
-            d = math.hypot(tx - w['x'], tz - w['z'])
-            # people do not walk into the machine's body
-            nxt = ('circle', w['x'] + (tx - w['x']) / max(d, 1e-6) * .8, w['z'] + (tz - w['z']) / max(d, 1e-6) * .8, .4)
-            gap_next = Y.footprint_clearance(self.st['x'], self.st['z'], self.st['yaw'], [nxt])
-            if gap_next < 1.0 and gap_next < Y.footprint_clearance(self.st['x'], self.st['z'], self.st['yaw'],
-                                                                  [('circle', w['x'], w['z'], .4)]):
-                w['frozen'] = w.get('frozen', 0.0) + dt
-                if w['frozen'] > 3.0:          # the machine is in the way: walk somewhere else
-                    w['target'], w['cross'], w['frozen'] = self._walk_point(), False, 0.0
-                continue
-            w['frozen'] = 0.0
-            if d < 0.3:
-                w['target'] = None
-                if w.get('cross') and self.rnd.random() < 0.55:
-                    w['state'], w['stubborn'], w['pause'] = 'phone', True, self.rnd.uniform(25, 45)
-                else:
-                    w['pause'] = self.rnd.uniform(2, 6)
-                continue
-            step = min(d, w['v'] * dt)
-            w['yaw'] = math.atan2(tx - w['x'], tz - w['z'])
-            w['x'] += (tx - w['x']) / d * step
-            w['z'] += (tz - w['z']) / d * step
+        A.step_workers(self, dt)
+        if self.workers and self.st['mode'] in ('driving', 'blocked'):
+            for w in self.workers:
+                self.metrics['worker_steps'] += 1
+                self.metrics['worker_on_walkway'] += Y.on_walkway(w['x'], w['z'])
+                if not w['jay'] and w['state'] != 'phone':
+                    g = Y.footprint_clearance(self.st['x'], self.st['z'], self.st['yaw'], [('circle', w['x'], w['z'], 0.4)])
+                    self.metrics['worker_min_gap_lawful'] = min(self.metrics['worker_min_gap_lawful'], g)
 
     def _step_car(self, dt):
-        c = self.car
-        if not c:
-            return
-        if self.t < c['park_until']:
-            return
-        if c['state'] == 'park':
-            c['state'] = 'drive'
-            c['next_park'] = self.t + self.rnd.uniform(30, 70)
-        if self.t >= c['next_park']:
-            c['state'] = 'park'
-            c['park_until'] = self.t + self.rnd.uniform(25, 50)
-            return
-        tx, tz = self.car_route[c['leg']]
-        d = math.hypot(tx - c['x'], tz - c['z'])
-        if d < 0.5:
-            c['leg'] = (c['leg'] + 1) % len(self.car_route)
-            return
-        yaw = math.atan2(tx - c['x'], tz - c['z'])
-        ahead = ('rect', c['x'] + 4 * math.sin(yaw), c['z'] + 4 * math.cos(yaw), yaw, 1.2, 3.0)
-        if Y.footprint_clearance(self.st['x'], self.st['z'], self.st['yaw'], [ahead]) < 0.8:
-            c['wait'] += dt
-            if c['wait'] > 10:       # give way: turn back (3-point turn shortened)
-                c['leg'] = (c['leg'] - 1) % len(self.car_route)
-                c['wait'] = 0.0
-            return
-        c['wait'] = 0.0
-        c['yaw'] = yaw
-        step = min(d, c['v'] * dt)
-        c['x'] += (tx - c['x']) / d * step
-        c['z'] += (tz - c['z']) / d * step
+        A.step_car(self, dt)
 
     def _step_debris(self):
         for d in list(self.debris):
@@ -422,7 +402,8 @@ class YardOps:
             for info, sh in dyn:
                 if info['id'] in st.get('ignore', ()):
                     continue
-                if Y.footprint_clearance(x, z, y, [sh]) < (0.0 if info.get('zone') else 0.3 if info.get('known') else SAFE_GAP):
+                if Y.footprint_clearance(x, z, y, [sh]) < (TRUCK_CLEAR if info.get('zone') else 0.3 if info.get('known')
+                                                          else PERSON_GAP if info['kind'] == 'worker' else SAFE_GAP):
                     return (info, sh), s - s0
             s += 0.7
         return None, None
@@ -460,15 +441,18 @@ class YardOps:
                 for d in self.debris:
                     if d['id'] == info['id'] and not d['known']:
                         d['known'] = True
-            room = min(room, max(0.0, dist - 1.0))
+            room = min(room, max(0.0, dist - STOP_BEFORE.get(info['kind'], 1.5)))
         vmax = V_FWD if d0 > 0 else V_REV
+        if any(Y.footprint_clearance(st['x'], st['z'], st['yaw'], [('circle', w['x'], w['z'], 0.4)]) < SLOW_NEAR_PERSON
+               for w in self.workers):
+            vmax = min(vmax, V_NEAR_PERSON)        # people close by: walking pace
         v_allow = min(vmax, math.sqrt(2 * DEC * max(0.0, room)))
         if st['v'] < v_allow:
             st['v'] = min(v_allow, st['v'] + ACC * dt)
         else:
             st['v'] = max(v_allow, st['v'] - (DEC if not hit or dist > 3 else 4.0) * dt)
         st['dir'] = d0
-        if hit and (st['v'] < 0.05 or room < 0.05):
+        if hit and (st['v'] < 0.05 or room < 0.05) and dist <= STOP_BEFORE.get(hit[0]['kind'], 1.5) + 0.8:
             st['v'] = 0.0
             st['mode'] = 'blocked'
             st['blocked_by'] = hit
@@ -649,8 +633,8 @@ class YardOps:
         moving = alert['moving']
         if action == 'horn' and not moving:
             return 'horn does nothing for a fixed object: detour or request_clear'
-        if action == 'clear' and moving:
-            return 'the ground crew clears fixed objects only: horn, wait or detour'
+        if action == 'clear' and moving and not (alert.get('kind') == 'worker' and alert.get('horns', 0) >= 3):
+            return 'the ground crew clears fixed objects only (a supervisor escorts a person only after 3 horns)'
         if action not in ('horn', 'wait', 'detour', 'clear', 'stop'):
             return 'unknown action'
         return None
@@ -675,6 +659,8 @@ class YardOps:
             if a['waited_s'] < 20 or a.get('detours', 0) >= 2:
                 return {'action': 'wait', 'seconds': 5, 'why': '트럭 진입/출차 중 → 트럭 우선, 대기'}
             return {'action': 'detour', 'why': '트럭이 비키지 않음 → 우회'}
+        if a['kind'] == 'worker' and a['horns'] >= 3 and a['waited_s'] >= 12:
+            return {'action': 'clear', 'why': '경적 %d회에도 안 비킴 → 현장 관리자 호출(작업자 대피 유도)' % a['horns']}
         if a['moving']:
             if a['horns'] < 2 or (a.get('detour_failed') and a['horns'] < 2 + a['detour_failed']) \
                     or (a.get('creep') and a['waited_s'] >= 10 * a['horns']):
@@ -734,6 +720,7 @@ Before the tool call write one short Korean sentence explaining the choice."""
     SYSTEM_OBST = """You are the MAIN SERVER AI driving a reach stacker in a container yard. Its sensors stopped it:
 an object blocks the planned path. Choose ONE action with ONE tool call.
 Trucks (kind=truck) have right of way: wait for them (5 s at a time); detour only if they do not clear.
+A person who still blocks after 3 horns: request_clear calls a site supervisor to escort them out.
 People and vehicles (moving=true): sound_horn first and they usually step aside; if they still block after
 horns, detour; if they block again after 2 detours (detours >= 2), wait and sound the horn instead of detouring again. Fixed objects (cone, pallet): detour if detour_extra_m is short (< 30 m), otherwise request_clear
 (a ground crew removes it in ~15 s). Never drive through. Write one short Korean sentence first."""
@@ -954,6 +941,8 @@ horns, detour; if they block again after 2 detours (detours >= 2), wait and soun
             start = (self.st['x'], self.st['z'], self.st['yaw'])
             exclude = (self.st['carry'],) if self.st['carry'] else ()
             shapes = self._static_shapes(exclude) + list(extra_temp)
+            if self.car and not A.car_is_static(self.car):      # right of way: keep out of where the car is / will be
+                shapes += [self._inflate(sh, 1.0) for sh in A.car_reserved(self)]
             # a zone the stacker already stands in (e.g. a truck was dispatched meanwhile) must not trap it
             shapes = [self._shrink_from(sh, start) for sh in shapes]
             shapes = [sh for sh in shapes if sh is not None]
@@ -990,6 +979,29 @@ horns, detour; if they block again after 2 detours (detours >= 2), wait and soun
                 self.log('기계', '목표 지점에 %s → 경적 ♪ 후 대기' % ', '.join(m['name'] for m in movers))
                 self.wait_sim(5)
                 continue
+            if attempt == 1:
+                # boxed in? back out straight a few metres and plan again from there
+                with self.lock:
+                    x, z, yaw = self.st['x'], self.st['z'], self.st['yaw']
+                    shapes = self._static_shapes((self.st['carry'],) if self.st['carry'] else ())
+                bx, bz = x - 4.0 * math.sin(yaw), z - 4.0 * math.cos(yaw)
+                if Y.footprint_clearance(bx, bz, yaw, shapes) > Y.MARGIN:
+                    self.log('서버', '경로 없음 → 4 m 후진 후 재계획')
+                    self._creep((bx, bz, yaw), -1)
+                    continue
+            if attempt == 2:
+                # anything known lying around start or goal: crew clears it
+                with self.lock:
+                    near = [d for d in self.debris if d['known'] and d['clear_at'] is None and
+                            min(math.hypot(d['x'] - goal[0], d['z'] - goal[1]),
+                                math.hypot(d['x'] - self.st['x'], d['z'] - self.st['z'])) < 12]
+                    for d in near:
+                        d['clear_at'] = self.t + CREW_S
+                        self.stats['clears'] += 1
+                if near:
+                    self.log('서버', '경로 없음 → 주변 %s 작업반 호출' % ', '.join(d['id'] for d in near))
+                    self.wait_sim(CREW_S + 1)
+                    continue
             self.log('서버', '경로 계획 실패 (막힘) → 5초 대기 후 재계획')
             self.wait_sim(5)
         else:
@@ -1047,6 +1059,22 @@ horns, detour; if they block again after 2 detours (detours >= 2), wait and soun
                 self.log('서버', '대기 %.0f초' % sec)
                 self.wait_sim(sec)
                 rec['waited'] += sec
+            elif act == 'clear' and info['kind'] == 'worker':
+                self.stats['clears'] += 1
+                self.log('서버', '현장 관리자 호출: %s 대피 유도 (약 15초)' % info['name'])
+                self.wait_sim(15)
+                with self.lock:
+                    for w in self.workers:
+                        if w['id'] == info['id']:
+                            w['stubborn'] = False
+                            A._evade(self, w, A.stacker_sweep(self)) or w.update(
+                                route=[Y.WALK_NODES[Y.nearest_node(w['x'], w['z'])]], state='evade', pause=0.0, jay=False)
+            elif act == 'clear' and info['kind'] == 'parked_car':
+                with self.lock:
+                    self.car['until'] = self.t + 10.0
+                    self.stats['clears'] += 1
+                self.log('서버', '주차 차량 운전자 호출: 이동 요청 (약 10초)')
+                self.wait_until(lambda: self.car['state'] != 'parked', 40)
             elif act == 'clear':
                 with self.lock:
                     for d in self.debris:
@@ -1112,21 +1140,8 @@ horns, detour; if they block again after 2 detours (detours >= 2), wait and soun
         return sh[:4] + (sh[4] + m, sh[5] + m)
 
     def _horn_effect(self, force=False):
-        st = self.st
-        for w in self.workers:
-            if math.hypot(w['x'] - st['x'], w['z'] - st['z']) > (60 if force else 30):
-                continue
-            p_move = 0.35 if w['stubborn'] else 0.75
-            if self.rnd.random() < p_move:
-                # step aside: perpendicular to the stacker heading, away from its path
-                fx, fz = math.sin(st['yaw']), math.cos(st['yaw'])
-                side = 1 if (w['x'] - st['x']) * fz - (w['z'] - st['z']) * fx >= 0 else -1
-                w.update(target=(w['x'] + side * fz * 6.0, w['z'] - side * fx * 6.0), v=1.6, pause=0.0,
-                         state='walk', stubborn=False, cross=False, yield_until=self.t + 40)
-        c = self.car
-        if c and c['state'] == 'park' and (force or math.hypot(c['x'] - st['x'], c['z'] - st['z']) < 35) and self.rnd.random() < 0.7:
-            c['park_until'] = self.t
-            c['next_park'] = self.t + 60
+        A.horn_workers(self, force)
+        A.horn_car(self, force)
 
     def _decide_obstacle(self, alert):
         if self.controller == 'ai' and self.ai_fail < 3:
@@ -1297,8 +1312,14 @@ horns, detour; if they block again after 2 detours (detours >= 2), wait and soun
                 'trucks': [{k: t[k] for k in ('id', 'state', 'bay', 'mode', 'container', 'x', 'z', 'yaw', 'served')}
                            for t in self.trucks.values()],
                 'bays': [{'id': b['id'], 'x': b['x'], 'z': b['z'], 'truck': b['truck']} for b in self.bays.values()],
-                'workers': [{'id': w['id'], 'x': w['x'], 'z': w['z'], 'yaw': w['yaw'], 'state': w['state']} for w in self.workers],
-                'car': None if not self.car else {k: self.car[k] for k in ('id', 'x', 'z', 'yaw', 'state')},
+                'workers': [{'id': w['id'], 'x': w['x'], 'z': w['z'], 'yaw': w['yaw'], 'state': w['state'], 'jay': w['jay']}
+                            for w in self.workers],
+                'car': None if not self.car else dict({k: self.car[k] for k in ('id', 'x', 'z', 'yaw', 'state')},
+                                                      v=round(self.car['v'], 2), brake=self.car['brake'], reverse=self.car.get('state_note') == 'reverse'),
+                'walkways': [[Y.WALK_NODES[a], Y.WALK_NODES[b]] for a, b in Y.WALK_EDGES],
+                'road': Y.CAR_LOOP,
+                'crosswalks': [Y.WALK_NODES[k] for k in Y.CROSSWALKS], 'parking': Y.PARKING,
+                'metrics': dict(self.metrics, car_min_gap=None if not self.car else round(self.car['min_gap'], 2)),
                 'debris': [{'id': d['id'], 'kind': d['kind'], 'x': d['x'], 'z': d['z'], 'yaw': d['yaw'],
                             'known': d['known'], 'clearing': d['clear_at'] is not None} for d in self.debris],
                 'alert': self.alert if st['mode'] == 'blocked' or (self.alert and self.task) else None,

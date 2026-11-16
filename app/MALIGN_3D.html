@@ -73,7 +73,7 @@ button.sec{background:#1d2c38;border:1px solid var(--line);font-weight:500;font-
  <div id="alignbox" style="display:none"><h2 style="margin-top:8px">M-ALIGN 정렬 (실제 코너 오차)</h2><div class="cgrid" id="cgrid"></div></div>
 </div>
 <div class="panel" id="log"><h2>AI · 서버 · 현장 기록</h2><div id="logbody"></div></div>
-<div class="panel" id="help">컨테이너 클릭 → 빈 구역(A1–B5) 또는 대기 중인 빈 트럭 클릭 = 우선 지시. Esc = 취소. 끌기 회전 · 휠 확대.<br>초록 선 = 전진 경로, 주황 선 = 후진. 부채꼴 = 장애물 센서(16 m).</div>
+<div class="panel" id="help">컨테이너 클릭 → 빈 구역(A1–B5) 또는 대기 중인 빈 트럭 클릭 = 우선 지시. Esc = 취소. 끌기 회전 · 휠 확대.<br>초록 선 = 전진 경로, 주황 선 = 후진. 부채꼴 = 장애물 센서(16 m). 초록 띠 = 보행로(사람은 여기로만), 바깥 회색 = 서비스 도로.</div>
 <script type="module">
 import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
@@ -130,11 +130,32 @@ placeRect(94, 77, concrete, 0, -2.75, .008);                                    
 placeRect(240, 7, asphalt, 0, 38, .012);                                        // truck lane
 for (let x = -110; x <= 110; x += 6) placeRect(2.7, .13, lineYellow, x, 38, .045);
 for (const z of [34.6, 41.4]) placeRect(240, .1, lineWhite, 0, z, .045);
-// service road (car loop) and its centre dashes
-placeRect(84, 4.6, asphalt, 0, -32, .016); placeRect(84, 4.6, asphalt, 0, 14, .016);
-placeRect(4.6, 50.6, asphalt, -40, -9, .016); placeRect(4.6, 50.6, asphalt, 40, -9, .016);
-for (let x = -36; x <= 36; x += 6){ placeRect(2.4, .12, lineWhite, x, -32, .05); placeRect(2.4, .12, lineWhite, x, 14, .05); }
-for (let z = -28; z <= 10; z += 6){ placeRect(.12, 2.4, lineWhite, -40, z, .05); placeRect(.12, 2.4, lineWhite, 40, z, .05); }
+// perimeter service road, walkways and the parking bay come from the server (buildStatic)
+const walkMat = std(0x3f7d5c, {roughness: 1}), walkEdge = new THREE.MeshBasicMaterial({color: 0xf4f1e6});
+function stripe(a, b, width, mat, y){
+  const dx = b[0] - a[0], dz = b[1] - a[1], len = Math.hypot(dx, dz);
+  const m = box(width, .025, len + width, mat, (a[0] + b[0]) / 2, y, (a[1] + b[1]) / 2); m.castShadow = false;
+  m.rotation.y = Math.atan2(dx, dz); scene.add(m); return m;
+}
+function buildSite(st){
+  const R = st.road;                                         // [[x,z] x4], closed loop
+  for (let i = 0; i < R.length; i++){ const a = R[i], b = R[(i + 1) % R.length];
+    stripe(a, b, 4.6, asphalt, .016);
+    const n = Math.floor(Math.hypot(b[0] - a[0], b[1] - a[1]) / 6);
+    for (let k = 1; k < n; k++){ const t = k / n; const m = box(.14, .02, 2.2, lineWhite, a[0] + (b[0] - a[0]) * t, .05, a[1] + (b[1] - a[1]) * t);
+      m.rotation.y = Math.atan2(b[0] - a[0], b[1] - a[1]); m.castShadow = false; scene.add(m); } }
+  for (const [a, b] of st.walkways){                          // green pedestrian walkways with white edges
+    stripe(a, b, 2.2, walkMat, .03);
+    const dx = b[0] - a[0], dz = b[1] - a[1], L = Math.hypot(dx, dz), nx = -dz / L, nz = dx / L;
+    for (const sd of [-1.12, 1.12]) stripe([a[0] + nx * sd, a[1] + nz * sd], [b[0] + nx * sd, b[1] + nz * sd], .1, walkEdge, .05);
+    for (let k = 4; k < L - 2; k += 8){ const t = flatText('🚶', 1.4, .7, '#e9f5ec'); t.position.set(a[0] + dx / L * k, .06, a[1] + dz / L * k);
+      t.rotation.z = -Math.atan2(dx, dz); scene.add(t); } }
+  const [px, pz, py] = st.parking;
+  const pb = box(2.6, .03, 5.4, std(0x2d5f9a, {roughness: 1}), px, .035, pz); pb.rotation.y = py; pb.castShadow = false; scene.add(pb);
+  const pt = flatText('P', 1.6, .8, '#ffffff'); pt.position.set(px, .06, pz); scene.add(pt);
+  for (const [k, txt] of [[0, '게이트 부스'], [1, '사무소']]){ const node = k ? [35.2, -39.6] : [-47.5, 30];
+    const t = label(txt, 2.6, .9, 'rgba(63,125,92,.9)'); t.position.set(node[0], 2.4, node[1]); scene.add(t); }
+}
 placeRect(54, 7.5, apronMat, -4, 4, .02); placeRect(54, 7.5, apronMat, -4, -14, .02);     // stacking aprons (rows A, B)
 placeRect(54, 6, apronMat, -4, 32, .02);                                         // truck bays apron
 // yellow guide lines along the stacker approach aisles
@@ -252,16 +273,23 @@ function makeWorker(w, vest = 0xff7a00){
   const head = new THREE.Mesh(new THREE.SphereGeometry(.17, 12, 10), std(0xe0b090)); head.position.y = 1.78; g.add(head);
   const hat = new THREE.Mesh(new THREE.SphereGeometry(.2, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), std(0xffd400)); hat.position.y = 1.84; g.add(hat);
   const lb = label(w.id, 1.3, .6); lb.position.y = 2.55; g.add(lb);
-  const phone = label('📱 통화 중', 2.0, .6, 'rgba(255,192,77,.9)', '#111'); phone.position.y = 3.1; phone.visible = false; g.add(phone);
-  scene.add(g); return {g, phone};
+  const tags = {phone: label('📱 통화 중', 2.0, .6, 'rgba(255,192,77,.9)', '#111'), jay: label('⚠ 무단횡단', 2.0, .6, 'rgba(255,93,93,.92)'),
+    yield: label('양보 대기', 1.8, .6, 'rgba(70,199,255,.9)', '#04131c'), evade: label('대피', 1.3, .6, 'rgba(70,199,255,.9)', '#04131c'),
+    work: label('작업 중', 1.6, .6, 'rgba(63,125,92,.9)')};
+  for (const t of Object.values(tags)){ t.position.y = 3.1; t.visible = false; g.add(t); }
+  scene.add(g); return {g, tags, phone: tags.phone};
 }
 function makeCar(){
   const g = new THREE.Group();
   g.add(box(1.8, .8, 4.2, std(0xf2f2f2), 0, .7, 0)); g.add(box(1.6, .65, 2.0, std(0x9fd3ff, {roughness: .1}), 0, 1.4, -.3));
-  g.add(box(1.0, .15, .3, std(0xff8a00, {emissive: 0xff8a00, emissiveIntensity: .9}), 0, 1.8, -.3));
+  const beacon = box(1.0, .15, .3, std(0xff8a00, {emissive: 0xff8a00, emissiveIntensity: .9}), 0, 1.8, -.3); g.add(beacon);
+  const brake = [], hazard = [];
+  for (const x of [-.7, .7]){ const b = box(.3, .18, .06, std(0x5a1010, {emissive: 0xff2020, emissiveIntensity: 0}), x, .85, -2.12); g.add(b); brake.push(b);
+    const h = box(.22, .14, .06, std(0x5a3a10, {emissive: 0xffa020, emissiveIntensity: 0}), x * 1.15, .85, 2.12); g.add(h); hazard.push(h); }
   const lb = label('V1', 1.3, .6); lb.position.y = 2.7; g.add(lb);
-  const park = label('정차 중', 1.8, .6, 'rgba(255,192,77,.9)', '#111'); park.position.y = 3.3; park.visible = false; g.add(park);
-  scene.add(g); return {g, park};
+  const park = label('정차(위반)', 2.0, .6, 'rgba(255,93,93,.92)'); park.position.y = 3.3; park.visible = false; g.add(park);
+  const parked = label('주차', 1.2, .6, 'rgba(45,95,154,.92)'); parked.position.y = 3.3; parked.visible = false; g.add(parked);
+  scene.add(g); return {g, park, parked, brake, hazard};
 }
 const debrisObjs = {};
 function makeDebris(d){
@@ -328,7 +356,7 @@ alertRing.rotation.x = -Math.PI / 2; alertRing.position.y = .06; alertRing.visib
 let steerNow = 0, S = null, pose = {x: 34, z: -4, yaw: 0, h: H + 2.6}, built = false, selected = null, lastLogKey = '';
 const workerObjs = {}; let carObj = null;
 function lerpAng(a, b, f){ let d = b - a; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return a + d * f; }
-function buildStatic(st){ if (built) return; built = true; st.slots.forEach(makeSlot); st.bays.forEach(makeBay); }
+function buildStatic(st){ if (built) return; built = true; st.slots.forEach(makeSlot); st.bays.forEach(makeBay); if (st.road) buildSite(st); }
 
 function sync(st){
   S = st; buildStatic(st);
@@ -436,8 +464,13 @@ function place(dt){
     const tds = Math.hypot(t.x - o.g.position.x, t.z - o.g.position.z) * f; if (tds < 5) for (const w of o.spins) w.rotation.x += tds / .65;
     o.g.position.x += (t.x - o.g.position.x) * f; o.g.position.z += (t.z - o.g.position.z) * f; o.g.rotation.y = lerpAng(o.g.rotation.y, t.yaw, f);
     if (Math.abs(t.x - o.g.position.x) > 20) o.g.position.set(t.x, 0, t.z); }
-  for (const id in workerObjs){ const o = workerObjs[id], w = o.data; o.g.position.x += (w.x - o.g.position.x) * f; o.g.position.z += (w.z - o.g.position.z) * f; o.g.rotation.y = lerpAng(o.g.rotation.y, w.yaw, f); o.phone.visible = w.state === 'phone'; }
-  if (carObj){ const c = carObj.data; carObj.g.position.x += (c.x - carObj.g.position.x) * f; carObj.g.position.z += (c.z - carObj.g.position.z) * f; carObj.g.rotation.y = lerpAng(carObj.g.rotation.y, c.yaw, f); carObj.park.visible = c.state === 'park'; }
+  for (const id in workerObjs){ const o = workerObjs[id], w = o.data; o.g.position.x += (w.x - o.g.position.x) * f; o.g.position.z += (w.z - o.g.position.z) * f; o.g.rotation.y = lerpAng(o.g.rotation.y, w.yaw, f);
+    for (const [k, t] of Object.entries(o.tags)) t.visible = (k === 'jay' ? (w.jay && w.state !== 'phone') : w.state === k); }
+  if (carObj){ const c = carObj.data; carObj.g.position.x += (c.x - carObj.g.position.x) * f; carObj.g.position.z += (c.z - carObj.g.position.z) * f; carObj.g.rotation.y = lerpAng(carObj.g.rotation.y, c.yaw, f);
+    carObj.park.visible = c.state === 'road_stop'; carObj.parked.visible = c.state === 'parked';
+    const blink = Math.floor(performance.now() / 400) % 2 === 0;
+    for (const b of carObj.brake) b.material.emissiveIntensity = c.brake || c.v < .05 ? 1.4 : 0;
+    for (const h of carObj.hazard) h.material.emissiveIntensity = c.state === 'road_stop' && blink ? 1.6 : 0; }
   // alert ring on the blocking object
   let tgt = null; const al = S.alert;
   if (al && blocked){ if (workerObjs[al.id]) tgt = workerObjs[al.id].g.position; else if (carObj && al.id === S.car?.id) tgt = carObj.g.position;
