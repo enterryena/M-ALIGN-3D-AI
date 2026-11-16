@@ -556,6 +556,7 @@ class Yard {
       if (a.creep) return {action: 'wait', seconds: 4, why: '좁은 진입 구간이라 우회 불가 → 대기'};
       if (a.detours >= 2) return a.waited_s >= 8 * (a.horns - 1) ? {action: 'horn', why: '우회해도 다시 경로에 들어옴 → 경적'} : {action: 'wait', seconds: 5, why: '우회해도 다시 경로에 들어옴 → 비킬 때까지 대기'};
       return {action: 'detour', why: `경적 ${a.horns}회에도 안 비킴 → 우회`}; }
+    if (a.detours >= 2) return {action: 'clear', why: `고정 장애물, 우회 ${a.detours}회에도 다시 막힘 → 작업반 호출`};
     if (a.detour_extra_m != null && a.detour_extra_m < 30) return {action: 'detour', why: `고정 장애물, 우회가 짧음(+${Math.round(a.detour_extra_m)} m)`};
     return {action: 'clear', why: '고정 장애물, 우회 경로가 ' + (a.detour_extra_m == null ? '없음' : `김(+${Math.round(a.detour_extra_m)} m)`) + ' → 작업반 호출'}; }
   // ---- optional Ollama (browser -> local Ollama needs OLLAMA_ORIGINS to allow this page)

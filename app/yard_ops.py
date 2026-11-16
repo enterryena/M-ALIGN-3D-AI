@@ -689,6 +689,8 @@ class YardOps:
                     return {'action': 'horn', 'why': '우회해도 다시 경로에 들어옴 → 경적'}
                 return {'action': 'wait', 'seconds': 5, 'why': '우회해도 다시 경로에 들어옴 → 비킬 때까지 대기'}
             return {'action': 'detour', 'why': '경적 %d회에도 안 비킴 → 우회' % a['horns']}
+        if a.get('detours', 0) >= 2:      # detoured twice and the sensors still stop in front of it: have it removed
+            return {'action': 'clear', 'why': '고정 장애물, 우회 %d회에도 다시 막힘 → 작업반 호출' % a['detours']}
         if a.get('detour_extra_m') is not None and a['detour_extra_m'] < 30:
             return {'action': 'detour', 'why': '고정 장애물, 우회가 짧음(+%.0f m)' % a['detour_extra_m']}
         return {'action': 'clear', 'why': '고정 장애물, 우회 경로가 %s → 작업반 호출' % (
@@ -739,7 +741,7 @@ an object blocks the planned path. Choose ONE action with ONE tool call.
 Trucks (kind=truck) have right of way: wait for them (5 s at a time); detour only if they do not clear.
 A person who still blocks after 3 horns: request_clear calls a site supervisor to escort them out.
 People and vehicles (moving=true): sound_horn first and they usually step aside; if they still block after
-horns, detour; if they block again after 2 detours (detours >= 2), wait and sound the horn instead of detouring again. Fixed objects (cone, pallet): detour if detour_extra_m is short (< 30 m), otherwise request_clear
+horns, detour; if they block again after 2 detours (detours >= 2), wait and sound the horn instead of detouring again. Fixed objects (cone, pallet): detour if detour_extra_m is short (< 30 m), otherwise request_clear; after 2 detours (detours >= 2) request_clear
 (a ground crew removes it in ~15 s). Never drive through. Write one short Korean sentence first."""
     TOOLS_TASK = [
         {'type': 'function', 'function': {'name': 'start_task', 'description': 'Start a task. kind: unload (source = truck id, dest = slot), load (source = slot, dest = truck id), move (source = slot, dest = slot).',
