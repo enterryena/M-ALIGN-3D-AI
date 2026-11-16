@@ -652,7 +652,7 @@ function rigid(est){ let sx = 0, sy = 0, num = 0, den = 0; for (const v of est){
 const ROAD_V = 4, CAR_ACC = 1.5, CAR_DEC = 3, CAR_GAP_MACHINE = 6, CAR_GAP_PERSON = 5, YIELD_M = 5;
 const SENSOR_RANGE = 16, SAFE_GAP = .6, PERSON_GAP = 3, TRUCK_CLEAR = .8, V_FWD = 3, V_REV = 1.5, ACC = .8, DEC = 1.5;
 const STOP_BEFORE = {worker: 3, car: 2.5, truck: 2.5, parked_car: 1.5, cone: 1.5, pallet: 1.5};
-const TRAVEL_H = H + 2.6, CARRY_LIFT = 2.2, TRUCK_BED = 1.5, KIT_GAP = .02, HOIST_V = .45, CREW_S = 15, CAPACITY = SLOTS.length;
+const MANUAL_S = 40, HOLD_S = 90, TRAVEL_H = H + 2.6, CARRY_LIFT = 2.2, TRUCK_BED = 1.5, KIT_GAP = .02, HOIST_V = .45, CREW_S = 15, CAPACITY = SLOTS.length;
 const COLORS = ['#d2601a', '#2a6fb0', '#2f8a4a', '#9b2d2d', '#7a7a7a', '#c8a024', '#5b3f8c', '#1f7a7a'];
 
 class Yard {
@@ -664,7 +664,7 @@ class Yard {
     this.hardware = o.hardware || 'target'; this.env = o.env || 'clear'; this.vary = !!o.vary; this.machine = o.machine || 'normal'; this.people = o.people !== false; this.debrisOn = o.debris !== false;
     this.memory = o.memory; this.t = 0; this.running = false; this.logLines = []; this.waiters = [];
     this.stats = {inbound: 0, outbound: 0, user: 0, horns: 0, detours: 0, clears: 0, waits: 0, contacts: 0, align_fail: 0,
-      guard_refusals: 0, ai_decisions: 0, rule_decisions: 0, retries: 0, retry_success: 0, cases_added: 0};
+      guard_refusals: 0, ai_decisions: 0, rule_decisions: 0, retries: 0, retry_success: 0, cases_added: 0, manual_locks: 0};
     this.metrics = {worker_min_gap_lawful: 1e9, worker_steps: 0, worker_on_walkway: 0};
     this.nCont = 0; this.containers = {}; this.slots = {}; for (const [id, x, z, yaw] of SLOTS) this.slots[id] = {id, x, z, yaw, holder: null, reserved: null};
     this.bays = {}; for (const [id, x, z] of BAYS) this.bays[id] = {id, x, z, truck: null};
@@ -680,7 +680,9 @@ class Yard {
   }
   log(who, text){ this.logLines.push({t: Math.round(this.t * 10) / 10, at: Date.now() + this.logLines.length, who, text}); if (this.logLines.length > 220) this.logLines.splice(0, 20); }
   newContainer(x, z, yaw, y){ this.nCont++; const id = 'C' + String(this.nCont).padStart(2, '0');
-    return this.containers[id] = {id, color: COLORS[(this.nCont - 1) % COLORS.length], x, z, yaw, y, where: null, slot: null, truck: null, since: this.t}; }
+    // the box's own corner-casting tolerance (standard normal, scaled by tolC): fixed for its life, so a retry meets the same box
+    const zr = this.E.rng(((this.seed * 7919 + this.nCont) >>> 0) || 1), tolZ = [0, 1, 2, 3].map(() => [zr.n(), zr.n()]);
+    return this.containers[id] = {id, color: COLORS[(this.nCont - 1) % COLORS.length], x, z, yaw, y, where: null, slot: null, truck: null, since: this.t, tolZ}; }
   // ---------------------------------------------------------------- time
   waitSim(sec){ const end = this.t + sec; return this.waitUntil(() => this.t >= end); }
   waitUntil(pred, timeout = null){ const end = timeout == null ? Infinity : this.t + timeout;
@@ -920,8 +922,11 @@ class Yard {
     if (act === 'clear' && a.moving && !(a.kind === 'worker' && a.horns >= 3)) return 'the ground crew clears fixed objects only (a supervisor escorts a person only after 3 horns)';
     if (!['horn', 'wait', 'detour', 'clear', 'stop'].includes(act)) return 'unknown action'; return null; }
   ruleTask(s){ if (this.requests.length) return this.taskFromRequest(this.requests[0]);
-    for (const tw of s.trucks_waiting.slice().sort((a, b) => b.waiting_s - a.waiting_s)){
-      if (tw.type === 'outbound' && !tw.container && s.occupied.length){ const old = s.occupied.reduce((a, b) => b.in_yard_s > a.in_yard_s ? b : a); return {kind: 'load', source: old.slot, dest: tw.truck}; }
+    const held = c => ((this.containers[c] || {}).holdUntil || -1) > this.t;   // failed box: other work first
+    const tws = s.trucks_waiting.slice().sort((a, b) => b.waiting_s - a.waiting_s), order = tws.filter(w => !(w.container && held(w.container))).concat(tws.filter(w => w.container && held(w.container)));
+    for (const tw of order){
+      const ready = s.occupied.filter(o => !held(o.container)).length ? s.occupied.filter(o => !held(o.container)) : s.occupied;
+      if (tw.type === 'outbound' && !tw.container && s.occupied.length){ const old = ready.reduce((a, b) => b.in_yard_s > a.in_yard_s ? b : a); return {kind: 'load', source: old.slot, dest: tw.truck}; }
       if (tw.type === 'inbound' && tw.container && s.free_slots.length){ const bay = this.bays[tw.bay];
         const slot = s.free_slots.reduce((a, b) => Math.hypot(this.slots[b].x - bay.x, this.slots[b].z - bay.z) < Math.hypot(this.slots[a].x - bay.x, this.slots[a].z - bay.z) ? b : a);
         return {kind: 'unload', source: tw.truck, dest: slot}; } }
@@ -983,7 +988,12 @@ class Yard {
     task.step = '컨테이너로 이동'; if (!await this.go(predockPose(sx, sz, syaw))) return false;
     task.step = '진입'; if (!await this.creep(dockPose(sx, sz, syaw), 1, srcEx)) return false;
     task.step = 'M-ALIGN 정렬·결합'; this.st.h_target = sy + H + KIT_GAP; await this.waitUntil(() => Math.abs(this.st.h - this.st.h_target) < .005, 40);
-    if (!await this.alignWithRetries(task)){ this.st.h_target = TRAVEL_H; await this.creep(predockPose(sx, sz, syaw), -1, srcEx); this.log('서버', `${cid} 결합 실패 → 작업 보류 (다음에 다시 시도)`); return false; }
+    const box = this.containers[cid];
+    if (box.autoFail >= 1){ // automatic alignment failed 3x on this box (same corner tolerance): a signalman guides it, no endless loop
+      this.log('서버', `${cid} 자동 정렬 반복 실패 이력 → 신호수 호출, 수동 유도 결합 (약 ${MANUAL_S}초)`); task.step = '신호수 수동 유도';
+      await this.waitSim(MANUAL_S); this.stats.manual_locks++; this.log('기계', `${cid} 신호수 유도로 트위스트록 잠금`); }
+    else if (!await this.alignWithRetries(task)){ this.st.h_target = TRAVEL_H; box.autoFail = (box.autoFail || 0) + 1; box.holdUntil = this.t + HOLD_S;
+      await this.creep(predockPose(sx, sz, syaw), -1, srcEx); this.log('서버', `${cid} 자동 정렬 3회 실패 → 다른 작업 먼저, 이 컨테이너는 신호수 수동 유도로 처리 예정`); return false; }
     task.step = '들어 올림'; const c = this.containers[cid];
     if (task.kind === 'unload'){ const t = this.trucks[task.source]; t.container = null; t.served = true; } else this.slots[task.source].holder = null;
     Object.assign(c, {where: 'stacker', slot: null, truck: null}); this.st.carry = cid; this.st.h_target = CARRY_LIFT + H;
@@ -1084,6 +1094,7 @@ class Yard {
     const r0 = P.R0 * Math.sqrt(rnd()), a0 = 2 * PI * rnd(); tr.tx = r0 * Math.cos(a0); tr.ty = r0 * Math.sin(a0); tr.th = P.theta0 * PI / 180 * rnd.n();
     const stc = []; for (let k = 0; k < 4; k++){ tr.tol[k] = [P.tolC * rnd.n(), P.tolC * rnd.n()]; const b = []; for (let h = 0; h < 5; h++) b.push(P.modelBias * rnd.n());
       stc.push({dz: P.gapSd * rnd.n(), pitch: P.tiltSd * rnd.n(), roll: P.tiltSd * rnd.n(), bias: b}); }
+    const box = this.containers[task.container]; if (box && box.tolZ) tr.tol = box.tolZ.map(([a, b]) => [P.tolC * a, P.tolC * b]);   // same box, same tolerance
     const camBias = (task.cond && task.cond.camFail) || this.machine === 'biased' ? [9 + aux(), -7] : [.5 * aux.n(), .5 * aux.n()], irBias = [aux.n(), aux.n()];
     const errs = () => CMM.map(([X, Y], q) => [tr.tx - tr.th * Y + tr.tol[q][0], tr.ty + tr.th * X + tr.tol[q][1]]);
     const worst = () => Math.max(...errs().map(v => Math.max(Math.abs(v[0]), Math.abs(v[1]))));

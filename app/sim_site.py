@@ -46,7 +46,7 @@ class SimSite:
 
     # ---- control from the screen / API
     def start(self, hardware='target', machine='normal', fault='none', strategy='weighted', seed=None,
-              machine_id='SIM-REACHSTACKER-1', controller='rule', ai_model=None, plan_hook=None):
+              machine_id='SIM-REACHSTACKER-1', controller='rule', ai_model=None, plan_hook=None, container_tol=None):
         if hardware not in HARDWARE or machine not in MACHINE_MODES or fault not in FAULTS or strategy not in STRATEGIES:
             raise ValueError('hardware/machine/fault/strategy 값 오류')
         if controller not in CONTROLLERS:
@@ -56,10 +56,12 @@ class SimSite:
                 raise RuntimeError('진행 중인 가상 작업이 있습니다')
             seed = int(seed) & 0xFFFFFFFF if seed is not None else secrets.randbits(32) or 1
             P = E.settings(hardware, 'history')
-            rs = VirtualReachStacker(self.M, P, E.Rng(seed), E.Rng(seed ^ 0x5A5A5A5A), machine, fault)
+            rs = VirtualReachStacker(self.M, P, E.Rng(seed), E.Rng(seed ^ 0x5A5A5A5A), machine, fault,
+                                     container_tol=container_tol)
             job_id = 'JOB-' + datetime.now().strftime('%Y%m%d-%H%M%S') + '-' + secrets.token_hex(2)
             self.job = {'job_id': job_id, 'machine_id': machine_id, 'phase': 'approach', 'seed': seed,
                         'settings': {'hardware': hardware, 'machine': machine, 'fault': fault, 'strategy': strategy,
+                                     'container_tol': container_tol,
                                      'controller': controller, 'ai_model': ai_model or self.ai_model},
                         'events': [], 'stage': 'approach', 'locked': None,
                         'rs': rs, 'P': P,

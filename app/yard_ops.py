@@ -42,6 +42,8 @@ SAFE_GAP = 0.6                        # footprint gap that counts as "path block
 V_FWD, V_REV, ACC, DEC = 3.0, 1.5, 0.8, 1.5
 TRUCK_V = 5.0
 CREW_S = 15.0
+MANUAL_S = 40          # signalman-guided lowering after repeated automatic failures on the same box
+HOLD_S = 90            # a box that failed automatic alignment waits this long while other work goes first
 TRUCK_CLEAR = 0.8         # the stacker keeps this far from a moving truck's path; trucks creep past a stopped one at 0.5
 STOP_BEFORE = {'worker': 3.0, 'car': 2.5, 'truck': 2.5, 'parked_car': 1.5, 'cone': 1.5, 'pallet': 1.5}   # m, stop short of
 PERSON_GAP = 3.0          # a person within 3 m of the swept path counts as "in the way" (exclusion zone)
@@ -80,7 +82,7 @@ class YardOps:
         self.log_lines = []
         self.stats = {'inbound': 0, 'outbound': 0, 'user': 0, 'horns': 0, 'detours': 0, 'clears': 0, 'waits': 0,
                       'contacts': 0, 'align_fail': 0, 'guard_refusals': 0, 'ai_decisions': 0, 'rule_decisions': 0,
-                      'retries': 0, 'retry_success': 0, 'cases_added': 0}
+                      'retries': 0, 'retry_success': 0, 'cases_added': 0, 'manual_locks': 0}
         self.ai_fail = 0
         self.n_cont = 0
         self.containers = {}
@@ -135,6 +137,10 @@ class YardOps:
         cid = 'C%02d' % self.n_cont
         c = {'id': cid, 'color': COLORS[(self.n_cont - 1) % len(COLORS)], 'x': x, 'z': z, 'yaw': yaw, 'y': y0,
              'where': None, 'slot': None, 'truck': None, 'since': self.t}
+        # the box's own corner-casting tolerance (standard-normal; scaled by the hardware assumption's tolC):
+        # fixed for the container's life, so a retry on the same box meets the same tolerance
+        zr = random.Random(self.seed * 7919 + self.n_cont)
+        c['tol_z'] = [[zr.gauss(0, 1), zr.gauss(0, 1)] for _ in range(4)]
         self.containers[cid] = c
         return c
 
@@ -643,10 +649,14 @@ class YardOps:
     def _rule_task(self, s):
         if self.requests:
             return self._task_from_request(self.requests[0])
+        held = lambda c: self.containers.get(c, {}).get('hold_until', -1) > self.t   # failed box: others first
         waiting = sorted(s['trucks_waiting'], key=lambda x: -x['waiting_s'])
+        waiting = [w for w in waiting if not (w['container'] and held(w['container']))] + \
+                  [w for w in waiting if w['container'] and held(w['container'])]
         for tw in waiting:
+            ready = [o for o in s['occupied'] if not held(o['container'])] or s['occupied']
             if tw['type'] == 'outbound' and not tw['container'] and s['occupied']:
-                oldest = max(s['occupied'], key=lambda o: o['in_yard_s'])
+                oldest = max(ready, key=lambda o: o['in_yard_s'])
                 return {'kind': 'load', 'source': oldest['slot'], 'dest': tw['truck']}
             if tw['type'] == 'inbound' and tw['container'] and s['free_slots']:
                 bay = self.bays[tw['bay']]
@@ -875,11 +885,23 @@ horns, detour; if they block again after 2 detours (detours >= 2), wait and soun
         with self.lock:
             self.st['h_target'] = sy + Y.H + KIT_GAP
         self.wait_until(lambda: abs(self.st['h'] - self.st['h_target']) < 0.005, 40)
-        if not self._align(task):
+        box = self.containers[cid]
+        if box.get('auto_fail', 0) >= 1:
+            # automatic alignment already failed 3x on this box (its corner tolerance does not change):
+            # do not loop on it - a signalman guides the lowering by eye, as on a real terminal
+            self.log('서버', '%s 자동 정렬 반복 실패 이력 → 신호수 호출, 수동 유도 결합 (약 %d초)' % (cid, MANUAL_S))
+            self.task['step'] = '신호수 수동 유도'
+            self.wait_sim(MANUAL_S)
+            with self.lock:
+                self.stats['manual_locks'] += 1
+            self.log('기계', '%s 신호수 유도로 트위스트록 잠금' % cid)
+        elif not self._align(task):
             with self.lock:
                 self.st['h_target'] = TRAVEL_H
+                box['auto_fail'] = box.get('auto_fail', 0) + 1
+                box['hold_until'] = self.t + HOLD_S
             self._creep(Y.predock_pose(sx, sz, syaw), -1, ignore=src_ex)
-            self.log('서버', '%s 결합 실패 → 작업 보류 (다음에 다시 시도)' % cid)
+            self.log('서버', '%s 자동 정렬 3회 실패 → 다른 작업 먼저, 이 컨테이너는 신호수 수동 유도로 처리 예정' % cid)
             return False
         # 3 lift
         self.task['step'] = '들어 올림'
@@ -1228,6 +1250,9 @@ horns, detour; if they block again after 2 detours (detours >= 2), wait and soun
             return p
         params = dict(self.align_opts, controller=ctrl, seed=self.rnd.randrange(1, 1 << 31),
                       machine_id='YARD-RS-1', plan_hook=plan_hook)
+        tz = (self.containers.get(task.get('container')) or {}).get('tol_z')
+        if tz is not None:
+            params['container_tol'] = tz
         if self.vary:
             # site conditions change job to job (weather, sensor health); they persist through the retries of a task
             if 'cond' not in task:

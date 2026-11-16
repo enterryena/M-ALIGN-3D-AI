@@ -39,7 +39,8 @@ DRIFT_UH = [2.5, 0.0, -2.0, 0.0, 0.0]
 
 
 class VirtualReachStacker:
-    def __init__(self, M, P, world_rnd, aux_rnd, machine_mode='none', fault='none', fault_corner=FAULT_CORNER):
+    def __init__(self, M, P, world_rnd, aux_rnd, machine_mode='none', fault='none', fault_corner=FAULT_CORNER,
+                 container_tol=None):
         if machine_mode not in MACHINE_MODES:
             raise ValueError('machine_mode: ' + ', '.join(MACHINE_MODES))
         if fault not in FAULTS:
@@ -47,6 +48,10 @@ class VirtualReachStacker:
         self.M, self.P, self.aux = M, P, aux_rnd
         self.machine_mode, self.fault, self.fault_corner = machine_mode, fault, int(fault_corner)
         self.world = E.World(P, world_rnd)
+        if container_tol is not None:
+            # corner-casting tolerance belongs to the CONTAINER: a re-approach of the same box keeps it
+            # (container_tol = standard-normal draws [[zx, zy]] x 4, scaled by this hardware assumption's tolC)
+            self.world.tol = [[P['tolC'] * float(z[0]), P['tolC'] * float(z[1])] for z in container_tol]
         mm = MACHINE_MODES[machine_mode]
         self.mbias = [mm['bias'] * aux_rnd.n(), mm['bias'] * aux_rnd.n()]
         self.phase = 'approach'

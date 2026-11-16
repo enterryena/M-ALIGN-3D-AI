@@ -25,10 +25,10 @@ def kit_units(M, readings):
 
 def run_job(M, P, world_rnd, aux_rnd, strategy='weighted', machine_mode='none', fault='none',
             max_rounds=6, interlock=True, use_machine=True, trace=False, fault_corner=1, brain_kw=None,
-            plan_hook=None):
+            plan_hook=None, container_tol=None):
     """plan_hook(first_decision) -> plan dict (K, use_machine, max_rounds) or None: after the kit's first
     sensing the server may pick how to run the loop (case memory); the same bundle is then re-decided."""
-    rs = VirtualReachStacker(M, P, world_rnd, aux_rnd, machine_mode, fault, fault_corner)
+    rs = VirtualReachStacker(M, P, world_rnd, aux_rnd, machine_mode, fault, fault_corner, container_tol)
     rs.approach()
     w0 = rs.worst_mm()
     brain = ControllerBrain(M, strategy, use_machine, interlock, max_rounds, K=P['K'], estimator=P['estimator'])

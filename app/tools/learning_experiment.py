@@ -2,7 +2,7 @@
 """Does steering by similar past cases help? Same stream of jobs (mixed site conditions), two servers:
   fixed  : always the original plan (STD); a failed job is retried up to 2 more times with the same plan
   memory : case memory picks the plan after the first sensing, retries follow the failure reason
-Each attempt is a new approach (new seed). Reports first-attempt success and success within 3 attempts,
+Each attempt is a new approach (new seed) to the SAME container: its corner tolerance is kept. Reports first-attempt success and success within 3 attempts,
 early (first half) vs late (second half), plus false lowerings. Uses the synchronous job (sim_job).
 
 usage: python tools/learning_experiment.py [jobs=400] [report.json]
@@ -29,10 +29,16 @@ def conditions(rnd):
     return {'hardware': 'target' if rnd.random() < .8 else 'base', 'machine': machine, 'fault': fault}
 
 
-def run(M, cond, seed, plan_hook):
+def tol_of(seed):
+    """The container's own corner-casting tolerance (standard-normal draws): the same box on every retry."""
+    r = random.Random(seed * 7919)
+    return [[r.gauss(0, 1), r.gauss(0, 1)] for _ in range(4)]
+
+
+def run(M, cond, seed, plan_hook, tol=None):
     P = E.settings(cond['hardware'], 'history')
     return sim_job.run_job(M, P, E.Rng(seed), E.Rng(seed ^ 0x5A5A5A5A), 'weighted', cond['machine'], cond['fault'],
-                           plan_hook=plan_hook)
+                           plan_hook=plan_hook, container_tol=tol)
 
 
 def main(n=400, out=None):
@@ -47,7 +53,7 @@ def main(n=400, out=None):
         # fixed server
         rec = {'first': False, 'within3': False, 'false_lower': 0, 'attempts': 0}
         for a in range(3):
-            r = run(M, cond, seed * 7 + a, None)
+            r = run(M, cond, seed * 7 + a, None, tol_of(seed))
             rec['attempts'] += 1
             rec['false_lower'] += r['outcome'] == 'false_lower'
             if r['ok']:
@@ -66,7 +72,7 @@ def main(n=400, out=None):
                 p = mem.choose(f, tried, reason)
                 box.update(f=f, p=p['plan'])
                 return p
-            r = run(M, cond, seed * 7 + a, hook)
+            r = run(M, cond, seed * 7 + a, hook, tol_of(seed))
             why = CM.failure_reason(r['outcome'], r['decisions'], box.get('f'))
             mem.add(box['f'], box['p'], r['outcome'], reason=why)
             plans_used[box['p']] = plans_used.get(box['p'], 0) + 1

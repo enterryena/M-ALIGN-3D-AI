@@ -39,9 +39,10 @@ select,input{border:1px solid #bdcddb;border-radius:7px;padding:8px;width:100%;f
 <div class="notice" id="warnings">보정 이동은 운전자가 안내를 따랐다고 가정한 가상 조작입니다. ±5mm는 기존 시뮬레이션 판정값입니다.</div>
 </div>
 <div class="card"><h2>③ 랜덤 오차 100~1,000회 성공률 시험</h2><p class="small">위에서 선택한 <b>시나리오·초기 오차 반경</b>을 그대로 적용합니다. 실행마다 초기 X/Y 위치·회전과 편향·잡음·구동 오차를 난수로 생성합니다. <b>제어기는 5개 센서 측정값과 실제로 명령한 이동량만 사용</b>합니다. 시뮬레이터 내부 참값은 애니메이션과 성공 판정 전용입니다. K=0.8, 최대 6회는 원본과 동일합니다.</p>
-<div class="controls"><div class="control-wide"><label for="count">시험 횟수</label><select id="count"><option value="100">100회</option><option value="300">300회</option><option value="500">500회</option><option value="1000" selected>1,000회</option></select></div><div><label for="batchseed">시험 시드</label><input id="batchseed" type="number" value="2026"></div></div>
+<div class="controls"><div class="control-wide"><label for="count">시험 횟수</label><select id="count"><option value="100">100회</option><option value="300">300회</option><option value="500">500회</option><option value="1000" selected>1,000회</option></select></div><div><label for="batchseed">시험 시드</label><input id="batchseed" type="number" value="2026"></div>
+<div class="control-wide"><label for="gate">하강 판단 (누적 사례 활용)</label><select id="gate"><option value="off" selected>끔 — 원본: 6회 보정 후 항상 하강</option><option value="0.3">켬 — 비슷한 과거 사례 성공률 30% 미만이면 보류</option><option value="0.4">켬 — 40% 미만이면 보류 (더 보수적)</option></select></div></div>
 <div class="buttons"><button id="batchRun">■ 성공률 계산</button><button id="failReplay" class="secondary" disabled>실패 사례 재생</button><button id="saveCases" class="secondary" disabled>성공·실패 기록 JSON 저장</button></div><p class="small" id="batchState" role="status" aria-live="polite">아직 계산하지 않았습니다.</p><div class="meter"><div id="batchProgress"></div></div>
-<div class="batch"><div class="stat"><small>성공 / 전체</small><strong id="batchSuccess">—</strong></div><div class="stat"><small>실패 / 전체</small><strong id="batchFail">—</strong></div><div class="stat"><small>가상 성공률</small><strong id="batchRate">—</strong></div><div class="stat"><small>Wilson 95% 구간</small><strong id="batchCI">—</strong></div><div class="stat"><small>외삽 포함 사례</small><strong id="batchExtrap">—</strong></div><div class="stat"><small>최종 오차 중앙값 / 95백분위</small><strong id="batchError">—</strong></div></div>
+<div class="batch"><div class="stat"><small>성공 / 전체</small><strong id="batchSuccess">—</strong></div><div class="stat"><small>실패 / 전체</small><strong id="batchFail">—</strong></div><div class="stat"><small>가상 성공률</small><strong id="batchRate">—</strong></div><div class="stat"><small>Wilson 95% 구간</small><strong id="batchCI">—</strong></div><div class="stat"><small>외삽 포함 사례</small><strong id="batchExtrap">—</strong></div><div class="stat"><small>최종 오차 중앙값 / 95백분위</small><strong id="batchError">—</strong></div><div class="stat"><small>오하강 (내렸는데 실패)</small><strong id="batchFalse">—</strong></div><div class="stat"><small>보류 (그중 내렸으면 성공)</small><strong id="batchHeld">—</strong></div></div>
 <div class="notice">성공: 네 코너 <b>실제 가상 오차의 최악축 ≤ 5mm</b>. 실패까지 포함해 기록합니다. 성공·실패 사례는 실행 간 <b>브라우저에 누적</b>하되 현재는 검토용으로만 저장하고 센서 추정기에 정답을 제공하지 않습니다. 기존 비선형 격자와 이력 추정기를 선택해 비교할 수 있으며, 결과를 미리 성공으로 정하지 않습니다.</div>
 </div>
 <div class="card" id="caseBankPanel"><h2>④ 누적 성공·실패 사례 보관함</h2>
@@ -495,13 +496,28 @@ function seedValue(id){const n=Number($(id).value);return Number.isFinite(n)?(Ma
 function freshSeed(){const a=new Uint32Array(1);if(globalThis.crypto?.getRandomValues){crypto.getRandomValues(a);return a[0]||1;}return (Math.floor(Math.random()*4294967296) ^ Date.now())>>>0 || 1;}
 function autoSeedFor(id){const sd=$('autoSeed').checked?freshSeed():seedValue(id);$(id).value=sd;return sd;}
 function ensureModel(){if(!model){model=E.buildModel(DATA);}return model;}
+// ---- lowering gate from the accumulated case bank.
+// Features are what the controller itself sees just before lowering (its last-round corner estimates):
+// worst estimated corner and the spread the rigid fit cannot remove. Label = recorded outcome. True errors
+// (evaluation_only) are never read. Cases the gate held have no outcome in reality and are not learned from.
+function gateFeatures(est){if(!est||est.length!==4)return null;let sx=0,sy=0,num=0,den=0,w=0;
+ for(const v of est){sx+=v[0];sy+=v[1];w=Math.max(w,Math.abs(v[0]),Math.abs(v[1]));}sx/=4;sy/=4;
+ est.forEach((v,k)=>{const X=E.CORNERS[k][0],Y=E.CORNERS[k][1];num+=X*(v[1]-sy)-Y*(v[0]-sx);den+=X*X+Y*Y;});const th=num/den;
+ let r=0;est.forEach((v,k)=>{const X=E.CORNERS[k][0],Y=E.CORNERS[k][1];r=Math.max(r,Math.abs(v[0]-(sx-th*Y)),Math.abs(v[1]-(sy+th*X)));});return [w,r];}
+async function loadGateBank(P){const rows=await BANK.all(),F=[],Y=[];
+ for(const c of rows){if(c.scenario!==$('scenario').value||c.estimator!==P.estimator||c.radius_mm!==P.R0)continue;
+  if(c.outcome!=='success'&&c.outcome!=='failure')continue;const R=c.controller_observable&&c.controller_observable.rounds;if(!R||!R.length)continue;
+  const f=gateFeatures(R[R.length-1].estimated_corner_errors_mm);if(f){F.push(f);Y.push(c.outcome==='success'?1:0);}}
+ return {F,Y};}
+function gateP(bank,f,k=60){const n=bank.F.length;if(n<k)return null;const d=new Float64Array(n);for(let i=0;i<n;i++){const a=bank.F[i][0]-f[0],b=bank.F[i][1]-f[1];d[i]=a*a+b*b;}
+ const idx=Array.from(d.keys()).sort((i,j)=>d[i]-d[j]).slice(0,k);let s=0;for(const i of idx)s+=bank.Y[i];return s/k;}
 function bankLabel(text,isWarn=false){$('bankStatus').textContent=text;$('bankStatus').className=isWarn?'archive-state archive-warning':'archive-state';}
 function bankId(seed,P,i){return ['matrix5','v34', $('scenario').value,P.estimator,P.R0, seed>>>0, i].join('|');}
 function toBankRecord(r,seed,P,index,origin,savedAt){
  const trace=r.trace||[], rounds=trace.filter(t=>Array.isArray(t.est));
  return {
   uid:bankId(seed,P,index),schema:'MALIGN_observation_case_v1',origin:origin,
-  outcome:r.ok?'success':'failure',saved_at:savedAt,saved_order:Date.now()+(bankSequence++/100000),
+  outcome:r.held?'held':r.ok?'success':'failure',gate:r.held?{held:true,similar_success:r.gate_p}:(r.gate_p!=null?{held:false,similar_success:r.gate_p}:undefined),saved_at:savedAt,saved_order:Date.now()+(bankSequence++/100000),
   source_seed:seed>>>0,trial_index:index,scenario:$('scenario').value,estimator:P.estimator,radius_mm:P.R0,
   simulation_only:true,source_model:'Maxwell Matrix5 21 FEM cases + interpolation/assumptions',
   iterations:r.steps,extrapolated:!!r.extrap,initial_worst_axis_mm:r.worst0,final_worst_axis_mm:r.worst,
@@ -641,11 +657,15 @@ async function monteCarlo(){if(busy)return;busy=true;$('run').disabled=true;$('b
  try{await sleep(20);const M=ensureModel(), P=setting(),n=Number($('count').value),runSeed=autoSeedFor('batchseed'),rnd=E.rng(runSeed);
  caseArchive=null;$('saveCases').disabled=true;const rows=[],newBankRecords=[];const batchTime=new Date().toISOString();
  let ok=0,fail=0,ext=0,ok0=0,errors=[],failExample=null;let count=0;
+ const gateTh=$('gate').value==='off'?null:Number($('gate').value);let gateBank=null,held=0,heldOk=0,falseLow=0;
+ if(gateTh!==null){gateBank=await loadGateBank(P);if(gateBank.F.length<60){$('batchState').textContent=`누적 사례 ${gateBank.F.length}건 — 60건 이상 쌓여야 하강 판단을 씁니다 (이번은 원본대로 진행)`;gateBank=null;await sleep(900);}}
  while(count<n){const until=Math.min(n,count+12);for(;count<until;count++){
   const r=E.runOnce(M,P,rnd,true);r.simOptions=P;
-  if(r.ok){ok++;}else{fail++;if(!failExample)failExample=r;}
+  if(gateBank){const ests=(r.trace||[]).filter(t=>t.est),f=gateFeatures(ests.length?ests[ests.length-1].est:null),p=f?gateP(gateBank,f):null;
+   if(p!==null&&p<gateTh){r.held=true;r.gate_p=p;held++;if(r.ok)heldOk++;}else if(p!==null)r.gate_p=p;}
+  if(r.held){fail++;}else if(r.ok){ok++;}else{fail++;falseLow++;if(!failExample)failExample=r;}
   if(r.extrap)ext++;if(r.ok0)ok0++;errors.push(r.worst);
-  rows.push({index:count+1,outcome:r.ok?'success':'failure',passed_5mm:!!r.ok,initial_worst_axis_mm:r.worst0,final_worst_axis_mm:r.worst,steps:r.steps,extrapolated:!!r.extrap,initial_corner_errors_mm:r.trace?.[0]?.e??null,final_corner_errors_mm:r.trace?.[r.trace.length-1]?.e??null,estimated_corner_errors_by_step_mm:r.trace?.filter(t=>t.est).map(t=>t.est)??[]});
+  rows.push({index:count+1,outcome:r.held?'held':r.ok?'success':'failure',gate_success_estimate:r.gate_p??null,would_have_succeeded:r.held?!!r.ok:undefined,passed_5mm:!!r.ok,initial_worst_axis_mm:r.worst0,final_worst_axis_mm:r.worst,steps:r.steps,extrapolated:!!r.extrap,initial_corner_errors_mm:r.trace?.[0]?.e??null,final_corner_errors_mm:r.trace?.[r.trace.length-1]?.e??null,estimated_corner_errors_by_step_mm:r.trace?.filter(t=>t.est).map(t=>t.est)??[]});
   newBankRecords.push(toBankRecord(r,runSeed,P,count+1,'batch',batchTime));
  }
  $('batchState').textContent=`계산 ${count.toLocaleString()} / ${n.toLocaleString()}회`; $('batchProgress').style.width=100*count/n+'%';
@@ -655,6 +675,7 @@ async function monteCarlo(){if(busy)return;busy=true;$('run').disabled=true;$('b
  $('batchSuccess').textContent=`${ok} / ${n}`;$('batchFail').textContent=`${fail} / ${n}`;$('batchRate').textContent=pct(ok/n);
  $('batchCI').textContent=`${pct(ci[1])}–${pct(ci[2])}`;
  $('batchExtrap').textContent=`${ext} / ${n}`;
+ $('batchFalse').textContent=`${falseLow} / ${n}`;$('batchHeld').textContent=gateBank?`${held} (${heldOk})`:'끔';
  $('batchError').textContent=`${errors[Math.floor(n/2)].toFixed(1)} / ${errors[Math.min(n-1,Math.floor(n*.95))].toFixed(1)} mm`;
  $('batchState').textContent=`완료 · 시드 ${runSeed} · ${P.estimator==='history'?'이력 기반 편향 제거':P.estimator==='lm'?'격자+LM 실험안':'원본 격자'} · 성공 ${ok}회 / 실패 ${fail}회 · 수동 초기 조건만으로 충족 ${ok0}회`;
  firstFail=failExample;lastBatch={n,ok,fail,ext,ci,seed:runSeed};

@@ -1,65 +1,65 @@
 {
  "jobs": 1000,
- "seconds": 238,
+ "seconds": 188,
  "fixed": {
   "early": {
-   "first_attempt": 0.758,
-   "within_3": 0.878,
-   "mean_attempts": 1.39,
-   "false_lower": 11
+   "first_attempt": 0.76,
+   "within_3": 0.864,
+   "mean_attempts": 1.4,
+   "false_lower": 13
   },
   "late": {
-   "first_attempt": 0.778,
-   "within_3": 0.866,
-   "mean_attempts": 1.38,
-   "false_lower": 16
+   "first_attempt": 0.772,
+   "within_3": 0.858,
+   "mean_attempts": 1.39,
+   "false_lower": 17
   }
  },
  "memory": {
   "early": {
-   "first_attempt": 0.782,
-   "within_3": 0.908,
-   "mean_attempts": 1.33,
-   "false_lower": 12
+   "first_attempt": 0.77,
+   "within_3": 0.886,
+   "mean_attempts": 1.37,
+   "false_lower": 14
   },
   "late": {
-   "first_attempt": 0.812,
-   "within_3": 0.91,
-   "mean_attempts": 1.31,
-   "false_lower": 16
+   "first_attempt": 0.806,
+   "within_3": 0.882,
+   "mean_attempts": 1.34,
+   "false_lower": 21
   }
  },
  "plans_used": {
-  "STD": 740,
-  "SOFT": 234,
-  "KIT": 115,
-  "KIT_SOFT": 232
+  "STD": 859,
+  "KIT": 271,
+  "SOFT": 182,
+  "KIT_SOFT": 44
  },
  "memory_summary": {
-  "cases": 1321,
-  "success": 909,
+  "cases": 1356,
+  "success": 884,
   "recent_rate": 0.74,
-  "false_lower": 28,
+  "false_lower": 35,
   "by_plan": {
    "STD": {
-    "n": 740,
-    "ok": 531,
-    "false_lower": 10
-   },
-   "SOFT": {
-    "n": 234,
-    "ok": 119,
-    "false_lower": 6
+    "n": 859,
+    "ok": 624,
+    "false_lower": 15
    },
    "KIT": {
-    "n": 115,
-    "ok": 70,
-    "false_lower": 4
+    "n": 271,
+    "ok": 208,
+    "false_lower": 6
+   },
+   "SOFT": {
+    "n": 182,
+    "ok": 41,
+    "false_lower": 8
    },
    "KIT_SOFT": {
-    "n": 232,
-    "ok": 189,
-    "false_lower": 8
+    "n": 44,
+    "ok": 11,
+    "false_lower": 6
    }
   }
  }

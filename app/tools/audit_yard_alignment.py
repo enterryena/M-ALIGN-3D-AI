@@ -150,7 +150,7 @@ def main():
     # 5. replay the same seeds as stand-alone single jobs (the 3D-align / panel path)
     replay_same = 0
     for jb in jobs:
-        params = {k: jb['settings'][k] for k in ('hardware', 'machine', 'fault', 'strategy')}   # incl. varied site conditions
+        params = {k: jb['settings'][k] for k in ('hardware', 'machine', 'fault', 'strategy', 'container_tol')}   # incl. site conditions + the box's tolerance
         plan = jb['plan']          # the case memory's choice is part of the job: replay it
         kit_idle()
         site.start(seed=jb['seed'], controller='autopilot', machine_id='REPLAY',
