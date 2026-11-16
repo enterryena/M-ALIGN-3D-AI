@@ -218,6 +218,34 @@ class CaseBank:
         with self.connection() as con:
             return [json.loads(x[0]) for x in con.execute('SELECT payload FROM cases ORDER BY saved_order ASC')]
 
+    def gate_bank(self, scenario, estimator, radius):
+        """Compact lowering-gate data from the stored cases: what the controller saw just before lowering (its last
+        corner estimates -> worst corner, rigid-fit residual) and the recorded outcome. True errors are never read;
+        trials the gate held are skipped (in reality their outcome is unknown). Cached until the bank changes."""
+        import case_memory
+        key = (scenario, estimator, str(radius))
+        with self.connection() as con:
+            stamp = con.execute('SELECT COUNT(*), MAX(saved_order) FROM cases').fetchone()
+            cache = getattr(self, '_gate_cache', {})
+            if cache.get(key, (None,))[0] == stamp:
+                return cache[key][1]
+            F, Y = [], []
+            for outcome, payload in con.execute('SELECT outcome, payload FROM cases ORDER BY saved_order ASC'):
+                r = json.loads(payload)
+                if r.get('scenario') != scenario or r.get('estimator') != estimator or str(r.get('radius_mm')) != str(radius):
+                    continue
+                if (r.get('gate') or {}).get('held'):
+                    continue
+                rounds = (r.get('controller_observable') or {}).get('rounds') or []
+                f = case_memory.lower_features(rounds[-1].get('estimated_corner_errors_mm')) if rounds else None
+                if f:
+                    F.append(f)
+                    Y.append(1 if outcome == 'success' else 0)
+            out = {'F': F, 'Y': Y, 'n': len(F)}
+            cache[key] = (stamp, out)
+            self._gate_cache = cache
+            return out
+
     def clear(self):
         with self.connection() as con:
             con.execute('DELETE FROM cases')
@@ -320,6 +348,10 @@ def make_handler(bank, token, link=None, sim_holder=None):
                 self._json(bank.stats())
             elif p == '/api/all':
                 self._json(bank.all())
+            elif p == '/api/gate_bank':
+                from urllib.parse import parse_qs
+                q = {k: v[0] for k, v in parse_qs(urlparse(self.path).query).items()}
+                self._json(bank.gate_bank(q.get('scenario', 'base'), q.get('estimator', 'history'), q.get('radius', '30')))
             elif p == '/api/health':
                 self._json({'ok': True, 'mode': 'desktop_disk', 'db': str(bank.file_path), 'count': bank.stats()['total'], 'schema': 'MALIGN_v35_casebank_v1'})
             else:

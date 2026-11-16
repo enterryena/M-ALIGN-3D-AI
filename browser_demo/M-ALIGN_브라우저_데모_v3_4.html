@@ -43,6 +43,7 @@ select,input{border:1px solid #bdcddb;border-radius:7px;padding:8px;width:100%;f
 <div class="control-wide"><label for="gate">하강 판단 (누적 사례 활용)</label><select id="gate"><option value="off" selected>끔 — 원본: 6회 보정 후 항상 하강</option><option value="0.3">켬 — 비슷한 과거 사례 성공률 30% 미만이면 보류</option><option value="0.4">켬 — 40% 미만이면 보류 (더 보수적)</option></select></div></div>
 <div class="buttons"><button id="batchRun">■ 성공률 계산</button><button id="failReplay" class="secondary" disabled>실패 사례 재생</button><button id="saveCases" class="secondary" disabled>성공·실패 기록 JSON 저장</button></div><p class="small" id="batchState" role="status" aria-live="polite">아직 계산하지 않았습니다.</p><div class="meter"><div id="batchProgress"></div></div>
 <div class="batch"><div class="stat"><small>성공 / 전체</small><strong id="batchSuccess">—</strong></div><div class="stat"><small>실패(내렸는데 5mm 초과) / 전체</small><strong id="batchFail">—</strong></div><div class="stat"><small>가상 성공률</small><strong id="batchRate">—</strong></div><div class="stat"><small>Wilson 95% 구간</small><strong id="batchCI">—</strong></div><div class="stat"><small>외삽 포함 사례</small><strong id="batchExtrap">—</strong></div><div class="stat"><small>최종 오차 중앙값 / 95백분위</small><strong id="batchError">—</strong></div><div class="stat"><small>오하강 (내렸는데 실패)</small><strong id="batchFalse">—</strong></div><div class="stat"><small>보류 → 재접근·수동 대상 (그중 내렸으면 성공)</small><strong id="batchHeld">—</strong></div></div>
+<div id="batchCompare" class="small" style="margin-top:8px;padding:8px 10px;border:1px solid rgba(127,163,196,.45);border-radius:8px;display:none"></div>
 <div class="notice">성공: 네 코너 <b>실제 가상 오차의 최악축 ≤ 5mm</b>. 실패까지 포함해 기록합니다. 성공·실패 사례는 실행 간 <b>브라우저에 누적</b>하되 현재는 검토용으로만 저장하고 센서 추정기에 정답을 제공하지 않습니다. 기존 비선형 격자와 이력 추정기를 선택해 비교할 수 있으며, 결과를 미리 성공으로 정하지 않습니다.</div>
 </div>
 <div class="card" id="caseBankPanel"><h2>④ 누적 성공·실패 사례 보관함</h2>
@@ -657,10 +658,11 @@ async function monteCarlo(){if(busy)return;busy=true;$('run').disabled=true;$('b
  try{await sleep(20);const M=ensureModel(), P=setting(),n=Number($('count').value),runSeed=autoSeedFor('batchseed'),rnd=E.rng(runSeed);
  caseArchive=null;$('saveCases').disabled=true;const rows=[],newBankRecords=[];const batchTime=new Date().toISOString();
  let ok=0,fail=0,ext=0,ok0=0,errors=[],failExample=null;let count=0;
- const gateTh=$('gate').value==='off'?null:Number($('gate').value);let gateBank=null,held=0,heldOk=0,falseLow=0;
+ const gateTh=$('gate').value==='off'?null:Number($('gate').value);let gateBank=null,held=0,heldOk=0,falseLow=0,rawOk=0,rawFail=0;
  if(gateTh!==null){gateBank=await loadGateBank(P);if(gateBank.F.length<60){$('batchState').textContent=`누적 사례 ${gateBank.F.length}건 — 60건 이상 쌓여야 하강 판단을 씁니다 (이번은 원본대로 진행)`;gateBank=null;await sleep(900);}}
  while(count<n){const until=Math.min(n,count+12);for(;count<until;count++){
   const r=E.runOnce(M,P,rnd,true);r.simOptions=P;
+  if(r.ok)rawOk++;else rawFail++;
   if(gateBank){const ests=(r.trace||[]).filter(t=>t.est),f=gateFeatures(ests.length?ests[ests.length-1].est:null),p=f?gateP(gateBank,f):null;
    if(p!==null&&p<gateTh){r.held=true;r.gate_p=p;held++;if(r.ok)heldOk++;}else if(p!==null)r.gate_p=p;}
   if(r.held){}else if(r.ok){ok++;}else{fail++;falseLow++;if(!failExample)failExample=r;}
@@ -676,6 +678,12 @@ async function monteCarlo(){if(busy)return;busy=true;$('run').disabled=true;$('b
  $('batchCI').textContent=`${pct(ci[1])}–${pct(ci[2])}`;
  $('batchExtrap').textContent=`${ext} / ${n}`;
  $('batchFalse').textContent=`${falseLow} / ${n}`;$('batchHeld').textContent=gateBank?`${held} (${heldOk})`:'끔';
+ const cmp=$('batchCompare');cmp.style.display='block';
+ cmp.innerHTML=gateBank?`<b>같은 ${n.toLocaleString()}회, 누적 사례 ${gateBank.F.length.toLocaleString()}건 활용 효과</b><br>
+  사례 미사용(원본): 성공 <b>${rawOk}</b> · 내렸다 실패 <b>${rawFail}</b><br>
+  사례 활용: 성공 <b>${ok}</b> · 내렸다 실패 <b>${falseLow}</b> (${rawFail?Math.round(100*(rawFail-falseLow)/rawFail):0}% 감소) · 보류 <b>${held}</b> (그중 내렸으면 성공 ${heldOk})<br>
+  <span style="opacity:.8">성공 수는 하드웨어(코너 공차·이동 오차)가 정합니다. 누적 사례는 실패할 하강을 미리 걸러냅니다.</span>`
+  :`누적 사례 활용 꺼짐 — 위 선택을 '켬'으로 바꾸면 같은 시행에 사례를 적용한 결과를 나란히 보여줍니다.`;
  $('batchError').textContent=`${errors[Math.floor(n/2)].toFixed(1)} / ${errors[Math.min(n-1,Math.floor(n*.95))].toFixed(1)} mm`;
  $('batchState').textContent=`완료 · 시드 ${runSeed} · ${P.estimator==='history'?'이력 기반 편향 제거':P.estimator==='lm'?'격자+LM 실험안':'원본 격자'} · 성공 ${ok}회 / 실패 ${fail}회 · 수동 초기 조건만으로 충족 ${ok0}회`;
  firstFail=failExample;lastBatch={n,ok,fail,ext,ci,seed:runSeed};
