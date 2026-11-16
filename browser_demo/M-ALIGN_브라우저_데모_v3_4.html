@@ -42,7 +42,7 @@ select,input{border:1px solid #bdcddb;border-radius:7px;padding:8px;width:100%;f
 <div class="controls"><div class="control-wide"><label for="count">시험 횟수</label><select id="count"><option value="100">100회</option><option value="300">300회</option><option value="500">500회</option><option value="1000" selected>1,000회</option></select></div><div><label for="batchseed">시험 시드</label><input id="batchseed" type="number" value="2026"></div>
 <div class="control-wide"><label for="gate">하강 판단 (누적 사례 활용)</label><select id="gate"><option value="off" selected>끔 — 원본: 6회 보정 후 항상 하강</option><option value="0.3">켬 — 비슷한 과거 사례 성공률 30% 미만이면 보류</option><option value="0.4">켬 — 40% 미만이면 보류 (더 보수적)</option></select></div></div>
 <div class="buttons"><button id="batchRun">■ 성공률 계산</button><button id="failReplay" class="secondary" disabled>실패 사례 재생</button><button id="saveCases" class="secondary" disabled>성공·실패 기록 JSON 저장</button></div><p class="small" id="batchState" role="status" aria-live="polite">아직 계산하지 않았습니다.</p><div class="meter"><div id="batchProgress"></div></div>
-<div class="batch"><div class="stat"><small>성공 / 전체</small><strong id="batchSuccess">—</strong></div><div class="stat"><small>실패 / 전체</small><strong id="batchFail">—</strong></div><div class="stat"><small>가상 성공률</small><strong id="batchRate">—</strong></div><div class="stat"><small>Wilson 95% 구간</small><strong id="batchCI">—</strong></div><div class="stat"><small>외삽 포함 사례</small><strong id="batchExtrap">—</strong></div><div class="stat"><small>최종 오차 중앙값 / 95백분위</small><strong id="batchError">—</strong></div><div class="stat"><small>오하강 (내렸는데 실패)</small><strong id="batchFalse">—</strong></div><div class="stat"><small>보류 (그중 내렸으면 성공)</small><strong id="batchHeld">—</strong></div></div>
+<div class="batch"><div class="stat"><small>성공 / 전체</small><strong id="batchSuccess">—</strong></div><div class="stat"><small>실패(내렸는데 5mm 초과) / 전체</small><strong id="batchFail">—</strong></div><div class="stat"><small>가상 성공률</small><strong id="batchRate">—</strong></div><div class="stat"><small>Wilson 95% 구간</small><strong id="batchCI">—</strong></div><div class="stat"><small>외삽 포함 사례</small><strong id="batchExtrap">—</strong></div><div class="stat"><small>최종 오차 중앙값 / 95백분위</small><strong id="batchError">—</strong></div><div class="stat"><small>오하강 (내렸는데 실패)</small><strong id="batchFalse">—</strong></div><div class="stat"><small>보류 → 재접근·수동 대상 (그중 내렸으면 성공)</small><strong id="batchHeld">—</strong></div></div>
 <div class="notice">성공: 네 코너 <b>실제 가상 오차의 최악축 ≤ 5mm</b>. 실패까지 포함해 기록합니다. 성공·실패 사례는 실행 간 <b>브라우저에 누적</b>하되 현재는 검토용으로만 저장하고 센서 추정기에 정답을 제공하지 않습니다. 기존 비선형 격자와 이력 추정기를 선택해 비교할 수 있으며, 결과를 미리 성공으로 정하지 않습니다.</div>
 </div>
 <div class="card" id="caseBankPanel"><h2>④ 누적 성공·실패 사례 보관함</h2>
@@ -512,7 +512,7 @@ async function loadGateBank(P){const rows=await BANK.all(),F=[],Y=[];
 function gateP(bank,f,k=60){const n=bank.F.length;if(n<k)return null;const d=new Float64Array(n);for(let i=0;i<n;i++){const a=bank.F[i][0]-f[0],b=bank.F[i][1]-f[1];d[i]=a*a+b*b;}
  const idx=Array.from(d.keys()).sort((i,j)=>d[i]-d[j]).slice(0,k);let s=0;for(const i of idx)s+=bank.Y[i];return s/k;}
 function bankLabel(text,isWarn=false){$('bankStatus').textContent=text;$('bankStatus').className=isWarn?'archive-state archive-warning':'archive-state';}
-function bankId(seed,P,i){return ['matrix5','v34', $('scenario').value,P.estimator,P.R0, seed>>>0, i].join('|');}
+function bankId(seed,P,i){const g=$('gate').value;return ['matrix5','v34', $('scenario').value,P.estimator,P.R0, seed>>>0, i].concat(g==='off'?[]:['gate'+g]).join('|');}
 function toBankRecord(r,seed,P,index,origin,savedAt){
  const trace=r.trace||[], rounds=trace.filter(t=>Array.isArray(t.est));
  return {
@@ -531,7 +531,7 @@ function toBankRecord(r,seed,P,index,origin,savedAt){
 async function updateBankStats(newRecords=null){
  try{
   const s=await BANK.stats();bankReady=true;
-  $('bankSuccess').textContent=s.success.toLocaleString();$('bankFailure').textContent=s.failure.toLocaleString();$('bankTotal').textContent=s.total.toLocaleString();
+  $('bankSuccess').textContent=s.success.toLocaleString();$('bankFailure').textContent=s.failure.toLocaleString()+(s.total-s.success-s.failure>0?` (+보류 ${(s.total-s.success-s.failure).toLocaleString()})`:'');$('bankTotal').textContent=s.total.toLocaleString();
   if(newRecords!==null)$('bankAdded').textContent=String(newRecords);
   $('bankRecent').replaceChildren();
   if(s.recent.length){let label=document.createElement('strong');label.textContent='최근 저장된 성공 사례';$('bankRecent').appendChild(label);for(const c of s.recent){const p=document.createElement('div');p.className='recent-case';p.textContent=`${c.scenario} / ${c.estimator} · 시드 ${c.source_seed}, 시행 ${c.trial_index} · 최종 ${Number(c.final_mm).toFixed(2)}mm`;$('bankRecent').appendChild(p);}}
@@ -663,7 +663,7 @@ async function monteCarlo(){if(busy)return;busy=true;$('run').disabled=true;$('b
   const r=E.runOnce(M,P,rnd,true);r.simOptions=P;
   if(gateBank){const ests=(r.trace||[]).filter(t=>t.est),f=gateFeatures(ests.length?ests[ests.length-1].est:null),p=f?gateP(gateBank,f):null;
    if(p!==null&&p<gateTh){r.held=true;r.gate_p=p;held++;if(r.ok)heldOk++;}else if(p!==null)r.gate_p=p;}
-  if(r.held){fail++;}else if(r.ok){ok++;}else{fail++;falseLow++;if(!failExample)failExample=r;}
+  if(r.held){}else if(r.ok){ok++;}else{fail++;falseLow++;if(!failExample)failExample=r;}
   if(r.extrap)ext++;if(r.ok0)ok0++;errors.push(r.worst);
   rows.push({index:count+1,outcome:r.held?'held':r.ok?'success':'failure',gate_success_estimate:r.gate_p??null,would_have_succeeded:r.held?!!r.ok:undefined,passed_5mm:!!r.ok,initial_worst_axis_mm:r.worst0,final_worst_axis_mm:r.worst,steps:r.steps,extrapolated:!!r.extrap,initial_corner_errors_mm:r.trace?.[0]?.e??null,final_corner_errors_mm:r.trace?.[r.trace.length-1]?.e??null,estimated_corner_errors_by_step_mm:r.trace?.filter(t=>t.est).map(t=>t.est)??[]});
   newBankRecords.push(toBankRecord(r,runSeed,P,count+1,'batch',batchTime));
@@ -699,7 +699,7 @@ $('bankFile').addEventListener('change',async event=>{
   rows=parsed.cases.map((c,i)=>({uid:['legacy',parsed.scenario,parsed.estimator,parsed.radius_mm,parsed.batch_seed,c.index||i+1].join('|'),schema:'MALIGN_legacy_audit_v1',origin:'imported_legacy',outcome:c.passed_5mm?'success':'failure',saved_at:new Date().toISOString(),saved_order:Date.now()+i/100000,source_seed:parsed.batch_seed,trial_index:c.index||i+1,scenario:parsed.scenario,estimator:parsed.estimator,radius_mm:parsed.radius_mm,simulation_only:true,initial_worst_axis_mm:c.initial_worst_axis_mm,final_worst_axis_mm:c.final_worst_axis_mm,iterations:c.steps,extrapolated:c.extrapolated,controller_observable:null,evaluation_only:{initial_true_corner_error_mm:c.initial_corner_errors_mm,final_true_corner_error_mm:c.final_corner_errors_mm,within_5mm:!!c.passed_5mm},warning:'이전 저장본에는 센서 측정 이력이 없어 관측 학습 자료가 아님'}));
  }else throw new Error('M-ALIGN 누적 백업 또는 v3.3 실험 JSON 형식만 지원');
  if(rows.length>500000)throw new Error('500,000건 초과 파일은 분할해 불러와 주세요.');
- for(const r of rows){if(!r || typeof r.uid!=='string'||r.uid.length>350||!['success','failure'].includes(r.outcome))throw new Error('기록 형식 오류 (uid/outcome)');}
+ for(const r of rows){if(!r || typeof r.uid!=='string'||r.uid.length>350||!['success','failure','held'].includes(r.outcome))throw new Error('기록 형식 오류 (uid/outcome)');}
  const added=await BANK.add(rows);await updateBankStats(added);bankLabel(`불러오기 완료: ${rows.length}건 확인 / 신규 ${added}건 (중복 제외)`);
  }catch(e){bankLabel('불러오기 오류: '+String(e.message||e),true);}finally{event.target.value='';}
 });
