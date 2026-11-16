@@ -92,6 +92,9 @@ class ToolBox:
         self.moves_since_sense = 0
         self.last_move = None
         self.refusals = 0
+        self.kit_timeouts = 0
+        self.rounds_sent = 0
+        self.resenses_sent = 0
 
     # ---- helpers
     def _summary(self, msg):
@@ -134,11 +137,29 @@ class ToolBox:
             cmd, resense = {'type': 'resense', 'session_id': sid}, True
         else:
             cmd, resense = {'type': 'sense', 'session_id': sid}, False
+        if cmd['type'] == 'sense' and self.rounds_sent + 1 > getattr(self.site, 'kit_max_rounds', 10):
+            # the kit refuses more rounds than its safety cap: stop now instead of waiting for an answer that never comes
+            self.site.stop_job('kit round limit (%d) reached without lowering: stop, re-approach' % self.rounds_sent)
+            return {'error': 'kit round limit reached: job stopped', 'finished': True}
+        if cmd['type'] == 'resense' and self.resenses_sent + 1 > getattr(self.site, 'kit_max_resense', 99):
+            self.site.stop_job('kit re-measure limit reached: stop, re-approach')
+            return {'error': 'kit re-measure limit reached: job stopped', 'finished': True}
+        if cmd['type'] in ('start_job', 'sense'):
+            self.rounds_sent += 1
+        elif cmd['type'] == 'resense':
+            self.resenses_sent += 1
         self.job['phase'] = 'sensing'
         self.site.event('sense', resense=resense)
         msg = self.site.request_bundle(cmd, job=self.job)
         if msg is None:
+            self.kit_timeouts += 1
+            if self.kit_timeouts >= 2:
+                # the kit stopped answering: do not keep the machine waiting over the container (AI or autopilot
+                # would otherwise loop sense -> refused move -> sense); stop, the yard re-approaches
+                self.site.stop_job('kit did not answer twice (timeout): stop, re-approach')
+                return {'error': 'kit did not answer twice: job stopped', 'finished': True}
             return {'error': 'kit did not answer (timeout)'}
+        self.kit_timeouts = 0
         self.machine = self.rs.machine_sensor()
         self.last_decision = self.site.advise(self.advisor, msg, self.machine, resense)
         hook = self.job.get('plan_hook')

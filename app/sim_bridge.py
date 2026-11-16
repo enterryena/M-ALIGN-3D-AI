@@ -25,6 +25,8 @@ class LocalSim:
         self.site = SimSite(M, self._send, link.kit_id, approach_s=1.0, move_s=float(cfg['sim_move_delay_s']),
                             max_rounds=int(cfg['sim_rounds']), ai_url=cfg['ai_ollama_url'], ai_model=cfg['ai_model'])
         link.observers.append(self._observe)
+        self.site.kit_max_rounds = int(link.cfg['max_rounds'])
+        self.site.kit_max_resense = int(link.cfg['max_resense'])   # the kit's own cap: the server stops before it
         self.source = SimSensingSource(link, self.site.kit_readings)
 
     def _send(self, cmd, delay):
