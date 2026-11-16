@@ -57,7 +57,12 @@ def main():
     cmd = ([a.exe] if a.exe else [sys.executable, str(ROOT / 'desktop_host.py')]) + \
         ['--headless', '--data-dir', str(tmp), '--info-file', str(info_file)]
     env = dict(os.environ, MALIGN_DEBUG_STACKS=str(pathlib.Path(a.stacks or (tmp / 'stacks.txt')).resolve()))
-    proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=env)
+    host_log = open(tmp / 'host_output.txt', 'w', encoding='utf-8', errors='replace')
+    proc = subprocess.Popen(cmd, stdout=host_log, stderr=subprocess.STDOUT, env=env)
+    def host_tail():
+        host_log.flush()
+        txt = (tmp / 'host_output.txt').read_text(encoding='utf-8', errors='replace')
+        return 'host exit code %s, last output:\n%s' % (proc.poll(), txt[-4000:])
     try:
         end = time.time() + 120
         while not info_file.exists() and time.time() < end:
@@ -127,6 +132,9 @@ def main():
         assert s['contacts'] == 0, 'contact with a person/vehicle'
         assert s['align_fail'] == 0 or s['inbound'] + s['outbound'] > 0
         print('PASS: windows smoke' + (' (EXE)' if a.exe else ''), flush=True)
+    except BaseException:
+        print(host_tail(), flush=True)      # why the host stopped answering (crash output / exit code)
+        raise
     finally:
         kill(proc)
 
