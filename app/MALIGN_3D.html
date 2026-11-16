@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>M-ALIGN 3D · AI 컨테이너 야드</title>
 <style>
 :root{--ink:#e9f1f6;--muted:#9fb3c2;--panel:rgba(12,22,30,.88);--line:rgba(255,255,255,.12);--ok:#3ddc97;--bad:#ff5d5d;--warn:#ffc04d;--ai:#8fb8ff}
@@ -34,7 +34,26 @@ button.sec{background:#1d2c38;border:1px solid var(--line);font-weight:500;font-
 .l{padding:1px 0;border-bottom:1px dashed rgba(255,255,255,.06)}.who{display:inline-block;min-width:50px;font-weight:700;margin-right:6px}.tt{color:var(--muted);font-size:10px;margin-right:4px}
 .w-AI{color:var(--ai)}.w-안전장치{color:var(--bad)}.w-도구{color:#c9a6ff}.w-키트{color:#5fe1d0}.w-서버{color:var(--warn)}.w-기계{color:#ffd27a}.w-트럭{color:#9fd3ff}.w-사용자{color:#46c7ff}.w-현장{color:#b6e08a}
 #help{left:12px;bottom:12px;font-size:11px;color:var(--muted);max-width:330px}
-@media(max-width:900px){#log{width:calc(100vw - 24px);max-height:28vh}#side{display:none}#help{display:none}}
+#tabs{display:none}
+@media(max-width:900px){
+ #help{display:none}
+ #ctrl,#side,#log{display:none;position:fixed;left:0;right:0;top:auto;bottom:calc(58px + env(safe-area-inset-bottom));width:auto;max-height:52vh;overflow-y:scroll;border-radius:14px 14px 0 0;padding:12px 14px;z-index:5}
+ #log{flex-direction:column}#logbody{max-height:calc(52vh - 50px)}
+ body.sheet-ctrl #ctrl,body.sheet-side #side{display:block}body.sheet-log #log{display:flex}
+ #ctrl select,#ctrl input:not([type=checkbox]){font-size:16px;padding:8px}
+ .chk{font-size:14px!important;padding:3px 0}.chk input{width:20px;height:20px}
+ button{padding:11px;font-size:15px}button.sec{padding:9px;font-size:14px}
+ #status{left:8px;right:8px;top:calc(8px + env(safe-area-inset-top));transform:none;min-width:0;max-width:none;padding:7px 10px}
+ #stage{font-size:14px}#sub{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+ #alert{top:calc(70px + env(safe-area-inset-top));font-size:13px;max-width:calc(100vw - 24px);text-align:center}
+ #pick{bottom:calc(66px + env(safe-area-inset-bottom));max-width:calc(100vw - 24px);font-size:12px;text-align:center}
+ body[class*=sheet-] #pick{display:none!important}
+ #tabs{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:6;gap:4px;padding:6px 6px calc(6px + env(safe-area-inset-bottom));background:rgba(8,16,22,.94);border-top:1px solid var(--line)}
+ #tabs button{margin:0;flex:1;background:#1d2c38;border:1px solid var(--line);font-size:13px;padding:9px 2px;line-height:1.2}
+ #tabs button.on{background:#2f7df6}
+ #tabs #t_run{background:#1f8a5b}#tabs #t_run.stop{background:#a33a3a}
+ .kv b{font-size:17px}
+}
 </style>
 <script type="importmap">{"imports":{"three":"/vendor/three/three.module.js","three/addons/":"/vendor/three/addons/"}}</script>
 </head>
@@ -74,6 +93,7 @@ button.sec{background:#1d2c38;border:1px solid var(--line);font-weight:500;font-
 </div>
 <div class="panel" id="log"><h2>AI · 서버 · 현장 기록</h2><div id="logbody"></div></div>
 <div class="panel" id="help">컨테이너 클릭 → 빈 구역(A1–B5) 또는 대기 중인 빈 트럭 클릭 = 우선 지시. Esc = 취소. 끌기 회전 · 휠 확대.<br>초록 선 = 전진 경로, 주황 선 = 후진. 부채꼴 = 장애물 센서(16 m). 초록 띠 = 보행로(사람은 여기로만), 바깥 회색 = 서비스 도로.</div>
+<div id="tabs"><button id="t_run">▶ 시작</button><button data-sheet="ctrl">⚙ 설정</button><button data-sheet="side">📊 현황</button><button data-sheet="log">📜 기록</button><button id="t_cam">🎥 전체</button></div>
 <script type="module">
 import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
@@ -537,7 +557,23 @@ function camera_update(){
   if (camMode === 'align'){ const [fx, fz] = rot(pose.yaw, 0, DOCK), [ox, oz] = rot(pose.yaw, 5, DOCK + 6);
     camGoal = {pos: new THREE.Vector3(pose.x + ox, pose.h + 4.5, pose.z + oz), look: new THREE.Vector3(pose.x + fx, pose.h - .2, pose.z + fz)}; }
 }
-function resize(){ const w = window.innerWidth, h = window.innerHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+function resize(){ const w = window.innerWidth, h = window.innerHeight; renderer.setSize(w, h, false); camera.aspect = w / h;
+  // portrait phones: widen the vertical field of view so the yard keeps about the same width on screen
+  camera.fov = Math.min(80, 2 * Math.atan(Math.tan(22.5 * Math.PI / 180) * Math.max(1, 1.5 / camera.aspect)) * 180 / Math.PI); camera.updateProjectionMatrix(); }
+// ---------------- mobile: bottom tab bar, one sheet at a time ----------------
+const MOBILE = () => window.innerWidth <= 900;
+if (MOBILE()){ renderer.setPixelRatio(Math.min(1.25, window.devicePixelRatio || 1)); $('shadows').checked = false; $('exag').checked = true; }
+function sheet(name){ const cur = [...document.body.classList].find(c => c.startsWith('sheet-'));
+  if (cur) document.body.classList.remove(cur); if (name && cur !== 'sheet-' + name) document.body.classList.add('sheet-' + name);
+  document.querySelectorAll('#tabs [data-sheet]').forEach(b => b.classList.toggle('on', document.body.classList.contains('sheet-' + b.dataset.sheet)));
+  if (document.body.classList.contains('sheet-log')) $('logbody').scrollTop = 1e9; }
+document.querySelectorAll('#tabs [data-sheet]').forEach(b => b.addEventListener('click', () => sheet(b.dataset.sheet)));
+canvas.addEventListener('pointerdown', () => { if (MOBILE()) sheet(null); });
+$('t_run').addEventListener('click', () => { if (S && S.running) $('stop').click(); else { $('start').click(); sheet(null); } });
+$('start').addEventListener('click', () => { if (MOBILE()) sheet(null); });
+const CAMS = [['all', '🎥 전체'], ['follow', '🎥 따라감'], ['align', '🎥 정렬']]; let camIdx = 0;
+$('t_cam').addEventListener('click', () => { camIdx = (camIdx + 1) % CAMS.length; document.querySelector(`[data-cam="${CAMS[camIdx][0]}"]`).click(); $('t_cam').textContent = CAMS[camIdx][1]; });
+setInterval(() => { const on = !!(S && S.running); $('t_run').textContent = on ? '■ 정지' : '▶ 시작'; $('t_run').classList.toggle('stop', on); }, 400);
 window.addEventListener('resize', resize); resize();
 let last = performance.now();
 function loop(now){ const dt = Math.min(.1, (now - last) / 1000); last = now;
