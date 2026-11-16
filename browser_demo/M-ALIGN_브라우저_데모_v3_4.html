@@ -28,6 +28,8 @@ select,input{border:1px solid #bdcddb;border-radius:7px;padding:8px;width:100%;f
 <div class="card"><h2>실행 설정</h2><div class="controls">
 <div class="control-wide"><label for="scenario">하드웨어 오차 가정 (원본 3종)</label><select id="scenario"><option value="base">기준 가정 · 편향 0.5μH / 공극 1mm</option><option value="target">목표 가정 · 편향 0.25μH / 공극 0.3mm</option><option value="ideal">FEM 기준 가정 · 편향 0μH</option></select></div>
 <div class="control-wide"><label for="estimator">위치 추정 방식 (기본: 이력 추정 / 언제든 원본 복귀)</label><select id="estimator"><option value="history" selected>센서 이동 이력으로 정적 편향 추정·제거 — 권장 비교안</option><option value="base">기존 격자 추정기 — 원본 롤백</option><option value="lm">기존 격자 + 위치별 X/Y LM — 이전 실험안</option></select></div>
+<div class="control-wide"><label for="tolModel">컨테이너 코너 공차</label><select id="tolModel"><option value="orig" selected>원본 가정 (하드웨어 가정의 코너 공차)</option><option value="iso">ISO 668 규격 기반 (S·P +3/−5 mm, 대각선 차 ≤13 mm)</option></select></div>
+<div class="control-wide"><label for="capture">결합 판정</label><select id="capture"><option value="pm5" selected>원본: 네 코너 모두 ±5 mm</option><option value="head">고정 트위스트록: 길이 ±10 · 폭 ±3.8 mm (구멍 124.5×63.5)</option><option value="float10">플로팅 트위스트록: ±10 mm (리치스태커 스프레더 표준 사양)</option></select></div>
 <div><label for="radius">초기 오차 반경</label><select id="radius"><option value="30" selected>30 mm</option><option value="10">10 mm</option><option value="20">20 mm</option><option value="40">40 mm (외삽 위험)</option></select></div>
 <div><label for="seed">1회 시드 (재현용)</label><input id="seed" type="number" step="1" value="2026"></div>
 <div><label for="speed">재생 속도</label><select id="speed"><option value="1">보통</option><option value="0.35" selected>빠르게</option></select></div>
@@ -198,6 +200,17 @@ select,input{border:1px solid #bdcddb;border-radius:7px;padding:8px;width:100%;f
       var b = []; for (h = 0; h < 5; h++) b.push(P.modelBias * rnd.n());
       st.push({ dz: P.gapSd * rnd.n(), pitch: P.tiltSd * rnd.n(), roll: P.tiltSd * rnd.n(), bias: b });
     }
+    if (P.tolModel === 'iso') {
+      // ISO 668-based container: corner-centre distances S/P within +3/-5 mm (20 ft), diagonal difference <= 13 mm,
+      // typical = limits at 3 sigma; plus 0.5 mm casting scatter per corner. (Draws come after the original ones.)
+      var clip = function (v, lo, hi) { return Math.max(lo, Math.min(hi, v)); };
+      var dS = clip(-1 + 8 / 6 * rnd.n(), -5, 3), dP = clip(-1 + 8 / 6 * rnd.n(), -5, 3), sh = clip(13 / 3 * rnd.n(), -13, 13) / 1.87;
+      for (k = 0; k < 4; k++) {
+        var gx = CORNERS[k][0] > 0 ? 1 : -1, gy = CORNERS[k][1] > 0 ? 1 : -1;
+        tol[k] = [gx * dS / 2 + gy * sh / 2 + 0.5 * rnd.n(), gy * dP / 2 + 0.5 * rnd.n()];
+        if (P.fixedTol) tol[k] = P.fixedTol[k].slice();
+      }
+    }
     function errs() { // global error of each corner = hole centre - twistlock axis
       var out = [];
       for (var q = 0; q < 4; q++) {
@@ -260,11 +273,15 @@ select,input{border:1px solid #bdcddb;border-radius:7px;padding:8px;width:100%;f
       if (small) { if (keepTrace) trace.push({ e: errs(), est: null }); break; }
     }
     var EF = errs(), worst = 0, worst0 = 0;
+    // engagement: 'pm5' original +-5 mm both axes; 'head' rigid ISO twistlock in the 124.5 x 63.5 mm aperture
+    // (head ~104 x 56 mm -> about +-10 mm along the length, +-3.8 mm across); 'float10' floating twistlocks +-10 mm
+    var capOk = function (E2) { var cx = P.capture === 'head' ? 10 : P.capture === 'float10' ? 10 : P.tolMM, cy = P.capture === 'head' ? 3.8 : P.capture === 'float10' ? 10 : P.tolMM;
+      for (var q = 0; q < 4; q++) if (Math.abs(E2[q][0]) > cx || Math.abs(E2[q][1]) > cy) return false; return true; };
     for (k = 0; k < 4; k++) {
       worst = Math.max(worst, Math.abs(EF[k][0]), Math.abs(EF[k][1]));
       worst0 = Math.max(worst0, Math.abs(e0[k][0]), Math.abs(e0[k][1]));
     }
-    return { ok: worst <= P.tolMM, ok0: worst0 <= P.tolMM, worst: worst, worst0: worst0, steps: it, extrap: extrap, trace: trace, tol: tol };
+    return { ok: capOk(EF), ok0: capOk(e0), worst: worst, worst0: worst0, steps: it, extrap: extrap, trace: trace, tol: tol };
   }
 
   function batch(M, P, n, seed) {
@@ -493,7 +510,8 @@ const base={R0:30,theta0:.1,K:.8,iters:6,tolMM:5,fitGap:true,mirror:true,useHead
 let model=null,busy=false,runId=0,firstFail=null,lastBatch=null,caseArchive=null,shownErrors=null,approach=0,lastEstimate=null,highlightStep=-1;
 let bankReady=false;const BANK=window.MALIGN_CASE_BANK;let bankSequence=0;
 const canvas=$('scene'),ctx=canvas.getContext('2d'),zoom=$('cornerZoom'),zx=zoom.getContext('2d');
-function setting(){return {...base,...presets[$('scenario').value],R0:+$('radius').value,estimator:$('estimator').value};}
+function setting(){return {...base,...presets[$('scenario').value],R0:+$('radius').value,estimator:$('estimator').value,tolModel:$('tolModel').value,capture:$('capture').value};}
+function scenKey(){return $('scenario').value+($('tolModel').value==='iso'?'|iso':'')+($('capture').value!=='pm5'?'|'+$('capture').value:'');}
 function seedValue(id){const n=Number($(id).value);return Number.isFinite(n)?(Math.trunc(n)>>>0):2026;}
 function freshSeed(){const a=new Uint32Array(1);if(globalThis.crypto?.getRandomValues){crypto.getRandomValues(a);return a[0]||1;}return (Math.floor(Math.random()*4294967296) ^ Date.now())>>>0 || 1;}
 function autoSeedFor(id){const sd=$('autoSeed').checked?freshSeed():seedValue(id);$(id).value=sd;return sd;}
@@ -507,20 +525,20 @@ function gateFeatures(est){if(!est||est.length!==4)return null;let sx=0,sy=0,num
  est.forEach((v,k)=>{const X=E.CORNERS[k][0],Y=E.CORNERS[k][1];num+=X*(v[1]-sy)-Y*(v[0]-sx);den+=X*X+Y*Y;});const th=num/den;
  let r=0;est.forEach((v,k)=>{const X=E.CORNERS[k][0],Y=E.CORNERS[k][1];r=Math.max(r,Math.abs(v[0]-(sx-th*Y)),Math.abs(v[1]-(sy+th*X)));});return [w,r];}
 async function loadGateBank(P){const rows=await BANK.all(),F=[],Y=[];
- for(const c of rows){if(c.scenario!==$('scenario').value||c.estimator!==P.estimator||c.radius_mm!==P.R0)continue;
+ for(const c of rows){if(c.scenario!==scenKey()||c.estimator!==P.estimator||c.radius_mm!==P.R0)continue;
   if(c.outcome!=='success'&&c.outcome!=='failure')continue;const R=c.controller_observable&&c.controller_observable.rounds;if(!R||!R.length)continue;
   const f=gateFeatures(R[R.length-1].estimated_corner_errors_mm);if(f){F.push(f);Y.push(c.outcome==='success'?1:0);}}
  return {F,Y};}
 function gateP(bank,f,k=60){const n=bank.F.length;if(n<k)return null;const d=new Float64Array(n);for(let i=0;i<n;i++){const a=bank.F[i][0]-f[0],b=bank.F[i][1]-f[1];d[i]=a*a+b*b;}
  const idx=Array.from(d.keys()).sort((i,j)=>d[i]-d[j]).slice(0,k);let s=0;for(const i of idx)s+=bank.Y[i];return s/k;}
 function bankLabel(text,isWarn=false){$('bankStatus').textContent=text;$('bankStatus').className=isWarn?'archive-state archive-warning':'archive-state';}
-function bankId(seed,P,i){const g=$('gate').value;return ['matrix5','v34', $('scenario').value,P.estimator,P.R0, seed>>>0, i].concat(g==='off'?[]:['gate'+g]).join('|');}
+function bankId(seed,P,i){/* scenario key includes tolerance model and capture */const g=$('gate').value;return ['matrix5','v34', scenKey(),P.estimator,P.R0, seed>>>0, i].concat(g==='off'?[]:['gate'+g]).join('|');}
 function toBankRecord(r,seed,P,index,origin,savedAt){
  const trace=r.trace||[], rounds=trace.filter(t=>Array.isArray(t.est));
  return {
   uid:bankId(seed,P,index),schema:'MALIGN_observation_case_v1',origin:origin,
   outcome:r.held?'held':r.ok?'success':'failure',gate:r.held?{held:true,similar_success:r.gate_p}:(r.gate_p!=null?{held:false,similar_success:r.gate_p}:undefined),saved_at:savedAt,saved_order:Date.now()+(bankSequence++/100000),
-  source_seed:seed>>>0,trial_index:index,scenario:$('scenario').value,estimator:P.estimator,radius_mm:P.R0,
+  source_seed:seed>>>0,trial_index:index,scenario:scenKey(),estimator:P.estimator,radius_mm:P.R0,
   simulation_only:true,source_model:'Maxwell Matrix5 21 FEM cases + interpolation/assumptions',
   iterations:r.steps,extrapolated:!!r.extrap,initial_worst_axis_mm:r.worst0,final_worst_axis_mm:r.worst,
   controller_observable:{heads:['Xp','Xm','Yp','Ym','Ref'],
