@@ -67,6 +67,8 @@ button.sec{background:#1d2c38;border:1px solid var(--line);font-weight:500;font-
  <label for="model">AI 모델 (Ollama)</label><input id="model" value="qwen2.5:7b">
  <div class="row"><div><label for="hardware">키트 하드웨어</label><select id="hardware"><option value="target">목표 사양</option><option value="base">기준 가정</option><option value="ideal">이상적</option></select></div>
  <div><label for="machine">기존 센서</label><select id="machine"><option value="normal">정상</option><option value="unstable">불안정</option><option value="none">없음</option><option value="biased">편향(고장)</option></select></div></div>
+ <label for="tolModel">컨테이너 코너 공차</label><select id="tolModel"><option value="iso" selected>ISO 668 규격 기반 (실제 규격)</option><option value="orig">원본 가정 (하드웨어 가정의 공차)</option></select>
+ <label for="capture">결합 판정 (트위스트록)</label><select id="capture"><option value="float10" selected>플로팅 트위스트록 ±10 mm (스프레더 표준)</option><option value="head">고정 트위스트록 길이 ±10 · 폭 ±3.8 mm</option><option value="pm5">원본 ±5 mm</option></select>
  <label class="chk"><input type="checkbox" id="people" checked> 사람·서비스 차량 (움직이는 장애물)</label>
  <label class="chk"><input type="checkbox" id="debris" checked> 라바콘·팔레트 (고정 장애물)</label>
  <label class="chk"><input type="checkbox" id="vary" checked> 현장 조건 변화 (기존 센서 상태·키트 고장)</label>
@@ -509,7 +511,7 @@ async function poll(){ if (polling) return; polling = true;
 setInterval(poll, 150); poll();
 
 $('start').addEventListener('click', async () => {
-  const body = {controller: $('controller').value, ai_model: $('model').value.trim(), hardware: $('hardware').value, machine: $('machine').value,
+  const body = {controller: $('controller').value, ai_model: $('model').value.trim(), hardware: $('hardware').value, machine: $('machine').value, tol_model: $('tolModel').value, capture: $('capture').value,
     people: $('people').checked, debris: $('debris').checked, vary: $('vary').checked, speed: Number($('speed').value)};
   if ($('seed').value.trim()) body.seed = Number($('seed').value);
   try { for (const id in cont){ scene.remove(cont[id].g); } for (const k of Object.keys(cont)) delete cont[k];

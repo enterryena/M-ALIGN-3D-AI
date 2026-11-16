@@ -64,19 +64,22 @@ occ = [s for s in y.slots.values() if s['holder']]
 free = [s for s in y.slots.values() if not s['holder']]
 req_c = occ[0]['holder']
 y.request(req_c, free[0]['id'])
+all_logs = []                       # the yard keeps only its last 200 lines: record everything here
+_log = y.log
+y.log = lambda who, text: (all_logs.append(text), _log(who, text))[1]
 y.start()
 t0 = time.time()
-while time.time() - t0 < 90 and not (y.stats['inbound'] >= 4 and y.stats['outbound'] >= 2):
+while time.time() - t0 < 240 and not (y.stats['inbound'] >= 4 and y.stats['outbound'] >= 2):   # wall clock: slow CI machines
     time.sleep(0.5)
 y.stop()
 st = y.stats
 assert st['user'] == 1 and st['inbound'] >= 3 and st['outbound'] >= 1, st
 assert st['contacts'] == 0, st
 assert st['horns'] + st['detours'] + st['clears'] > 0, 'no obstacle met'
-first = next(l['text'] for l in y.log_lines if '작업 K1 시작' in l['text'])
+first = next(t for t in all_logs if '작업 K1 시작' in t)
 assert req_c in first and '사용자 우선 지시' in first, first
 assert y.slots[free[0]['id']]['holder'] == req_c
-assert any('반출용 빈 트럭' in l['text'] for l in y.log_lines)
+assert any('반출용 빈 트럭' in t for t in all_logs)
 
 
 # ---------------- D/E. desktop host (+ fake Ollama)

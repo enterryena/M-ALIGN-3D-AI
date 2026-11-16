@@ -47,7 +47,7 @@ class SimSite:
     # ---- control from the screen / API
     def start(self, hardware='target', machine='normal', fault='none', strategy='weighted', seed=None,
               machine_id='SIM-REACHSTACKER-1', controller='rule', ai_model=None, plan_hook=None, container_tol=None,
-              lower_gate=None):
+              lower_gate=None, tol_model='orig', capture='pm5'):
         if hardware not in HARDWARE or machine not in MACHINE_MODES or fault not in FAULTS or strategy not in STRATEGIES:
             raise ValueError('hardware/machine/fault/strategy 값 오류')
         if controller not in CONTROLLERS:
@@ -56,13 +56,15 @@ class SimSite:
             if self.job and self.job['phase'] not in ('done', 'held', 'failed', 'aborted'):
                 raise RuntimeError('진행 중인 가상 작업이 있습니다')
             seed = int(seed) & 0xFFFFFFFF if seed is not None else secrets.randbits(32) or 1
-            P = E.settings(hardware, 'history')
+            if tol_model not in E.TOL_MODELS or capture not in E.CAPTURES:
+                raise ValueError('tol_model / capture 값 오류')
+            P = E.settings(hardware, 'history', tolModel=tol_model, capture=capture)
             rs = VirtualReachStacker(self.M, P, E.Rng(seed), E.Rng(seed ^ 0x5A5A5A5A), machine, fault,
                                      container_tol=container_tol)
             job_id = 'JOB-' + datetime.now().strftime('%Y%m%d-%H%M%S') + '-' + secrets.token_hex(2)
             self.job = {'job_id': job_id, 'machine_id': machine_id, 'phase': 'approach', 'seed': seed,
                         'settings': {'hardware': hardware, 'machine': machine, 'fault': fault, 'strategy': strategy,
-                                     'container_tol': container_tol,
+                                     'container_tol': container_tol, 'tol_model': tol_model, 'capture': capture,
                                      'controller': controller, 'ai_model': ai_model or self.ai_model},
                         'events': [], 'stage': 'approach', 'locked': None,
                         'rs': rs, 'P': P,
@@ -165,8 +167,8 @@ class SimSite:
             self._frame('하강·결합')
             rs.raise_()
             self.event('raise', with_container=locked)
-            j['outcome'] = 'success' if locked else 'false_lower'
             j['phase'] = 'done' if locked else 'failed'
+            j['outcome'] = 'success' if locked else 'false_lower'
             self._log('서버 → 리치스태커: 하강 → 결합 %s → 상승' % ('성공' if locked else '실패(허용 오차 초과)'))
             self.send({'type': 'end_job', 'session_id': sid, 'result': 'main_action'}, self.move_s)
             return
@@ -235,8 +237,8 @@ class SimSite:
         time.sleep(self.move_s)
         rs.raise_()
         self.event('raise', with_container=locked)
-        j['outcome'] = 'success' if locked else 'false_lower'
         j['phase'] = 'done' if locked else 'failed'
+        j['outcome'] = 'success' if locked else 'false_lower'
         self.log('서버', '하강 → 결합 %s → 상승' % ('성공' if locked else '실패(허용 오차 초과)'))
         self.send({'type': 'end_job', 'session_id': j['job_id'], 'result': 'main_action'}, 0)
         return {'locked': locked, 'worst_corner_mm': round(rs.worst_mm(), 2)}
@@ -244,8 +246,8 @@ class SimSite:
     def stop_job(self, reason, outcome='held'):
         j = self.job
         if j['outcome'] is None:
-            j['outcome'] = outcome
             j['phase'] = 'held'
+            j['outcome'] = outcome
             self.event('stop', reason=reason)
             self.log('서버', ('하강 보류: %s' if outcome == 'gate_hold' else '안전 정지: %s (하강하지 않음)') % reason)
             if j['events'] and any(e['kind'] in ('sense', 'in_range') for e in j['events']):
@@ -255,8 +257,8 @@ class SimSite:
     def abort(self, reason):
         j = self.job
         if j and j['outcome'] is None:
-            j['outcome'] = 'aborted'
             j['phase'] = 'aborted'
+            j['outcome'] = 'aborted'
             self.event('abort', reason=reason)
             self.send({'type': 'stop', 'reason': reason}, 0)
 

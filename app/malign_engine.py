@@ -315,6 +315,32 @@ def rigid_fit(est):
 
 
 # --------------------------------------------------------------------------- world (truth) for one job
+TOL_MODELS = ('orig', 'iso')
+CAPTURES = ('pm5', 'head', 'float10')
+
+
+def iso_tol(zs, cast):
+    """ISO 668-based corner deviations (20 ft): corner-centre distances S/P within +3/-5 mm, diagonal difference
+    <= 13 mm (limits taken as 3 sigma) + 0.5 mm casting scatter. zs = 3 standard normals (S, P, shear), cast = 4x2."""
+    clip = lambda v, lo, hi: max(lo, min(hi, v))
+    dS = clip(-1 + 8 / 6 * zs[0], -5, 3)
+    dP = clip(-1 + 8 / 6 * zs[1], -5, 3)
+    sh = clip(13 / 3 * zs[2], -13, 13) / 1.87
+    out = []
+    for k, (X, Y) in enumerate(CORNERS):
+        gx, gy = (1 if X > 0 else -1), (1 if Y > 0 else -1)
+        out.append([gx * dS / 2 + gy * sh / 2 + 0.5 * cast[k][0], gy * dP / 2 + 0.5 * cast[k][1]])
+    return out
+
+
+def capture_ok(errs, P):
+    """Twistlock engagement. pm5: original +-5 mm both axes. head: rigid ISO twistlock in the 124.5 x 63.5 mm top
+    aperture (head ~104 x 56 mm) -> about +-10 mm along the container, +-3.8 mm across. float10: floating twistlocks."""
+    cap = P.get('capture', 'pm5')
+    cx, cy = (10.0, 3.8) if cap == 'head' else (10.0, 10.0) if cap == 'float10' else (P['tolMM'], P['tolMM'])
+    return all(abs(e[0]) <= cx and abs(e[1]) <= cy for e in errs)
+
+
 class World:
     """Container + spreader truth for one job, drawn exactly like the JS runOnce."""
 
@@ -332,6 +358,10 @@ class World:
             pitch = P['tiltSd'] * rnd.n()
             roll = P['tiltSd'] * rnd.n()
             self.st.append({'dz': dz, 'pitch': pitch, 'roll': roll, 'bias': b})
+        if P.get('tolModel') == 'iso':      # same draw order as the JS engine (after the original draws)
+            zs = [rnd.n(), rnd.n(), rnd.n()]
+            cast = [[rnd.n(), rnd.n()] for _ in range(4)]
+            self.tol = iso_tol(zs, cast)
         self.extrap = False
 
     def errs(self):
@@ -398,5 +428,5 @@ def run_once(M, P, rnd):
     EF = w.errs()
     worst = max(max(abs(v[0]), abs(v[1])) for v in EF)
     worst0 = max(max(abs(v[0]), abs(v[1])) for v in e0)
-    return {'ok': worst <= P['tolMM'], 'ok0': worst0 <= P['tolMM'], 'worst': worst, 'worst0': worst0,
+    return {'ok': capture_ok(EF, P), 'ok0': capture_ok(e0, P), 'worst': worst, 'worst0': worst0,
             'steps': it, 'extrap': w.extrap}

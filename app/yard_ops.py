@@ -140,7 +140,7 @@ class YardOps:
         # the box's own corner-casting tolerance (standard-normal; scaled by the hardware assumption's tolC):
         # fixed for the container's life, so a retry on the same box meets the same tolerance
         zr = random.Random(self.seed * 7919 + self.n_cont)
-        c['tol_z'] = [[zr.gauss(0, 1), zr.gauss(0, 1)] for _ in range(4)]
+        c['tol_z'] = {'z': [[zr.gauss(0, 1), zr.gauss(0, 1)] for _ in range(4)], 'iso': [zr.gauss(0, 1) for _ in range(3)]}
         self.containers[cid] = c
         return c
 
@@ -1236,10 +1236,12 @@ horns, detour; if they block again after 2 detours (detours >= 2), wait and soun
             return {'ok': True, 'reason': None, 'plan': None}
         ctrl = 'ai' if (self.controller == 'ai' and self.ai_fail < 3) else 'autopilot'
         hardware = self.align_opts.get('hardware', 'target')
+        gate_key = hardware + ('|iso' if self.align_opts.get('tol_model') == 'iso' else '') + \
+            ('|' + self.align_opts['capture'] if self.align_opts.get('capture', 'pm5') != 'pm5' else '')
         box = {}
 
         def plan_hook(first_decision):
-            f = case_memory.features_from(first_decision, hardware, attempt, reason)
+            f = case_memory.features_from(first_decision, gate_key, attempt, reason)
             box['features'] = f
             if self.memory is None:
                 return None
@@ -1251,7 +1253,7 @@ horns, detour; if they block again after 2 detours (detours >= 2), wait and soun
         params = dict(self.align_opts, controller=ctrl, seed=self.rnd.randrange(1, 1 << 31),
                       machine_id='YARD-RS-1', plan_hook=plan_hook)
         if self.memory is not None:
-            params['lower_gate'] = lambda f, hw=hardware: self.memory.lower_p(hw, f)
+            params['lower_gate'] = lambda f, hw=gate_key: self.memory.lower_p(hw, f)
         tz = (self.containers.get(task.get('container')) or {}).get('tol_z')
         if tz is not None:
             params['container_tol'] = tz
@@ -1303,7 +1305,7 @@ horns, detour; if they block again after 2 detours (detours >= 2), wait and soun
         decisions = j['brain'].decisions if j else []
         why = case_memory.failure_reason(outcome, decisions, box.get('features'))
         if self.memory is not None and j is not None and outcome in ('success', 'false_lower') and j.get('lower_features'):
-            self.memory.add_lower(hardware, j['lower_features'], outcome == 'success')   # held jobs: outcome unknown
+            self.memory.add_lower(gate_key, j['lower_features'], outcome == 'success')   # held jobs: outcome unknown
         if outcome == 'gate_hold':
             with self.lock:
                 self.stats['gate_holds'] = self.stats.get('gate_holds', 0) + 1

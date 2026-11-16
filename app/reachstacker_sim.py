@@ -49,9 +49,13 @@ class VirtualReachStacker:
         self.machine_mode, self.fault, self.fault_corner = machine_mode, fault, int(fault_corner)
         self.world = E.World(P, world_rnd)
         if container_tol is not None:
-            # corner-casting tolerance belongs to the CONTAINER: a re-approach of the same box keeps it
-            # (container_tol = standard-normal draws [[zx, zy]] x 4, scaled by this hardware assumption's tolC)
-            self.world.tol = [[P['tolC'] * float(z[0]), P['tolC'] * float(z[1])] for z in container_tol]
+            # corner-casting tolerance belongs to the CONTAINER: a re-approach of the same box keeps it.
+            # container_tol = {'z': 4x2 standard normals, 'iso': 3 standard normals} (or the old 4x2 list)
+            ct = container_tol if isinstance(container_tol, dict) else {'z': container_tol}
+            if P.get('tolModel') == 'iso' and ct.get('iso') is not None:
+                self.world.tol = E.iso_tol(ct['iso'], ct['z'])
+            else:
+                self.world.tol = [[P['tolC'] * float(z[0]), P['tolC'] * float(z[1])] for z in ct['z']]
         mm = MACHINE_MODES[machine_mode]
         self.mbias = [mm['bias'] * aux_rnd.n(), mm['bias'] * aux_rnd.n()]
         self.phase = 'approach'
@@ -93,7 +97,7 @@ class VirtualReachStacker:
         return {'done': True}
 
     def lock(self):
-        self.locked = self.lowered and self.worst_mm() <= LOCK_TOL_MM
+        self.locked = self.lowered and E.capture_ok(self.world.errs(), self.P)
         self.phase = 'locked' if self.locked else 'lock_failed'
         return {'locked': self.locked, 'worst_mm': self.worst_mm()}
 

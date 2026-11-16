@@ -17,7 +17,7 @@ rows = []
 for seed in (3, 12, 30):
     y = yard_ops.YardOps(controller='autopilot', seed=seed, speed=40, aligner=lambda yd, task: yd.wait_sim(6)).start()
     t0 = time.time()
-    while y.t < 1000 and time.time() - t0 < 120:
+    while y.t < 1000 and time.time() - t0 < 300:      # wall clock: slow CI machines
         time.sleep(0.5)
     y.stop()
     time.sleep(0.3)

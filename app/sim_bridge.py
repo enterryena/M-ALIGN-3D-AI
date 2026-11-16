@@ -67,7 +67,7 @@ class LocalSim:
         ctrl = p.get('controller', 'autopilot')
         if ctrl not in ('ai', 'autopilot'):
             raise ValueError('controller: ai / autopilot')
-        align = {k: p[k] for k in ('hardware', 'machine', 'fault', 'strategy') if k in p}
+        align = {k: p[k] for k in ('hardware', 'machine', 'fault', 'strategy', 'tol_model', 'capture') if k in p}
         import case_memory
         if self.memory is None:     # cases persist next to the kit's outbox (survive restarts)
             self.memory = case_memory.CaseMemory(self.link.outbox.file_path.parent / 'yard_cases.sqlite3')

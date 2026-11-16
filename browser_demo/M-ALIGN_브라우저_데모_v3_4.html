@@ -526,7 +526,7 @@ function gateFeatures(est){if(!est||est.length!==4)return null;let sx=0,sy=0,num
  let r=0;est.forEach((v,k)=>{const X=E.CORNERS[k][0],Y=E.CORNERS[k][1];r=Math.max(r,Math.abs(v[0]-(sx-th*Y)),Math.abs(v[1]-(sy+th*X)));});return [w,r];}
 async function loadGateBank(P){const rows=await BANK.all(),F=[],Y=[];
  for(const c of rows){if(c.scenario!==scenKey()||c.estimator!==P.estimator||c.radius_mm!==P.R0)continue;
-  if(c.outcome!=='success'&&c.outcome!=='failure')continue;const R=c.controller_observable&&c.controller_observable.rounds;if(!R||!R.length)continue;
+  if(c.outcome!=='success'&&c.outcome!=='failure')continue;if(c.gate&&c.gate.held)continue;/* held: outcome unknown in reality */const R=c.controller_observable&&c.controller_observable.rounds;if(!R||!R.length)continue;
   const f=gateFeatures(R[R.length-1].estimated_corner_errors_mm);if(f){F.push(f);Y.push(c.outcome==='success'?1:0);}}
  return {F,Y};}
 function gateP(bank,f,k=60){const n=bank.F.length;if(n<k)return null;const d=new Float64Array(n);for(let i=0;i<n;i++){const a=bank.F[i][0]-f[0],b=bank.F[i][1]-f[1];d[i]=a*a+b*b;}
@@ -537,7 +537,7 @@ function toBankRecord(r,seed,P,index,origin,savedAt){
  const trace=r.trace||[], rounds=trace.filter(t=>Array.isArray(t.est));
  return {
   uid:bankId(seed,P,index),schema:'MALIGN_observation_case_v1',origin:origin,
-  outcome:r.held?'held':r.ok?'success':'failure',gate:r.held?{held:true,similar_success:r.gate_p}:(r.gate_p!=null?{held:false,similar_success:r.gate_p}:undefined),saved_at:savedAt,saved_order:Date.now()+(bankSequence++/100000),
+  outcome:r.ok?'success':'failure',gate:r.gate_p!=null?{held:!!r.held,similar_success:r.gate_p}:undefined,saved_at:savedAt,saved_order:Date.now()+(bankSequence++/100000),
   source_seed:seed>>>0,trial_index:index,scenario:scenKey(),estimator:P.estimator,radius_mm:P.R0,
   simulation_only:true,source_model:'Maxwell Matrix5 21 FEM cases + interpolation/assumptions',
   iterations:r.steps,extrapolated:!!r.extrap,initial_worst_axis_mm:r.worst0,final_worst_axis_mm:r.worst,

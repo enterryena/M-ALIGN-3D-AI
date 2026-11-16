@@ -67,6 +67,8 @@ button.sec{background:#1d2c38;border:1px solid var(--line);font-weight:500;font-
  <label for="model">AI 모델 (Ollama)</label><input id="model" value="qwen2.5:7b"><label for="aiurl">Ollama 주소 (OLLAMA_ORIGINS=* 필요)</label><input id="aiurl" value="http://127.0.0.1:11434">
  <div class="row"><div><label for="hardware">키트 하드웨어</label><select id="hardware"><option value="target">목표 사양</option><option value="base">기준 가정</option><option value="ideal">이상적</option></select></div>
  <div><label for="machine">기존 센서</label><select id="machine"><option value="normal">정상</option><option value="unstable">불안정</option><option value="none">없음</option><option value="biased">편향(고장)</option></select></div></div>
+ <label for="tolModel">컨테이너 코너 공차</label><select id="tolModel"><option value="iso" selected>ISO 668 규격 기반 (실제 규격)</option><option value="orig">원본 가정 (하드웨어 가정의 공차)</option></select>
+ <label for="capture">결합 판정 (트위스트록)</label><select id="capture"><option value="float10" selected>플로팅 트위스트록 ±10 mm (스프레더 표준)</option><option value="head">고정 트위스트록 길이 ±10 · 폭 ±3.8 mm</option><option value="pm5">원본 ±5 mm</option></select>
  <label class="chk"><input type="checkbox" id="people" checked> 사람·서비스 차량 (움직이는 장애물)</label>
  <label class="chk"><input type="checkbox" id="debris" checked> 라바콘·팔레트 (고정 장애물)</label>
  <label class="chk"><input type="checkbox" id="vary" checked> 현장 조건 변화 (기존 센서 상태·키트 고장)</label>
@@ -637,6 +639,10 @@ const PRESETS = {ideal: {modelBias: 0, noise: .1, gapSd: 0, tiltSd: 0, tolC: .7,
   base: {modelBias: .5, noise: .3, gapSd: 1, tiltSd: .2, tolC: 3, act: .5}};
 const BASEP = {R0: 30, theta0: .1, K: .8, iters: 6, tolMM: 5, fitGap: true, mirror: true, useHead: [1, 1, 1, 1, 1], searchMM: 36, stopMM: 1};
 const CMM = [[-2926.5, 1129.5], [2926.5, 1129.5], [2926.5, -1129.5], [-2926.5, -1129.5]];
+// ISO 668-based corner deviations (20 ft) and twistlock engagement (same as malign_engine.iso_tol / capture_ok)
+function isoTol(zs, cast){ const clip = (v, lo, hi) => Math.max(lo, Math.min(hi, v)); const dS = clip(-1 + 8 / 6 * zs[0], -5, 3), dP = clip(-1 + 8 / 6 * zs[1], -5, 3), sh = clip(13 / 3 * zs[2], -13, 13) / 1.87;
+  return CMM.map(([X, Y], k) => { const gx = X > 0 ? 1 : -1, gy = Y > 0 ? 1 : -1; return [gx * dS / 2 + gy * sh / 2 + .5 * cast[k][0], gy * dP / 2 + .5 * cast[k][1]]; }); }
+function captureOk(errs, cap){ const [cx, cy] = cap === 'head' ? [10, 3.8] : cap === 'float10' ? [10, 10] : [5, 5]; return errs.every(e => Math.abs(e[0]) <= cx && Math.abs(e[1]) <= cy); }
 const PRIO = {cam: 1, ir: .8, kit: .5}, PRIO_FINE = {cam: .5, ir: .4, kit: 1.2};
 function fuse(r, fine){
   const names = ['cam', 'ir', 'kit'], w = {}, note = {}, PR = fine ? PRIO_FINE : PRIO;
@@ -668,7 +674,7 @@ class Yard {
     this.seed = o.seed != null && o.seed !== '' ? Number(o.seed) >>> 0 : (Math.random() * 4294967296) >>> 0 || 1;
     this.rnd = this.E.rng(this.seed); this.speed = o.speed || 1; this.controller = o.controller || 'autopilot';
     this.aiUrl = o.ai_url || 'http://127.0.0.1:11434'; this.aiModel = o.ai_model || 'qwen2.5:7b'; this.aiFail = 0;
-    this.hardware = o.hardware || 'target'; this.env = o.env || 'clear'; this.vary = !!o.vary; this.machine = o.machine || 'normal'; this.people = o.people !== false; this.debrisOn = o.debris !== false;
+    this.hardware = o.hardware || 'target'; this.env = o.env || 'clear'; this.vary = !!o.vary; this.machine = o.machine || 'normal'; this.tolModel = o.tol_model || 'orig'; this.capture = o.capture || 'pm5'; this.people = o.people !== false; this.debrisOn = o.debris !== false;
     this.memory = o.memory; this.t = 0; this.running = false; this.logLines = []; this.waiters = [];
     this.stats = {inbound: 0, outbound: 0, user: 0, horns: 0, detours: 0, clears: 0, waits: 0, contacts: 0, align_fail: 0,
       guard_refusals: 0, ai_decisions: 0, rule_decisions: 0, retries: 0, retry_success: 0, cases_added: 0, manual_locks: 0};
@@ -688,8 +694,9 @@ class Yard {
   log(who, text){ this.logLines.push({t: Math.round(this.t * 10) / 10, at: Date.now() + this.logLines.length, who, text}); if (this.logLines.length > 220) this.logLines.splice(0, 20); }
   newContainer(x, z, yaw, y){ this.nCont++; const id = 'C' + String(this.nCont).padStart(2, '0');
     // the box's own corner-casting tolerance (standard normal, scaled by tolC): fixed for its life, so a retry meets the same box
-    const zr = this.E.rng(((this.seed * 7919 + this.nCont) >>> 0) || 1), tolZ = [0, 1, 2, 3].map(() => [zr.n(), zr.n()]);
-    return this.containers[id] = {id, color: COLORS[(this.nCont - 1) % COLORS.length], x, z, yaw, y, where: null, slot: null, truck: null, since: this.t, tolZ}; }
+    const zr = this.E.rng(((this.seed * 7919 + this.nCont) >>> 0) || 1), tolZ = [0, 1, 2, 3].map(() => [zr.n(), zr.n()]), isoZ = [zr.n(), zr.n(), zr.n()];
+    return this.containers[id] = {id, color: COLORS[(this.nCont - 1) % COLORS.length], x, z, yaw, y, where: null, slot: null, truck: null, since: this.t, tolZ, isoZ}; }
+  gateKey(){ return this.hardware + (this.tolModel === 'iso' ? '|iso' : '') + (this.capture !== 'pm5' ? '|' + this.capture : ''); }
   // ---------------------------------------------------------------- time
   waitSim(sec){ const end = this.t + sec; return this.waitUntil(() => this.t >= end); }
   waitUntil(pred, timeout = null){ const end = timeout == null ? Infinity : this.t + timeout;
@@ -1101,7 +1108,8 @@ class Yard {
     const r0 = P.R0 * Math.sqrt(rnd()), a0 = 2 * PI * rnd(); tr.tx = r0 * Math.cos(a0); tr.ty = r0 * Math.sin(a0); tr.th = P.theta0 * PI / 180 * rnd.n();
     const stc = []; for (let k = 0; k < 4; k++){ tr.tol[k] = [P.tolC * rnd.n(), P.tolC * rnd.n()]; const b = []; for (let h = 0; h < 5; h++) b.push(P.modelBias * rnd.n());
       stc.push({dz: P.gapSd * rnd.n(), pitch: P.tiltSd * rnd.n(), roll: P.tiltSd * rnd.n(), bias: b}); }
-    const box = this.containers[task.container]; if (box && box.tolZ) tr.tol = box.tolZ.map(([a, b]) => [P.tolC * a, P.tolC * b]);   // same box, same tolerance
+    const box = this.containers[task.container];
+    if (box && box.tolZ) tr.tol = this.tolModel === 'iso' ? isoTol(box.isoZ, box.tolZ) : box.tolZ.map(([a, b]) => [P.tolC * a, P.tolC * b]);   // same box, same tolerance
     const camBias = (task.cond && task.cond.camFail) || this.machine === 'biased' ? [9 + aux(), -7] : [.5 * aux.n(), .5 * aux.n()], irBias = [aux.n(), aux.n()];
     const errs = () => CMM.map(([X, Y], q) => [tr.tx - tr.th * Y + tr.tol[q][0], tr.ty + tr.th * X + tr.tol[q][1]]);
     const worst = () => Math.max(...errs().map(v => Math.max(Math.abs(v[0]), Math.abs(v[1]))));
@@ -1125,7 +1133,7 @@ class Yard {
       if (!feats){ // first sensing: the situation the server knows -> plan from similar cases
         const mq = [r.cam, r.ir].filter(Boolean), machine = !mq.length ? 'none' : mq.every(x => x.q >= .7) ? 'valid' : 'unstable';
         const ew = Math.max(...est.map(v => Math.max(Math.abs(v[0]), Math.abs(v[1]))));
-        feats = {hardware: this.hardware, env, machine, kit: r.kit.q >= .7 ? 'good' : r.kit.q >= .45 ? 'caution' : 'invalid', disagree: fu.disagree,
+        feats = {hardware: this.gateKey(), env, machine, kit: r.kit.q >= .7 ? 'good' : r.kit.q >= .45 ? 'caution' : 'invalid', disagree: fu.disagree,
           dist: ew < 10 ? 'near' : ew < 20 ? 'mid' : 'far', attempt, prev: prevReason};
         if (this.memory){ planObj = this.memory.choose(feats, tried, prevReason);
           K = planObj.K; iters = planObj.max_rounds; useMachine = planObj.use_machine;
@@ -1143,18 +1151,18 @@ class Yard {
       let action = small && predWorst <= 4 ? 'lower' : verify ? (predWorst <= 4 ? 'lower' : 'stop') : round >= iters ? 'verify' : 'move';
       if (action === 'stop'){ this.log('서버', `최종 확인: 예상 최악 코너 ${predWorst.toFixed(2)} mm > 4 mm → 하강 금지, 안전 정지`); outcome = 'held'; break; }
       if (action === 'lower'){ lowF = [Math.max(...est.map(v => Math.max(Math.abs(v[0]), Math.abs(v[1])))), Math.max(...est.map(([x, y], k) => { const [X, Y] = CMM[k]; return Math.max(Math.abs(x - (kx - kth * Y)), Math.abs(y - (ky + kth * X))); }))];
-        const g = this.memory ? this.memory.lowerP(this.hardware, lowF) : null;
+        const g = this.memory ? this.memory.lowerP(this.gateKey(), lowF) : null;
         if (g && g.p < g.th){ this.log('서버', `하강 보류: 비슷한 과거 하강 ${g.n}건 중 결합 ${Math.round(100 * g.p)}% (< ${Math.round(100 * g.th)}%) → 재접근`); outcome = 'gate_hold'; this.stats.gate_holds = (this.stats.gate_holds || 0) + 1; break; } }
       this.log('서버', `보정 지시: X ${mv[0].toFixed(2)} / Y ${mv[1].toFixed(2)} mm / θ ${(mv[2] * 180 / PI).toFixed(4)}°`);
       tr.tx -= mv[0] + P.act * rnd.n(); tr.ty -= mv[1] + P.act * rnd.n(); tr.th -= mv[2];
       for (let k = 0; k < 4; k++){ const lf = E.frame(k, true), [X, Y] = CMM[k], deX = lf[0] * (-mv[0] + mv[2] * Y), deY = lf[1] * (-mv[1] - mv[2] * X);
         for (const o of hist[k]){ o.ox -= deX; o.oy -= deY; } }
       await this.waitSim(1); pub();
-      if (action === 'lower'){ this.log('서버', '하강 조건 충족 → 하강'); outcome = worst() <= P.tolMM ? 'success' : 'false_lower';
+      if (action === 'lower'){ this.log('서버', '하강 조건 충족 → 하강'); outcome = captureOk(errs(), this.capture) ? 'success' : 'false_lower';
         this.log('기계', outcome === 'success' ? `결합 성공 (실제 최악 코너 ${worst().toFixed(2)} mm)` : `결합 실패: 실제 최악 코너 ${worst().toFixed(2)} mm > 5 mm`); this.align.phase = 'done'; await this.waitSim(1.5); break; }
       if (action === 'verify'){ verify = true; this.log('서버', `${iters}회 보정 완료 → 최종 확인 센싱`); } }
     if (!outcome) return {ok: false, reason: 'aborted', plan: planObj && planObj.plan};
-    if (this.memory && lowF && (outcome === 'success' || outcome === 'false_lower')) this.memory.addLower(this.hardware, lowF, outcome === 'success');
+    if (this.memory && lowF && (outcome === 'success' || outcome === 'false_lower')) this.memory.addLower(this.gateKey(), lowF, outcome === 'success');
     const reason = outcome === 'success' ? null : outcome === 'false_lower' ? 'false_lower' : outcome === 'gate_hold' ? 'gate_hold' : everDis ? 'disagree' : holds > 2 ? 'low_reliability' : feats && feats.dist === 'far' ? 'far' : 'not_converged';
     if (this.memory && feats){ this.memory.add(feats, planObj ? planObj.plan : 'STD', outcome, reason); this.stats.cases_added++; }
     return {ok: outcome === 'success', reason, plan: planObj && planObj.plan}; }
@@ -1610,7 +1618,7 @@ async function poll(){ if (polling) return; polling = true;
 setInterval(poll, 150); poll();
 
 $('start').addEventListener('click', async () => {
-  const body = {controller: $('controller').value, ai_model: $('model').value.trim(), hardware: $('hardware').value, machine: $('machine').value,
+  const body = {controller: $('controller').value, ai_model: $('model').value.trim(), hardware: $('hardware').value, machine: $('machine').value, tol_model: $('tolModel').value, capture: $('capture').value,
     people: $('people').checked, debris: $('debris').checked, vary: $('vary').checked, speed: Number($('speed').value)};
   if ($('seed').value.trim()) body.seed = Number($('seed').value);
   try { for (const id in cont){ scene.remove(cont[id].g); } for (const k of Object.keys(cont)) delete cont[k];
