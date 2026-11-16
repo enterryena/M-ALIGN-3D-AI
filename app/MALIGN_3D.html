@@ -87,7 +87,7 @@ button.sec{background:#1d2c38;border:1px solid var(--line);font-weight:500;font-
  <div id="dec" style="font-size:11px;color:var(--muted);margin-top:6px">판단 없음</div>
  <div id="req"></div>
  <h2 style="margin-top:8px">사례 누적 · 유도</h2>
- <div class="kv"><div>누적 사례<b id="m_n">0</b></div><div>최근 50 성공<b id="m_rate">-</b></div><div>재시도 성공<b id="m_retry">0/0</b></div></div>
+ <div class="kv"><div>누적 사례<b id="m_n">0</b></div><div>최근 50 성공<b id="m_rate">-</b></div><div>재시도 성공<b id="m_retry">0/0</b></div><div>하강 기록<b id="m_low">0</b></div><div>오하강<b id="m_fl">0</b></div><div>하강 보류<b id="m_hold">0</b></div></div>
  <div id="m_plan" style="font-size:11px;color:var(--muted);margin-top:6px">계획 선택 없음</div>
  <div id="alignbox" style="display:none"><h2 style="margin-top:8px">M-ALIGN 정렬 (실제 코너 오차)</h2><div class="cgrid" id="cgrid"></div></div>
 </div>
@@ -426,6 +426,8 @@ function sync(st){
   const mem = st.memory, pl = st.plan;
   $('m_n').textContent = mem ? mem.cases : '-'; $('m_rate').textContent = mem && mem.recent_rate != null ? Math.round(mem.recent_rate * 100) + '%' : '-';
   $('m_retry').textContent = k.retry_success + '/' + k.retries;
+  const g = mem && mem.gate; $('m_low').textContent = g ? g.lowerings + (g.lowerings < g.active_from ? ` (${g.active_from}부터 판단)` : '') : '-';
+  $('m_fl').textContent = g ? g.lowerings - g.locked : '-'; $('m_hold').textContent = k.gate_holds || 0;
   $('m_plan').innerHTML = pl ? `${esc(pl.container || '')} ${pl.attempt}회차 계획: <b style="color:var(--ink)">${esc(pl.plan)}</b> ${esc(pl.ko || '')}<br>${esc(pl.why || '')}` : '계획 선택 없음';
   // alignment corners
   const A = st.align;

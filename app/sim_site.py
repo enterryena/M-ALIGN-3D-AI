@@ -46,7 +46,8 @@ class SimSite:
 
     # ---- control from the screen / API
     def start(self, hardware='target', machine='normal', fault='none', strategy='weighted', seed=None,
-              machine_id='SIM-REACHSTACKER-1', controller='rule', ai_model=None, plan_hook=None, container_tol=None):
+              machine_id='SIM-REACHSTACKER-1', controller='rule', ai_model=None, plan_hook=None, container_tol=None,
+              lower_gate=None):
         if hardware not in HARDWARE or machine not in MACHINE_MODES or fault not in FAULTS or strategy not in STRATEGIES:
             raise ValueError('hardware/machine/fault/strategy 값 오류')
         if controller not in CONTROLLERS:
@@ -69,7 +70,7 @@ class SimSite:
                         'frames': [{'t': time.time(), 'errors': rs.corner_errors(), 'label': '접근 시작'}],
                         'log': [], 'outcome': None, 'last_decision': None, 'machine_last': None,
                         'resense_pending': False, 'started_at': _now(), 'worst0': rs.worst_mm(),
-                        'plan_hook': plan_hook, 'plan': None,
+                        'plan_hook': plan_hook, 'plan': None, 'lower_gate': lower_gate, 'lower_features': None,
                         'bundle_event': threading.Event(), 'bundle': None}
             if controller == 'rule':
                 self._log('기계: 컨테이너 대략 위치(원거리 정보)로 접근 시작')
@@ -240,13 +241,13 @@ class SimSite:
         self.send({'type': 'end_job', 'session_id': j['job_id'], 'result': 'main_action'}, 0)
         return {'locked': locked, 'worst_corner_mm': round(rs.worst_mm(), 2)}
 
-    def stop_job(self, reason):
+    def stop_job(self, reason, outcome='held'):
         j = self.job
         if j['outcome'] is None:
-            j['outcome'] = 'held'
+            j['outcome'] = outcome
             j['phase'] = 'held'
             self.event('stop', reason=reason)
-            self.log('서버', '안전 정지: %s (하강하지 않음)' % reason)
+            self.log('서버', ('하강 보류: %s' if outcome == 'gate_hold' else '안전 정지: %s (하강하지 않음)') % reason)
             if j['events'] and any(e['kind'] in ('sense', 'in_range') for e in j['events']):
                 self.send({'type': 'stop', 'reason': reason}, 0)
         return {'stopped': True}

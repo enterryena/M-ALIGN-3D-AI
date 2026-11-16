@@ -82,7 +82,7 @@ class YardOps:
         self.log_lines = []
         self.stats = {'inbound': 0, 'outbound': 0, 'user': 0, 'horns': 0, 'detours': 0, 'clears': 0, 'waits': 0,
                       'contacts': 0, 'align_fail': 0, 'guard_refusals': 0, 'ai_decisions': 0, 'rule_decisions': 0,
-                      'retries': 0, 'retry_success': 0, 'cases_added': 0, 'manual_locks': 0}
+                      'retries': 0, 'retry_success': 0, 'cases_added': 0, 'manual_locks': 0, 'gate_holds': 0}
         self.ai_fail = 0
         self.n_cont = 0
         self.containers = {}
@@ -1250,6 +1250,8 @@ horns, detour; if they block again after 2 detours (detours >= 2), wait and soun
             return p
         params = dict(self.align_opts, controller=ctrl, seed=self.rnd.randrange(1, 1 << 31),
                       machine_id='YARD-RS-1', plan_hook=plan_hook)
+        if self.memory is not None:
+            params['lower_gate'] = lambda f, hw=hardware: self.memory.lower_p(hw, f)
         tz = (self.containers.get(task.get('container')) or {}).get('tol_z')
         if tz is not None:
             params['container_tol'] = tz
@@ -1300,6 +1302,11 @@ horns, detour; if they block again after 2 detours (detours >= 2), wait and soun
         j = site.job
         decisions = j['brain'].decisions if j else []
         why = case_memory.failure_reason(outcome, decisions, box.get('features'))
+        if self.memory is not None and j is not None and outcome in ('success', 'false_lower') and j.get('lower_features'):
+            self.memory.add_lower(hardware, j['lower_features'], outcome == 'success')   # held jobs: outcome unknown
+        if outcome == 'gate_hold':
+            with self.lock:
+                self.stats['gate_holds'] = self.stats.get('gate_holds', 0) + 1
         if self.memory is not None and box.get('features') and outcome != 'aborted':
             self.memory.add(box['features'], box.get('plan') or case_memory.DEFAULT, outcome, job_id=j['job_id'],
                             task=task['id'], rounds=j['brain'].rounds,

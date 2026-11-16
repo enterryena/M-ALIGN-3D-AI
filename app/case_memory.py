@@ -37,12 +37,12 @@ PLANS = {
 DEFAULT = 'STD'
 REASON_KO = {'disagree': '키트-기존 센서 불일치', 'not_converged': '수렴 부족(하강 조건 미달)',
              'false_lower': '결합 실패(오하강)', 'low_reliability': '키트 신뢰도 부족', 'far': '초기 오차 큼',
-             'aborted': '중단', None: '-'}
+             'aborted': '중단', 'gate_hold': '사례 기반 하강 보류', None: '-'}
 # which plans make sense after each failure reason
 RETRY_PLANS = {'disagree': ('KIT', 'KIT_SOFT'), 'not_converged': ('SOFT', 'KIT_SOFT', 'KIT'),
                'false_lower': ('KIT_SOFT', 'SOFT'), 'low_reliability': tuple(PLANS), 'far': tuple(PLANS),
-               'aborted': tuple(PLANS)}
-REAPPROACH = ('false_lower', 'low_reliability', 'far')
+               'aborted': tuple(PLANS), 'gate_hold': ('KIT_SOFT', 'SOFT', 'KIT')}
+REAPPROACH = ('false_lower', 'low_reliability', 'far', 'gate_hold')
 FEATURE_W = {'machine': 3.0, 'disagree': 2.0, 'kit': 1.5, 'invalid': 1.5, 'hardware': 1.0, 'dist': 1.0, 'prev': 1.0}
 PRIOR_N, PRIOR_P, PRIOR_STD = 1.0, 0.5, 0.65
 EXPLORE = 0.12
@@ -79,6 +79,8 @@ def failure_reason(outcome, decisions, first_features=None):
         return 'false_lower'
     if outcome == 'aborted':
         return 'aborted'
+    if outcome == 'gate_hold':
+        return 'gate_hold'
     reasons = [d.get('reason') for d in decisions or []]
     if any(r in ('disagree', 'sensors_disagree') for r in reasons) or any(d.get('case') in ('KIT_OVERRIDE', 'MACHINE_OVERRIDE') for d in decisions or []):
         return 'disagree'
@@ -107,6 +109,7 @@ class CaseMemory:
         self.path = pathlib.Path(path) if path else None
         self.lock = threading.Lock()
         self.cases = []
+        self.lower = []        # (hardware, worst_est_mm, rigid_resid_mm, ok): what the kit saw just before each lowering
         if self.path:
             self.path.parent.mkdir(parents=True, exist_ok=True)
             with self._con() as con:
@@ -116,6 +119,11 @@ class CaseMemory:
                     rounds INTEGER, moves INTEGER, sim_truth TEXT)''')
                 for f, p, o, r in con.execute('SELECT features, plan, outcome, reason FROM yard_cases ORDER BY id'):
                     self.cases.append({'features': json.loads(f), 'plan': p, 'ok': o == 'success', 'outcome': o, 'reason': r})
+                con.execute('''CREATE TABLE IF NOT EXISTS lower_cases (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT, at REAL NOT NULL, hardware TEXT NOT NULL,
+                    worst REAL NOT NULL, resid REAL NOT NULL, ok INTEGER NOT NULL)''')
+                for h, w, r, ok in con.execute('SELECT hardware, worst, resid, ok FROM lower_cases ORDER BY id'):
+                    self.lower.append((h, w, r, ok))
 
     @contextmanager
     def _con(self):
@@ -209,4 +217,57 @@ class CaseMemory:
         return {'cases': len(cases), 'success': sum(c['ok'] for c in cases),
                 'recent_rate': None if not recent else round(sum(c['ok'] for c in recent) / len(recent), 3),
                 'false_lower': sum(c.get('outcome') == 'false_lower' for c in cases),
-                'by_plan': {p: {'n': v[0], 'ok': v[1], 'false_lower': v[2]} for p, v in by.items()}}
+                'by_plan': {p: {'n': v[0], 'ok': v[1], 'false_lower': v[2]} for p, v in by.items()},
+                'gate': self.gate_summary()}
+
+
+# --------------------------------------------------------------------------- lowering gate
+# Just before lowering, the server looks at the kit's last corner estimates (what it really sees, never the truth):
+# the worst estimated corner and the spread a rigid move cannot remove. Among the K most similar past LOWERINGS on
+# the same hardware, if fewer than GATE_TH locked, it does not lower: hold -> re-approach (or a signalman later).
+# Held jobs never get an outcome, so they are not learned from. Off until GATE_MIN lowerings are on record.
+GATE_K, GATE_MIN, GATE_TH = 60, 60, 0.30
+
+
+def lower_features(corner_est):
+    """(worst estimated corner, rigid-fit residual) in mm from 4 [x, y] estimates, or None if a corner is missing."""
+    if not corner_est or len(corner_est) != 4 or any(e is None for e in corner_est):
+        return None
+    import malign_engine as E
+    sx, sy, th = E.rigid_fit(corner_est)
+    worst = max(max(abs(e[0]), abs(e[1])) for e in corner_est)
+    resid = max(max(abs(e[0] - (sx - th * Y)), abs(e[1] - (sy + th * X))) for e, (X, Y) in zip(corner_est, E.CORNERS))
+    return [round(worst, 4), round(resid, 4)]
+
+
+def _lower_p(self, hardware, f, k=GATE_K):
+    """Share of the k most similar past lowerings (same hardware) that locked; None while too few are on record."""
+    with self.lock:
+        pts = [(w, r, ok) for h, w, r, ok in self.lower if h == hardware]
+    if f is None or len(pts) < max(k, GATE_MIN):
+        return None
+    pts.sort(key=lambda p: (p[0] - f[0]) ** 2 + (p[1] - f[1]) ** 2)
+    return {'p': sum(p[2] for p in pts[:k]) / k, 'n': len(pts), 'th': GATE_TH}
+
+
+def _add_lower(self, hardware, f, ok):
+    if f is None:
+        return
+    with self.lock:
+        self.lower.append((hardware, f[0], f[1], 1 if ok else 0))
+    if self.path:
+        with self._con() as con:
+            con.execute('INSERT INTO lower_cases (at, hardware, worst, resid, ok) VALUES (?,?,?,?,?)',
+                        (time.time(), hardware, f[0], f[1], 1 if ok else 0))
+
+
+def _gate_summary(self):
+    with self.lock:
+        n = len(self.lower)
+        ok = sum(p[3] for p in self.lower)
+    return {'lowerings': n, 'locked': ok, 'active_from': GATE_MIN, 'threshold': GATE_TH}
+
+
+CaseMemory.lower_p = _lower_p
+CaseMemory.add_lower = _add_lower
+CaseMemory.gate_summary = _gate_summary

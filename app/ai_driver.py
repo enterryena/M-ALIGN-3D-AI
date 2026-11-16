@@ -17,6 +17,7 @@ Guard (refuses and tells the AI why):
     after the one move since sensing) <= 4 mm, and the machine sensor (if valid) not contradicting
 If Ollama is not reachable, the job ends 'aborted' with that message (use the rule autopilot instead).
 """
+import case_memory
 import json
 import math
 import threading
@@ -233,6 +234,15 @@ class ToolBox:
             diff = max(abs(m['x_mm'] - ref['fit_x_mm']), abs(m['y_mm'] - ref['fit_y_mm']))   # both read before any move
             if diff > DISAGREE_MM + 0.3 * max(abs(ref['fit_x_mm']), abs(ref['fit_y_mm'])):
                 return self._refuse('machine sensor and kit disagree by %.1f mm: remeasure first' % diff)
+        # lowering gate from accumulated lowerings (case_memory): same estimates in the past mostly failed -> hold
+        f = case_memory.lower_features(d.get('corner_est_mm'))
+        self.job['lower_features'] = f
+        gate = self.job.get('lower_gate')
+        g = gate(f) if (gate is not None and f is not None) else None
+        if g is not None and g['p'] < g['th']:
+            self.site.event('gate_hold', p=g['p'], n=g['n'])
+            return self.site.stop_job('similar past lowerings locked only %.0f%% (< %.0f%%, %d on record): hold, '
+                                      're-approach' % (100 * g['p'], 100 * g['th'], g['n']), outcome='gate_hold')
         return self.site.lower_and_lock()
 
     def stop_job(self, reason=''):

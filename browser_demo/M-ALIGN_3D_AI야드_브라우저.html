@@ -86,7 +86,7 @@ button.sec{background:#1d2c38;border:1px solid var(--line);font-weight:500;font-
  <div id="dec" style="font-size:11px;color:var(--muted);margin-top:6px">판단 없음</div>
  <div id="req"></div>
  <h2 style="margin-top:8px">사례 누적 · 유도</h2>
- <div class="kv"><div>누적 사례<b id="m_n">0</b></div><div>최근 50 성공<b id="m_rate">-</b></div><div>재시도 성공<b id="m_retry">0/0</b></div></div>
+ <div class="kv"><div>누적 사례<b id="m_n">0</b></div><div>최근 50 성공<b id="m_rate">-</b></div><div>재시도 성공<b id="m_retry">0/0</b></div><div>하강 기록<b id="m_low">0</b></div><div>오하강<b id="m_fl">0</b></div><div>하강 보류<b id="m_hold">0</b></div></div>
  <div id="m_plan" style="font-size:11px;color:var(--muted);margin-top:6px">계획 선택 없음</div>
  <div id="alignbox" style="display:none"><h2 style="margin-top:8px">M-ALIGN 정렬 (실제 코너 오차)</h2><div class="cgrid" id="cgrid"></div></div>
 </div>
@@ -583,15 +583,21 @@ const PLANS = {STD: {K: .8, use_machine: true, max_rounds: 6, ko: '기본 (기�
   SOFT: {K: .6, use_machine: true, max_rounds: 8, ko: '완만 보정 (K 0.6, 8회)'},
   KIT_SOFT: {K: .6, use_machine: false, max_rounds: 8, ko: '키트 우선 + 완만 (K 0.6, 8회)'}};
 const REASON_KO = {disagree: '키트-기존 센서 불일치', not_converged: '수렴 부족(하강 조건 미달)', false_lower: '결합 실패(오하강)',
-  low_reliability: '센서 신뢰도 부족', far: '초기 오차 큼', aborted: '중단'};
+  low_reliability: '센서 신뢰도 부족', far: '초기 오차 큼', aborted: '중단', gate_hold: '사례 기반 하강 보류'};
 const RETRY_PLANS = {disagree: ['KIT', 'KIT_SOFT'], not_converged: ['SOFT', 'KIT_SOFT', 'KIT'], false_lower: ['KIT_SOFT', 'SOFT'],
-  low_reliability: Object.keys(PLANS), far: Object.keys(PLANS), aborted: Object.keys(PLANS)};
-const REAPPROACH = ['false_lower', 'low_reliability', 'far'];
+  low_reliability: Object.keys(PLANS), far: Object.keys(PLANS), aborted: Object.keys(PLANS), gate_hold: ['KIT_SOFT', 'SOFT', 'KIT']};
+const REAPPROACH = ['false_lower', 'low_reliability', 'far', 'gate_hold'];
+const GATE_K = 60, GATE_MIN = 60, GATE_TH = .3;
 const FEATURE_W = {machine: 3, disagree: 2, kit: 1.5, env: 1.5, hardware: 1, dist: 1, prev: 1};
 class CaseMemory {
-  constructor(storeKey){ this.key = storeKey; this.cases = [];
-    try { this.cases = JSON.parse(localStorage.getItem(storeKey) || '[]'); } catch (e){ this.cases = []; } }
-  save(){ try { localStorage.setItem(this.key, JSON.stringify(this.cases.slice(-2000))); } catch (e){} }
+  constructor(storeKey){ this.key = storeKey; this.cases = []; this.lower = [];
+    try { this.cases = JSON.parse(localStorage.getItem(storeKey) || '[]'); this.lower = JSON.parse(localStorage.getItem(storeKey + '_lower') || '[]'); } catch (e){ this.cases = []; this.lower = []; } }
+  save(){ try { localStorage.setItem(this.key, JSON.stringify(this.cases.slice(-2000))); localStorage.setItem(this.key + '_lower', JSON.stringify(this.lower.slice(-20000))); } catch (e){} }
+  // lowering gate: what the kit saw just before each past lowering (never the truth) -> did it lock
+  addLower(hw, f, ok){ if (!f) return; this.lower.push([hw, f[0], f[1], ok ? 1 : 0]); this.save(); }
+  lowerP(hw, f){ const pts = this.lower.filter(p => p[0] === hw); if (!f || pts.length < Math.max(GATE_K, GATE_MIN)) return null;
+    pts.sort((a, b) => ((a[1] - f[0]) ** 2 + (a[2] - f[1]) ** 2) - ((b[1] - f[0]) ** 2 + (b[2] - f[1]) ** 2));
+    return {p: pts.slice(0, GATE_K).reduce((s, q) => s + q[3], 0) / GATE_K, n: pts.length, th: GATE_TH}; }
   add(f, plan, outcome, reason){ this.cases.push({f, plan, ok: outcome === 'success', outcome, reason: outcome === 'success' ? null : reason}); this.save(); }
   static dist(a, b){ let s = 0; for (const [k, w] of Object.entries(FEATURE_W)){
       if (k === 'prev'){ if ((a.prev || b.prev) && a.prev !== b.prev) s += w; } else if (a[k] !== b[k]) s += w; } return s; }
@@ -614,8 +620,9 @@ class CaseMemory {
     return Object.assign({plan: best, similar: nsim, expected: sc[best].rate, why, reapproach: REAPPROACH.includes(reason)}, PLANS[best]); }
   summary(){ const c = this.cases, r = c.slice(-50), by = {};
     for (const x of c){ const b = by[x.plan] = by[x.plan] || {n: 0, ok: 0, false_lower: 0}; b.n++; b.ok += x.ok; b.false_lower += x.outcome === 'false_lower'; }
-    return {cases: c.length, success: c.filter(x => x.ok).length, recent_rate: r.length ? r.filter(x => x.ok).length / r.length : null, by_plan: by}; }
-  clear(){ this.cases = []; this.save(); }
+    return {cases: c.length, success: c.filter(x => x.ok).length, recent_rate: r.length ? r.filter(x => x.ok).length / r.length : null, by_plan: by,
+      gate: {lowerings: this.lower.length, locked: this.lower.reduce((s, q) => s + q[3], 0), active_from: GATE_MIN, threshold: GATE_TH}}; }
+  clear(){ this.cases = []; this.lower = []; this.save(); }
 }
 
 // ============================================================== alignment (kit + camera + infrared)
@@ -1103,7 +1110,7 @@ class Yard {
     const pub = () => { this.align = {phase: 'sensing', truth_corner_errors_mm: errs(), truth_worst_mm: worst(), pose: {tx_mm: tr.tx, ty_mm: tr.ty, th_deg: tr.th * 180 / PI}}; };
     pub(); this.log('서버', `M-ALIGN 키트 정렬 시작 (${task.container}${attempt ? ', ' + (attempt + 1) + '회차' : ''}) · 환경 ${ENVS[env].name}`);
     const hist = [[], [], [], []], meas = [0, 0, 0, 0, 0]; let round = 0, verify = false, holds = 0, resense = false, fine = false, planObj = null, feats = null, everDis = false;
-    let K = P.K, iters = P.iters, useMachine = true, outcome = null;
+    let K = P.K, iters = P.iters, useMachine = true, outcome = null, lowF = null;
     while (this.running){
       if (!verify && !resense) round++;
       const hw = useMachine && this.machine !== 'none', r = {cam: hw ? read('cam', camBias) : null, ir: hw ? read('ir', irBias) : null, kit: null};
@@ -1135,6 +1142,9 @@ class Yard {
       const small = Math.max(Math.abs(fu.fx), Math.abs(fu.fy)) <= P.stopMM && Math.abs(fu.fth) * 3137 <= P.stopMM;
       let action = small && predWorst <= 4 ? 'lower' : verify ? (predWorst <= 4 ? 'lower' : 'stop') : round >= iters ? 'verify' : 'move';
       if (action === 'stop'){ this.log('서버', `최종 확인: 예상 최악 코너 ${predWorst.toFixed(2)} mm > 4 mm → 하강 금지, 안전 정지`); outcome = 'held'; break; }
+      if (action === 'lower'){ lowF = [Math.max(...est.map(v => Math.max(Math.abs(v[0]), Math.abs(v[1])))), Math.max(...est.map(([x, y], k) => { const [X, Y] = CMM[k]; return Math.max(Math.abs(x - (kx - kth * Y)), Math.abs(y - (ky + kth * X))); }))];
+        const g = this.memory ? this.memory.lowerP(this.hardware, lowF) : null;
+        if (g && g.p < g.th){ this.log('서버', `하강 보류: 비슷한 과거 하강 ${g.n}건 중 결합 ${Math.round(100 * g.p)}% (< ${Math.round(100 * g.th)}%) → 재접근`); outcome = 'gate_hold'; this.stats.gate_holds = (this.stats.gate_holds || 0) + 1; break; } }
       this.log('서버', `보정 지시: X ${mv[0].toFixed(2)} / Y ${mv[1].toFixed(2)} mm / θ ${(mv[2] * 180 / PI).toFixed(4)}°`);
       tr.tx -= mv[0] + P.act * rnd.n(); tr.ty -= mv[1] + P.act * rnd.n(); tr.th -= mv[2];
       for (let k = 0; k < 4; k++){ const lf = E.frame(k, true), [X, Y] = CMM[k], deX = lf[0] * (-mv[0] + mv[2] * Y), deY = lf[1] * (-mv[1] - mv[2] * X);
@@ -1144,7 +1154,8 @@ class Yard {
         this.log('기계', outcome === 'success' ? `결합 성공 (실제 최악 코너 ${worst().toFixed(2)} mm)` : `결합 실패: 실제 최악 코너 ${worst().toFixed(2)} mm > 5 mm`); this.align.phase = 'done'; await this.waitSim(1.5); break; }
       if (action === 'verify'){ verify = true; this.log('서버', `${iters}회 보정 완료 → 최종 확인 센싱`); } }
     if (!outcome) return {ok: false, reason: 'aborted', plan: planObj && planObj.plan};
-    const reason = outcome === 'success' ? null : outcome === 'false_lower' ? 'false_lower' : everDis ? 'disagree' : holds > 2 ? 'low_reliability' : feats && feats.dist === 'far' ? 'far' : 'not_converged';
+    if (this.memory && lowF && (outcome === 'success' || outcome === 'false_lower')) this.memory.addLower(this.hardware, lowF, outcome === 'success');
+    const reason = outcome === 'success' ? null : outcome === 'false_lower' ? 'false_lower' : outcome === 'gate_hold' ? 'gate_hold' : everDis ? 'disagree' : holds > 2 ? 'low_reliability' : feats && feats.dist === 'far' ? 'far' : 'not_converged';
     if (this.memory && feats){ this.memory.add(feats, planObj ? planObj.plan : 'STD', outcome, reason); this.stats.cases_added++; }
     return {ok: outcome === 'success', reason, plan: planObj && planObj.plan}; }
   // ---------------------------------------------------------------- state (same shape as the desktop host)
@@ -1516,6 +1527,8 @@ function sync(st){
   const mem = st.memory, pl = st.plan;
   $('m_n').textContent = mem ? mem.cases : '-'; $('m_rate').textContent = mem && mem.recent_rate != null ? Math.round(mem.recent_rate * 100) + '%' : '-';
   $('m_retry').textContent = k.retry_success + '/' + k.retries;
+  const g = mem && mem.gate; $('m_low').textContent = g ? g.lowerings + (g.lowerings < g.active_from ? ` (${g.active_from}부터 판단)` : '') : '-';
+  $('m_fl').textContent = g ? g.lowerings - g.locked : '-'; $('m_hold').textContent = k.gate_holds || 0;
   $('m_plan').innerHTML = pl ? `${esc(pl.container || '')} ${pl.attempt}회차 계획: <b style="color:var(--ink)">${esc(pl.plan)}</b> ${esc(pl.ko || '')}<br>${esc(pl.why || '')}` : '계획 선택 없음';
   // alignment corners
   const A = st.align;
