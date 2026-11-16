@@ -252,6 +252,34 @@ def car_shape(x, z, yaw):
     return ('rect', x, z, yaw, 0.95, 2.2)
 
 
+def car_points(x, z, yaw):
+    """Outline of the car body (corners, edge mid-points, centre) for body-to-body clearance."""
+    out = []
+    for lx in (-0.95, 0.0, 0.95):
+        for lz in (-2.2, 0.0, 2.2):
+            dx, dz = Y.rot(yaw, lx, lz)
+            out.append((x + dx, z + dz))
+    return out
+
+
+def body_gap(shape, x, z, yaw):
+    return min(Y.shape_dist(shape, px, pz) for px, pz in car_points(x, z, yaw))
+
+
+TRUCK_BODY_GAP = 0.6       # car body <-> truck body (two lanes 3.5 m apart leave ~1.2 m: no conflict)
+
+
+def _truck_zone(yard, t):
+    """A moving truck: its body plus where it will be in the next 20 m; a parked one: its body."""
+    if t['state'] in ('arriving', 'leaving') and t.get('path'):
+        return yard._truck_sweep(t, ahead=20.0)
+    return [_truck_rect(t)]
+
+
+def _truck_rect(t):
+    return ('rect', t['x'] + 1.5 * math.sin(t['yaw']), t['z'] + 1.5 * math.cos(t['yaw']), t['yaw'], 1.3, 6.5)
+
+
 def _car_ahead_gap(yard, c, poses):
     """Distance along the car's own path to the first thing in its way: the stacker's reserved corridor,
     a truck, a person, an object."""
@@ -260,16 +288,23 @@ def _car_ahead_gap(yard, c, poses):
     me0 = car_shape(c['x'], c['z'], c['yaw'])
     inside = any(Y.shape_dist(me0, dx, dz) < dr + 1.0 for dx, dz, dr in sweep)
     stacker = list(Y.footprint(st['x'], st['z'], st['yaw'])) if inside else sweep   # inside already: drive out
+    trucks = []
+    for t in yard.trucks.values():
+        if t['state'] != 'away':
+            zone = _truck_zone(yard, t)
+            trucks.append((t, zone, any(body_gap(sh, c['x'], c['z'], c['yaw']) < TRUCK_BODY_GAP for sh in zone)))
     for d, (x, z, y) in poses:
         me = car_shape(x, z, y)
         if any(Y.shape_dist(me, dx, dz) < dr + 1.0 for dx, dz, dr in stacker):
             return d, (3.0 if inside else CAR_GAP_MACHINE), 'stacker'
-        for t in yard.trucks.values():
-            if t['state'] != 'away':
-                hw, hl, off = (1.3, 6.5, 1.5)
-                if Y.shape_dist(('rect', t['x'] + off * math.sin(t['yaw']), t['z'] + off * math.cos(t['yaw']),
-                                 t['yaw'], hw, hl), x, z) < 1.6:
-                    return d, CAR_GAP_MACHINE, 'truck'
+        for t, zone, in_zone in trucks:
+            # trucks have right of way: do not enter where a truck is (or is about to be); if the car is already
+            # inside that zone (it got there first), only the truck's body counts and the car drives on out of it
+            if in_zone:
+                if body_gap(_truck_rect(t), x, z, y) < 0.3:
+                    return d, 1.0, 'truck'
+            elif any(body_gap(sh, x, z, y) < TRUCK_BODY_GAP for sh in zone):
+                return d, CAR_GAP_MACHINE, 'truck'
         for w in yard.workers:
             if Y.shape_dist(me, w['x'], w['z']) < 1.6:
                 return d, CAR_GAP_PERSON, 'person'

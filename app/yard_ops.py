@@ -293,8 +293,15 @@ class YardOps:
         gap = Y.footprint_clearance(self.st['x'], self.st['z'], self.st['yaw'], ahead)
         for w in self.workers:
             gap = min(gap, Y.shape_dist(ahead[0], w['x'], w['z']) - 0.4)
-        if self.car and Y.shape_dist(ahead[0], self.car['x'], self.car['z']) - 1.0 < 0.3:
-            return                                  # trucks have priority over the service car (it waits); emergency only
+        if self.car:
+            cg = A.body_gap(ahead[0], self.car['x'], self.car['z'], self.car['yaw'])
+            if cg < 0.3:                            # trucks have priority, the car keeps out of their way; emergency only
+                t['car_hold'] = t.get('car_hold', 0.0) + dt
+                if t['car_hold'] < 10.0 or cg < 0.1 or self.car['v'] > 0.05:
+                    return
+                dt *= 0.25                          # car standing still beside the path: pass it dead slow
+            else:
+                t['car_hold'] = 0.0
         machine_still = self.st['v'] < 0.05
         need = 1.0 if machine_still else 2.0       # a stopped machine may be passed slowly with 1 m clearance
         if gap < need:                        # keep a safe distance; after a while creep if there is still room

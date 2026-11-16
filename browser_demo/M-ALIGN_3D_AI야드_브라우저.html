@@ -576,6 +576,9 @@ function carLoopPath(step = .5){
     for (let j = 1; j < k; j++){ const t = j / k; out.push([p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t, p[2]]); } }
   return out;
 }
+const carPoints = (x, z, yaw) => { const out = []; for (const lx of [-.95, 0, .95]) for (const lz of [-2.2, 0, 2.2]){ const [dx, dz] = rot(yaw, lx, lz); out.push([x + dx, z + dz]); } return out; };
+const bodyGap = (sh, x, z, yaw) => Math.min(...carPoints(x, z, yaw).map(([px, pz]) => shapeDist(sh, px, pz)));
+const TRUCK_BODY_GAP = .6;   // car body <-> truck body; the parallel lanes (3.5 m apart) leave ~1.2 m: no conflict
 const truckShape = (x, z, yaw) => ['rect', x + 1.5 * Math.sin(yaw), z + 1.5 * Math.cos(yaw), yaw, 1.3, 6.5];
 const carShape = (x, z, yaw) => ['rect', x, z, yaw, .95, 2.2];
 
@@ -766,7 +769,8 @@ class Yard {
       const ahead = (o.x - t.x) * fx + (o.z - t.z) * fz, lat = Math.abs((o.x - t.x) * fz - (o.z - t.z) * fx); if (ahead > 0 && ahead < 17 && lat < 3) return; }
     const sh = truckShape(...interp(t.path, t.cum, t.s + 6));
     let gap = clearance(st.x, st.z, st.yaw, [sh]); for (const w of this.workers) gap = Math.min(gap, shapeDist(sh, w.x, w.z) - .4);
-    if (this.car && shapeDist(sh, this.car.x, this.car.z) - 1 < .3) return;
+    if (this.car){ const cg = bodyGap(sh, this.car.x, this.car.z, this.car.yaw);   // trucks have priority; emergency stop only
+      if (cg < .3){ t.carHold = (t.carHold || 0) + dt; if (t.carHold < 10 || cg < .1 || this.car.v > .05) return; dt *= .25; } else t.carHold = 0; }
     const still = st.v < .05, need = still ? 1 : 2;
     if (gap < need){ t.hold = (t.hold || 0) + dt; if (t.hold < 8 || gap < (still ? .5 : .8)) return; dt *= .25; }
     else { t.hold = 0; if (gap < 3) dt *= .4; }
@@ -856,9 +860,16 @@ class Yard {
   loopSNear(c, x, z){ let bd = 1e9, bs = 0; c.loop.forEach((p, i) => { const d = Math.hypot(p[0] - x, p[1] - z); if (d < bd){ bd = d; bs = c.cum[i]; } }); return bs; }
   carAhead(c, poses){ const st = this.st, sweep = this.stackerSweep(), me0 = carShape(c.x, c.z, c.yaw);
     const inside = sweep.some(([dx, dz, dr]) => shapeDist(me0, dx, dz) < dr + 1), stk = inside ? footprint(st.x, st.z, st.yaw) : sweep;
+    // trucks have right of way: do not enter where a truck is or is about to be (next 20 m); if the car got there first,
+    // only the truck's body counts and the car drives on out of the zone
+    const trucks = Object.values(this.trucks).filter(t => t.state !== 'away').map(t => {
+      const zone = (t.state === 'arriving' || t.state === 'leaving') ? this.truckSweep(t, 20) : [truckShape(t.x, t.z, t.yaw)];
+      return [t, zone, zone.some(sh => bodyGap(sh, c.x, c.z, c.yaw) < TRUCK_BODY_GAP)]; });
     for (const [d, [x, z, y]] of poses){ const me = carShape(x, z, y);
       if (stk.some(([dx, dz, dr]) => shapeDist(me, dx, dz) < dr + 1)) return [d, inside ? 3 : CAR_GAP_MACHINE, 'stacker'];
-      for (const t of Object.values(this.trucks)) if (t.state !== 'away' && shapeDist(truckShape(t.x, t.z, t.yaw), x, z) < 1.6) return [d, CAR_GAP_MACHINE, 'truck'];
+      for (const [t, zone, inZone] of trucks){
+        if (inZone){ if (bodyGap(truckShape(t.x, t.z, t.yaw), x, z, y) < .3) return [d, 1, 'truck']; }
+        else if (zone.some(sh => bodyGap(sh, x, z, y) < TRUCK_BODY_GAP)) return [d, CAR_GAP_MACHINE, 'truck']; }
       for (const w of this.workers) if (shapeDist(me, w.x, w.z) < 1.6) return [d, CAR_GAP_PERSON, 'person']; }
     return [null, 0, null]; }
   stepCar(dt){
