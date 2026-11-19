@@ -233,7 +233,7 @@ def lower_features(corner_est):
     """(worst estimated corner, rigid-fit residual) in mm from 4 [x, y] estimates, or None if a corner is missing."""
     if not corner_est or len(corner_est) != 4 or any(e is None for e in corner_est):
         return None
-    import malign_engine as E
+    import maskit_engine as E
     sx, sy, th = E.rigid_fit(corner_est)
     worst = max(max(abs(e[0]), abs(e[1])) for e in corner_est)
     resid = max(max(abs(e[0] - (sx - th * Y)), abs(e[1] - (sy + th * X))) for e, (X, Y) in zip(corner_est, E.CORNERS))

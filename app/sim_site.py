@@ -3,7 +3,7 @@
 
 Used two ways (same code):
   * inside the desktop host when no server_url is set (built-in main server), and
-  * inside the example main server (server_example/malign_main_server.py, AUTO mode).
+  * inside the example main server (server_example/maskit_main_server.py, AUTO mode).
 The kit is a separate component: SimSite sends it commands through `send(cmd, delay_s)`
 and receives its bundles/events through `on_message(msg)`. In simulation the kit's coil
 readers read the same virtual site (`kit_readings()`), so the screen shows exactly what
@@ -19,7 +19,7 @@ import threading
 import time
 from datetime import datetime, timezone
 
-import malign_engine as E
+import maskit_engine as E
 import sim_job
 from main_controller import ControllerBrain
 from reachstacker_sim import VirtualReachStacker, MACHINE_MODES, FAULTS
@@ -302,7 +302,7 @@ class SimSensingSource(threading.Thread):
     """Simulated coil readers of the kit: answer the kit's pending requests from the virtual site."""
 
     def __init__(self, link, readings, period=0.05):
-        super().__init__(daemon=True, name='MALIGN-sim-sensing')
+        super().__init__(daemon=True, name='MASKIT-sim-sensing')
         self.link, self.readings, self.period = link, readings, period
         self.stop_event = threading.Event()
         self.last_error = None

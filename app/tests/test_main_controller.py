@@ -4,7 +4,7 @@ import json, math, pathlib, sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-import malign_engine as E  # noqa: E402
+import maskit_engine as E  # noqa: E402
 import main_controller as C  # noqa: E402
 import sim_job  # noqa: E402
 

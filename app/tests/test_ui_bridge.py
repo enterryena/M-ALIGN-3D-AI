@@ -8,8 +8,8 @@ from pathlib import Path
 import json,subprocess,sys,tempfile,urllib.request,urllib.error
 from playwright.sync_api import sync_playwright
 ROOT=Path(__file__).resolve().parents[1]
-html=(ROOT/'MALIGN_Desktop.html').read_text(encoding='utf-8')
-with tempfile.TemporaryDirectory(prefix='malign_browser_bridge_') as tmp:
+html=(ROOT/'MASKIT_Desktop.html').read_text(encoding='utf-8')
+with tempfile.TemporaryDirectory(prefix='maskit_browser_bridge_') as tmp:
  p=subprocess.Popen([sys.executable,str(ROOT/'desktop_host.py'),'--headless','--data-dir',tmp],stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,bufsize=1)
  info=json.loads(p.stdout.readline())
  try:
@@ -25,12 +25,12 @@ with tempfile.TemporaryDirectory(prefix='malign_browser_bridge_') as tmp:
    except urllib.error.HTTPError as err:
     return {'ok':False,'status':err.code,'body':err.read().decode('utf-8')}
   with sync_playwright() as play:
-   browser=play.chromium.launch(executable_path=__import__('os').environ.get('MALIGN_CHROMIUM','/usr/bin/chromium'),headless=True,args=['--no-sandbox'])
+   browser=play.chromium.launch(executable_path=__import__('os').environ.get('MASKIT_CHROMIUM','/usr/bin/chromium'),headless=True,args=['--no-sandbox'])
    page=browser.new_page(accept_downloads=True,viewport={'width':1366,'height':900})
    errors=[]
    page.on('pageerror',lambda err:errors.append(str(err)))
    page.expose_function('backendBridge',bridge)
-   injection='''<script>window.MALIGN_DESKTOP_TOKEN=__TOKEN__;
+   injection='''<script>window.MASKIT_DESKTOP_TOKEN=__TOKEN__;
 window.fetch=async function(url, opts){
  const ret=await window.backendBridge(url,opts||{});
  return new Response(ret.body,{status:ret.status,headers:{'content-type':'application/json'}});

@@ -51,7 +51,7 @@
 | P6_center_strict | −0.25 | −1.05 | −1.41 | −1.09 | −1.04 | 26 | 0.29 |
 | P6_gap40 | −3.81 | −16.06 | −17.89 | −17.05 | −15.51 | 22 | 0.43 |
 
-원자료: `data/MALIGN_Ansys_Matrix5_21cases.csv`(자기 인덕턴스), `data/matrix5_long.csv`(5×5 행렬 전체)
+원자료: `data/MASKIT_Ansys_Matrix5_21cases.csv`(자기 인덕턴스), `data/matrix5_long.csv`(5×5 행렬 전체)
 
 ## 종합
 

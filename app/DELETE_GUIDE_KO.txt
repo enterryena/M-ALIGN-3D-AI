@@ -1,26 +1,26 @@
-M-ALIGN v3.5.4 — 프로그램과 누적 기록 완전 제거 안내
+MAS-kit v3.5.4 — 프로그램과 누적 기록 완전 제거 안내
 =====================================================
 
 1. EXE를 실행해서 제거하는 경우 (권장)
-   - M-ALIGN 데이터 관리 창 아래의 '프로그램 + 모든 누적 기록 완전 제거' 클릭
+   - MAS-kit 데이터 관리 창 아래의 '프로그램 + 모든 누적 기록 완전 제거' 클릭
    - 경고 확인 → '완전삭제' 직접 입력
-   - M-ALIGN의 다른 창이 종료되면 제거 도구가 실행됨
-   - 이 PC의 현재 Windows 사용자 계정 %LOCALAPPDATA%\MALIGN 폴더 전체와
-     지금 실행한 MALIGN_Desktop.exe를 삭제
+   - MAS-kit의 다른 창이 종료되면 제거 도구가 실행됨
+   - 이 PC의 현재 Windows 사용자 계정 %LOCALAPPDATA%\MASKIT 폴더 전체와
+     지금 실행한 MASKIT_Desktop.exe를 삭제
    - 사례 DB·-wal·-shm·일일 백업·종료 백업·삭제 전 백업·오류 로그 모두 포함
    - 삭제 직전 새 백업을 만들지 않음. 영구 삭제이며 취소/복원 불가.
 
 2. EXE를 실행하기 어려운 경우 (개발용 ZIP 포함)
-   - 실행 중인 M-ALIGN 창을 전부 닫기
-   - 압축을 푼 배포 폴더에서 REMOVE_MALIGN.cmd 실행
-   - DELETE 입력 → 같은 사용자 데이터와 dist\MALIGN_Desktop.exe 삭제
+   - 실행 중인 MAS-kit 창을 전부 닫기
+   - 압축을 푼 배포 폴더에서 REMOVE_MASKIT.cmd 실행
+   - DELETE 입력 → 같은 사용자 데이터와 dist\MASKIT_Desktop.exe 삭제
 
 3. 자동으로 제거하지 않는 것
    - 다운로드 폴더의 원본 ZIP, 배포된 다른 EXE 복사본, 프로젝트 소스/보고서
    - 예전 HTML 시뮬레이터가 웹 브라우저 IndexedDB에 저장한 기록
    - Chrome/Edge 방문 기록, 다운로드 기록, Windows Prefetch/이벤트/보안 로그,
      백신 기록 등 앱이 직접 관리하지 않는 운영체제 자료
-   - 다른 Windows 사용자 계정의 M-ALIGN 사례와 백업
+   - 다른 Windows 사용자 계정의 MAS-kit 사례와 백업
 
 4. 중요
    - 일반적으로 EXE 파일만 휴지통에서 지워서는 AppData의 사례 기록이 삭제되지 않습니다.

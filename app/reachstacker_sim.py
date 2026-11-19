@@ -2,7 +2,7 @@
 """Virtual site for stage 3: container + reach stacker + its own sensors + the kit's coils.
 
 Everything here is SIMULATION. The truth (where the twistlocks really are relative to
-the corner castings) lives in malign_engine.World, built exactly like v3.5.4.
+the corner castings) lives in maskit_engine.World, built exactly like v3.5.4.
 
 VirtualReachStacker
   approach(rough_target)   drive towards the container's rough position (given from afar)
@@ -22,7 +22,7 @@ across strategies); machine sensor and faults use their own stream.
 """
 import math
 
-import malign_engine as E
+import maskit_engine as E
 
 LOCK_TOL_MM = 5.0
 SENSING_RANGE_MM = 30.0     # Maxwell data cover +-30 mm; the kit is used inside this range

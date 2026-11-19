@@ -10,8 +10,8 @@ import json, os, socket, subprocess, sys, tempfile, time, urllib.request, urllib
 from playwright.sync_api import sync_playwright
 
 ROOT = Path(__file__).resolve().parents[1]
-html = (ROOT / 'MALIGN_Desktop.html').read_text(encoding='utf-8')
-CHROME = os.environ.get('MALIGN_CHROMIUM', '/usr/bin/chromium')
+html = (ROOT / 'MASKIT_Desktop.html').read_text(encoding='utf-8')
+CHROME = os.environ.get('MASKIT_CHROMIUM', '/usr/bin/chromium')
 
 
 def free_port():
@@ -44,7 +44,7 @@ def run_ui(data_dir, play):
     page.on('pageerror', lambda e: errors.append(str(e)))
     page.on('dialog', lambda d: d.dismiss())
     page.expose_function('backendBridge', bridge)
-    inj = ('<script>window.MALIGN_DESKTOP_TOKEN=%s;window.fetch=async function(u,o){const r=await window.backendBridge(u,o||{});'
+    inj = ('<script>window.MASKIT_DESKTOP_TOKEN=%s;window.fetch=async function(u,o){const r=await window.backendBridge(u,o||{});'
            'return new Response(r.body,{status:r.status,headers:{"content-type":"application/json"}});};</script>') % json.dumps(info['token'])
     page.set_content(html.replace('</head>', inj + '</head>', 1), wait_until='domcontentloaded')
     page.wait_for_function("document.getElementById('bankStatus').textContent.includes('PC 영구 저장')", timeout=20000)
@@ -64,16 +64,16 @@ def run_ui(data_dir, play):
     return host, info, browser, errors, out
 
 
-with tempfile.TemporaryDirectory(prefix='malign_ui_link_') as tmp, sync_playwright() as play:
+with tempfile.TemporaryDirectory(prefix='maskit_ui_link_') as tmp, sync_playwright() as play:
     tmp = Path(tmp)
     # --- with the example AUTO main server
     port = free_port()
-    base = 'http://127.0.0.1:%d/malign/v1' % port
+    base = 'http://127.0.0.1:%d/maskit/v1' % port
     (tmp / 'A' / 'Link').mkdir(parents=True)
     (tmp / 'A' / 'Link' / 'link_config.json').write_text(json.dumps({
         'kit_id': 'KIT-UI', 'units': ['UI-1', 'UI-2', 'UI-3', 'UI-4'], 'server_url': base + '/bundles',
         'heartbeat_s': 0.3, 'active_poll_s': 0.1, 'retry_max_s': 0.5}), encoding='utf-8')
-    srv = subprocess.Popen([sys.executable, str(ROOT / 'server_example' / 'malign_main_server.py'), '--host', '127.0.0.1',
+    srv = subprocess.Popen([sys.executable, str(ROOT / 'server_example' / 'maskit_main_server.py'), '--host', '127.0.0.1',
                             '--port', str(port), '--db', str(tmp / 'main.sqlite3'), '--rounds', '6', '--move-delay', '0.3'],
                            stdout=subprocess.PIPE, text=True)
     srv.stdout.readline()
@@ -101,7 +101,7 @@ with tempfile.TemporaryDirectory(prefix='malign_ui_link_') as tmp, sync_playwrig
     host = browser = None
     try:
         host, info, browser, errors, out = run_ui(tmp / 'B', play)
-        assert out['kit'].startswith('MALIGN-KIT-') and out['verdict'] == '성공'
+        assert out['kit'].startswith('MASKIT-KIT-') and out['verdict'] == '성공'
         assert out['history'].count('서버 판단:') == first_history.count('서버 판단:'), 'same seed -> same job on the built-in site'
         assert not errors, errors
     finally:

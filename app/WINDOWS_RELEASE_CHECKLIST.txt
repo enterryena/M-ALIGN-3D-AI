@@ -1,12 +1,12 @@
-M-ALIGN v3.5.4 | Windows 배포 전 점검표
+MAS-kit v3.5.4 | Windows 배포 전 점검표
 =====================================
 
 [만드는 PC — 최초 1회]
-[ ] 기존 실행 중인 MALIGN_Desktop.exe / 백업 프로그램 종료
+[ ] 기존 실행 중인 MASKIT_Desktop.exe / 백업 프로그램 종료
 [ ] ZIP 전체 압축 해제 → BUILD_EXE.cmd 더블클릭
-[ ] 원래의 %LOCALAPPDATA%\MALIGN\CaseBank\cases.sqlite3는 삭제·이동·초기화하지 않음
+[ ] 원래의 %LOCALAPPDATA%\MASKIT\CaseBank\cases.sqlite3는 삭제·이동·초기화하지 않음
 [ ] test_backup_windows_regression.py와 두 개의 저장 테스트가 PASS인지 확인
-[ ] dist\MALIGN_Desktop.exe 생성 확인 (빌드 로그 및 자동 저장소 테스트 통과)
+[ ] dist\MASKIT_Desktop.exe 생성 확인 (빌드 로그 및 자동 저장소 테스트 통과)
 [ ] EXE 실행 시 작은 관리 창 및 Chrome/Edge 시뮬레이션 화면 표시 확인
 [ ] 기준 가정 + 기존 격자 + 시드 고정 2026 + 100회 → 성공 6/100, 실패 94/100
 [ ] 관리 창의 누적 성공·실패 수치 확인 (서로 같은 Windows 계정)
@@ -18,26 +18,26 @@ M-ALIGN v3.5.4 | Windows 배포 전 점검표
 [ ] 이력 추정 선택 후 별도 랜덤 시드 100~1000회 실행 → 실험 결과/누적 저장 확인
 
 [배포 받는 사람]
-[ ] 사용자에게는 dist\MALIGN_Desktop.exe 배포 (Python, PyInstaller 불필요)
+[ ] 사용자에게는 dist\MASKIT_Desktop.exe 배포 (Python, PyInstaller 불필요)
 [ ] Windows 10/11에서 악성코드/SmartScreen/백신 호환성 확인
 [ ] 회사/학교 공용 PC에서 localhost 127.0.0.1 포트 접근 허용 확인
 [ ] 프로그램 시작 후 'PC 영구 저장 확인' 상태를 먼저 확인
 [ ] PC마다 저장 기록은 별개임을 안내 (자동 클라우드 동기화 없음)
-[ ] 저장 위치는 Windows 계정별 %LOCALAPPDATA%\MALIGN\CaseBank\cases.sqlite3
+[ ] 저장 위치는 Windows 계정별 %LOCALAPPDATA%\MASKIT\CaseBank\cases.sqlite3
 [ ] 초기화는 2회 확인 후 자동 백업, 실험 자료는 개인별 JSON/SQLite로 백업
 
 [중요]
 - 이 ZIP은 Windows EXE 자체가 아니며 Windows에서 만들 수 있는 빌더/소스입니다.
 - 해당 Linux 검사 환경에서는 Windows EXE 실행 검증을 완료할 수 없습니다.
 - 배포가 큰 규모라면 Windows에서 빌드한 EXE에 코드 서명과 설치/업데이트 테스트를 권장합니다.
-- GUI 파일(MALIGN_Desktop.html)을 직접 실행하지 마세요. EXE로 열어야 SQLite에 연결됩니다.
+- GUI 파일(MASKIT_Desktop.html)을 직접 실행하지 마세요. EXE로 열어야 SQLite에 연결됩니다.
 - 가상 정렬 성공률은 실제 장비 성능/안전성 검증이 아닙니다.
 
 [완전 제거: 반드시 실물 Windows PC에서 별도 테스트 계정으로 확인]
 [ ] 시험용 Windows 사용자 계정에서 사례를 저장하고 백업/로그 생성
 [ ] 프로그램의 '완전 제거'를 누르고 '완전삭제'를 입력해 제거
-[ ] EXE와 %LOCALAPPDATA%\MALIGN 전체가 사라졌는지 확인
+[ ] EXE와 %LOCALAPPDATA%\MASKIT 전체가 사라졌는지 확인
 [ ] 별도 다운로드 ZIP, 소스 파일, 다른 폴더 복사본은 자동 제거하지 않음
-[ ] 다른 M-ALIGN 인스턴스 실행 중에는 삭제가 중단되는지 확인
+[ ] 다른 MAS-kit 인스턴스 실행 중에는 삭제가 중단되는지 확인
 [ ] 삭제 테스트 전에 필요한 DB/JSON을 별도 외장 저장소에 보관
 [ ] Windows Event/Defender/브라우저/최근 항목 기록까지 100% 제거된다고 주장하지 않음

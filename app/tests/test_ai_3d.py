@@ -21,7 +21,7 @@ def call(url, data=None, h=None):
 
 
 def run_job(info, ctrl, seed=123, timeout=90):
-    H = {'X-MALIGN-Token': info['token']}
+    H = {'X-MASKIT-Token': info['token']}
     call(info['url'] + 'api/sim/start', {'hardware': 'target', 'machine': 'normal', 'seed': seed, 'controller': ctrl}, H)
     end = time.time() + timeout
     while time.time() < end:
@@ -57,7 +57,7 @@ with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:  # Windows 
         assert st2['outcome'] == 'success' and abs(st2['truth_worst_mm'] - st['truth_worst_mm']) < 1.0
         # 3D page and bundled three.js are served offline
         page = urllib.request.urlopen(info['url'] + '3d', timeout=10).read().decode('utf-8')
-        assert 'MALIGN_DESKTOP_TOKEN' in page and 'importmap' in page
+        assert 'MASKIT_DESKTOP_TOKEN' in page and 'importmap' in page
         js = urllib.request.urlopen(info['url'] + 'vendor/three/three.core.js', timeout=10).read()
         assert b"REVISION = '187'" in js
     finally:

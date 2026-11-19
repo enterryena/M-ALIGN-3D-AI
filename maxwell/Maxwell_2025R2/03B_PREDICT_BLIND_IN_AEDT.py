@@ -1,5 +1,5 @@
 # -*- coding: ascii -*-
-# M-ALIGN v1.5.11: run the post-processing inside AEDT (no separate Python needed).
+# MAS-kit v1.5.11: run the post-processing inside AEDT (no separate Python needed).
 # Tools > Run Script. Reads/writes only output_dir. Does not touch any model.
 import os, sys, json, traceback
 _here = os.path.dirname(os.path.abspath(__file__))
@@ -9,12 +9,12 @@ for p in (_here, _post):
         sys.path.insert(0, p)
 def _msg(m, lvl=0):
     try:
-        oDesktop.AddMessage('', '', lvl, 'MALIGN150 POST ' + str(m)[:900])
+        oDesktop.AddMessage('', '', lvl, 'MASKIT150 POST ' + str(m)[:900])
     except Exception:
         print(m)
 try:
     cfg = json.load(open(os.path.join(_here, 'config_v150.json'), 'r'))
-    import malign150_post as post
+    import maskit150_post as post
     try:
         reload(post)
     except NameError:

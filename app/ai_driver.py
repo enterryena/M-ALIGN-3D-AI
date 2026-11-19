@@ -25,7 +25,7 @@ import time
 import urllib.error
 import urllib.request
 
-import malign_engine as E
+import maskit_engine as E
 from main_controller import ControllerBrain, LOWER_OK_MM, DISAGREE_MM
 
 MOVE_LIMIT_MM = 40.0
@@ -33,7 +33,7 @@ MOVE_LIMIT_DEG = 0.5
 MAX_TOOL_CALLS = 60
 MAX_NUDGES = 3
 
-SYSTEM = """You are the MAIN SERVER AI of M-ALIGN: you control a reach stacker that must lock its spreader's
+SYSTEM = """You are the MAIN SERVER AI of MAS-kit: you control a reach stacker that must lock its spreader's
 4 twistlocks into a 20 ft container's corner castings, using a 4-unit magnetic alignment kit.
 Units: millimetres and degrees. "Misalignment" = corner-casting hole position minus twistlock position.
 move_spreader(x_mm, y_mm, theta_deg) REDUCES the misalignment by exactly that amount

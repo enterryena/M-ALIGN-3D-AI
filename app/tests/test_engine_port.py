@@ -2,17 +2,17 @@
 
 Fixture rows were produced by the JS engine in node (tests/fixtures/make_js_reference.js).
 Default run: grid 1,000 trials + history 150 trials (~20 s).
-MALIGN_SLOW=1: full history 1,000 (586 successes) and target 300 (299), ~2 min.
+MASKIT_SLOW=1: full history 1,000 (586 successes) and target 300 (299), ~2 min.
 If node is installed, a fresh JS run is also compared live.
 """
 import json, os, pathlib, shutil, subprocess, sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-import malign_engine as E  # noqa: E402
+import maskit_engine as E  # noqa: E402
 
 REF = json.loads((ROOT / 'tests' / 'fixtures' / 'js_reference_v354.json').read_text(encoding='utf-8'))
-SLOW = os.environ.get('MALIGN_SLOW') == '1'
+SLOW = os.environ.get('MASKIT_SLOW') == '1'
 M = E.Model()
 
 

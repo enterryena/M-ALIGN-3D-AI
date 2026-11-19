@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Main-server side of M-ALIGN: combine the 4 units' reports into ONE correction.
+"""Main-server side of MAS-kit: combine the 4 units' reports into ONE correction.
 
 Stage 1 (this file): the kit reports per-corner readings/estimates; the server
   - keeps each corner's reading history together with the moves IT commanded,
@@ -17,7 +17,7 @@ import pathlib
 import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
-import malign_engine as E  # noqa: E402
+import maskit_engine as E  # noqa: E402
 import kit_device  # noqa: E402
 
 SERVER_DEFAULTS = {'estimator': 'history', 'K': 0.8, 'stopMM': 1.0, 'max_rounds': 6, 'mirror': True,
@@ -89,7 +89,7 @@ class JobBrain:
 
 
 def run_job_split(M, P, rnd):
-    """Same physics as malign_engine.run_once, but kit-side and server-side logic separated.
+    """Same physics as maskit_engine.run_once, but kit-side and server-side logic separated.
 
     world (truth) -> each unit: reading -> kit_device (own corner only)
     -> server JobBrain (history + rigid fit + K) -> world moves the spreader."""

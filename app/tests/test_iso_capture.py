@@ -4,9 +4,9 @@
 - capture criteria behave as specified; the virtual reach stacker's lock uses them."""
 import sys, pathlib, random
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
-import malign_engine as E, malign_link
+import maskit_engine as E, maskit_link
 from reachstacker_sim import VirtualReachStacker
-M = malign_link._load_model()
+M = maskit_link._load_model()
 P0 = E.settings('base', 'history')
 for s in range(1, 30):   # default = original
     a = E.run_once(M, P0, E.Rng(s)); b = E.run_once(M, E.settings('base', 'history', tolModel='orig', capture='pm5'), E.Rng(s))

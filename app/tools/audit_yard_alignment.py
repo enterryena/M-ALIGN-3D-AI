@@ -21,7 +21,7 @@ import time
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-import malign_link  # noqa: E402
+import maskit_link  # noqa: E402
 import yard_ops  # noqa: E402
 from main_controller import LOWER_OK_MM  # noqa: E402
 
@@ -65,7 +65,7 @@ def main():
     tmp = pathlib.Path(tempfile.mkdtemp())
     (tmp / 'Link').mkdir()
     (tmp / 'Link' / 'link_config.json').write_text(json.dumps({'sim_move_delay_s': 0.05}))
-    rt = malign_link.open_link(tmp / 'Link')
+    rt = maskit_link.open_link(tmp / 'Link')
     sim = rt.sim
     site = sim.site
     jobs = []

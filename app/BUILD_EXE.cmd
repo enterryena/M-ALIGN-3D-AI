@@ -2,10 +2,10 @@
 setlocal EnableExtensions
 chcp 65001 >nul
 cd /d "%~dp0"
-title M-ALIGN Windows EXE Builder
+title MAS-kit Windows EXE Builder
 
 echo ================================================================
-echo  M-ALIGN desktop EXE builder - persistent case history
+echo  MAS-kit desktop EXE builder - persistent case history
 
 echo ================================================================
 echo.
@@ -14,18 +14,18 @@ if not exist "desktop_host.py" (
   pause
   exit /b 1
 )
-for %%F in (MALIGN_3D.html MALIGN_3D_ALIGN.html yard_world.py yard_ops.py case_memory.py yard_actors.py ai_driver.py malign_engine.py kit_device.py matrix5_data.json main_controller.py reachstacker_sim.py sim_site.py sim_bridge.py sim_job.py) do if not exist "%%F" (
+for %%F in (MASKIT_3D.html MASKIT_3D_ALIGN.html yard_world.py yard_ops.py case_memory.py yard_actors.py ai_driver.py maskit_engine.py kit_device.py matrix5_data.json main_controller.py reachstacker_sim.py sim_site.py sim_bridge.py sim_job.py) do if not exist "%%F" (
   echo ERROR: %%F missing. Extract the whole ZIP first.
   pause
   exit /b 1
 )
-if not exist "malign_link.py" (
-  echo ERROR: malign_link.py missing. Extract the whole ZIP first.
+if not exist "maskit_link.py" (
+  echo ERROR: maskit_link.py missing. Extract the whole ZIP first.
   pause
   exit /b 1
 )
-if not exist "MALIGN_Desktop.html" (
-  echo ERROR: MALIGN_Desktop.html missing. Extract the whole ZIP first.
+if not exist "MASKIT_Desktop.html" (
+  echo ERROR: MASKIT_Desktop.html missing. Extract the whole ZIP first.
   pause
   exit /b 1
 )
@@ -96,12 +96,12 @@ if errorlevel 1 goto :failed
 "%PYBIN%" tests\test_kit_cap.py
 if errorlevel 1 goto :failed
 echo [4/4] Building one-file GUI EXE...
-"%PYBIN%" -m PyInstaller --noconfirm --clean --onefile --windowed --name "MALIGN_Desktop" --hidden-import malign_link --hidden-import kit_device --hidden-import malign_engine --hidden-import main_controller --hidden-import reachstacker_sim --hidden-import sim_site --hidden-import sim_bridge --hidden-import sim_job --add-data "matrix5_data.json;." --add-data "MALIGN_Desktop.html;." --add-data "MALIGN_3D.html;." --add-data "MALIGN_3D_ALIGN.html;." --hidden-import yard_world --hidden-import yard_ops --hidden-import case_memory --hidden-import yard_actors --add-data "vendor;vendor" --hidden-import ai_driver --add-data "UNINSTALL_MALIGN.ps1;." "desktop_host.py"
+"%PYBIN%" -m PyInstaller --noconfirm --clean --onefile --windowed --name "MASKIT_Desktop" --hidden-import maskit_link --hidden-import kit_device --hidden-import maskit_engine --hidden-import main_controller --hidden-import reachstacker_sim --hidden-import sim_site --hidden-import sim_bridge --hidden-import sim_job --add-data "matrix5_data.json;." --add-data "MASKIT_Desktop.html;." --add-data "MASKIT_3D.html;." --add-data "MASKIT_3D_ALIGN.html;." --hidden-import yard_world --hidden-import yard_ops --hidden-import case_memory --hidden-import yard_actors --add-data "vendor;vendor" --hidden-import ai_driver --add-data "UNINSTALL_MASKIT.ps1;." "desktop_host.py"
 if errorlevel 1 goto :failed
-if not exist "dist\MALIGN_Desktop.exe" goto :failed
+if not exist "dist\MASKIT_Desktop.exe" goto :failed
 echo.
-echo SUCCESS: "%CD%\dist\MALIGN_Desktop.exe"
-echo Data is saved separately to %%LOCALAPPDATA%%\MALIGN\CaseBank\cases.sqlite3
+echo SUCCESS: "%CD%\dist\MASKIT_Desktop.exe"
+echo Data is saved separately to %%LOCALAPPDATA%%\MASKIT\CaseBank\cases.sqlite3
 echo IMPORTANT: This EXE is not code-signed. Windows may display a publisher warning.
 echo The EXE can be moved; the saved database remains in the user's profile.
 explorer.exe "%CD%\dist"

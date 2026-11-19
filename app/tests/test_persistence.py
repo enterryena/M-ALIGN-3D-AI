@@ -6,7 +6,7 @@ records=[
  {'uid':'test|scenario|seed1|2','outcome':'failure','saved_at':'2026-11-11T19:00:00+09:00','saved_order':2,'source_seed':1,'trial_index':2,'scenario':'base','estimator':'history','final_worst_axis_mm':10.0,'controller_observable':{'sensor_uH':[5,4,3,2,1]},'evaluation_only':{'within_5mm':False}},
 ]
 def request(info,path,data=None,auth=True):
-  header={'X-MALIGN-Token':info['token'] if auth else 'invalid'}
+  header={'X-MASKIT-Token':info['token'] if auth else 'invalid'}
   body=None
   if data is not None:
     header['Content-Type']='application/json'
@@ -21,11 +21,11 @@ def start(path):
         # The original test converted the REAL startup failure into a confusing
         # JSONDecodeError. Expose stderr for the actual failure instead.
         stderr=proc.stderr.read() if proc.poll() is not None else '(no startup JSON)'
-        raise RuntimeError('M-ALIGN test host startup failed: '+stderr)
+        raise RuntimeError('MAS-kit test host startup failed: '+stderr)
     info=json.loads(line)
     return proc,info
 
-with tempfile.TemporaryDirectory(prefix='malign_durable_test_') as base:
+with tempfile.TemporaryDirectory(prefix='maskit_durable_test_') as base:
   p,info=start(base)
   try:
     assert request(info,'api/health')['ok']

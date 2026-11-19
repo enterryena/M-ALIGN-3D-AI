@@ -4,9 +4,9 @@
 Input : 5 calibrated readings (dL = L - L0, uH) of this unit's corner, head health, diagnostics.
 Output: corner estimate (container frame), fitted gap change, reliability.
 No 4-corner logic here — combining corners and choosing priorities is the main server's job.
-Same arithmetic as the v3.5.4 grid estimator (malign_engine.grid_estimate).
+Same arithmetic as the v3.5.4 grid estimator (maskit_engine.grid_estimate).
 """
-import malign_engine as E
+import maskit_engine as E
 
 DEVICE_SETTINGS = {'useHead': [1, 1, 1, 1, 1], 'searchMM': 36, 'fitGap': True}
 SIM_DIAG = {'coil_temp_c': 25.0, 'supply_v': 24.0, 'fw_cal_version': 'SIM-FEM21-v1', 'error_code': 0}

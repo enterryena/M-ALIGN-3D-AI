@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
-"""M-ALIGN Windows desktop host: bundled Matrix5 HTML + durable SQLite casebank.
+"""MAS-kit Windows desktop host: bundled Matrix5 HTML + durable SQLite casebank.
 
 Browser UI on a random 127.0.0.1 port, records in
-%LOCALAPPDATA%\\MALIGN\\CaseBank\\cases.sqlite3. No camera. Python stdlib only.
+%LOCALAPPDATA%\\MASKIT\\CaseBank\\cases.sqlite3. No camera. Python stdlib only.
 
 v3.6 kit link: on the main server's command the 4-unit kit senses once; each
 result (one bundle) is stored in
-%LOCALAPPDATA%\\MALIGN\\Link\\outbox.sqlite3 and, ONLY if server_url is set in
-Link\\link_config.json, sent to that main server (see malign_link.py).
+%LOCALAPPDATA%\\MASKIT\\Link\\outbox.sqlite3 and, ONLY if server_url is set in
+Link\\link_config.json, sent to that main server (see maskit_link.py).
 """
 import argparse
 import base64
@@ -29,12 +29,12 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
 import urllib.error
 
-import malign_link
+import maskit_link
 
-APP_TITLE = 'M-ALIGN Matrix5 — 영구 사례 누적 + 메인 서버 연동 (v3.6.0)'
-APP_HTML = 'MALIGN_Desktop.html'
-APP_3D = 'MALIGN_3D.html'
-APP_3D_ALIGN = 'MALIGN_3D_ALIGN.html'
+APP_TITLE = 'MAS-kit Matrix5 — 영구 사례 누적 + 메인 서버 연동 (v3.6.0)'
+APP_HTML = 'MASKIT_Desktop.html'
+APP_3D = 'MASKIT_3D.html'
+APP_3D_ALIGN = 'MASKIT_3D_ALIGN.html'
 VENDOR = {'/vendor/three/three.module.js': 'vendor/three/three.module.js',
           '/vendor/three/three.core.js': 'vendor/three/three.core.js',
           '/vendor/three/addons/controls/OrbitControls.js': 'vendor/three/addons/controls/OrbitControls.js'}
@@ -57,7 +57,7 @@ def archive_folder():
         raise RuntimeError('Windows LOCALAPPDATA 경로를 확인할 수 없습니다. 기존 데이터가 다른 폴더에 저장되지 않도록 실행을 중단했습니다.')
     if not base:
         base = str(pathlib.Path.home() / '.local' / 'share')  # Linux test host only
-    path = pathlib.Path(base) / 'MALIGN' / 'CaseBank'
+    path = pathlib.Path(base) / 'MASKIT' / 'CaseBank'
     path.mkdir(parents=True, exist_ok=True)
     return path
 
@@ -101,7 +101,7 @@ class CaseBank:
             con.execute('CREATE INDEX IF NOT EXISTS idx_cases_outcome ON cases(outcome)')
             con.execute('CREATE INDEX IF NOT EXISTS idx_cases_saved_order ON cases(saved_order)')
             con.execute('CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT)')
-            con.execute("INSERT OR IGNORE INTO meta (key,value) VALUES ('schema','MALIGN_v35_casebank_v1')")
+            con.execute("INSERT OR IGNORE INTO meta (key,value) VALUES ('schema','MASKIT_v35_casebank_v1')")
         self.verify_integrity()
 
     def verify_integrity(self):
@@ -110,14 +110,14 @@ class CaseBank:
             if not check or check[0] != 'ok':
                 raise RuntimeError('사례 데이터베이스 무결성 오류. 파일을 덮어쓰지 않고 중단합니다. 백업을 확인하세요.')
             version = con.execute("SELECT value FROM meta WHERE key='schema'").fetchone()
-            if not version or version[0] != 'MALIGN_v35_casebank_v1':
+            if not version or version[0] != 'MASKIT_v35_casebank_v1':
                 raise RuntimeError('지원하지 않는 저장 형식입니다. 이전 기록을 변경하지 않고 중단합니다.')
 
     def daily_backup(self, retain=14):
         """Take one complete daily snapshot without clobbering any prior backup.
 
         A UNIQUE temporary file prevents collision with v3.5.1's potentially
-        locked MALIGN_daily_YYYYMMDD.building.sqlite3. The temp file is
+        locked MASKIT_daily_YYYYMMDD.building.sqlite3. The temp file is
         renamed only AFTER both SQLite backup connections are closed.
         """
         if self.stats()['total'] == 0:
@@ -125,10 +125,10 @@ class CaseBank:
         backup_dir = self.file_path.parent / 'backups'
         backup_dir.mkdir(parents=True, exist_ok=True)
         today = datetime.now().strftime('%Y%m%d')
-        target = backup_dir / ('MALIGN_daily_' + today + '.sqlite3')
+        target = backup_dir / ('MASKIT_daily_' + today + '.sqlite3')
         if not target.exists():
             fd, unique_path = tempfile.mkstemp(
-                prefix='MALIGN_daily_' + today + '.new_',
+                prefix='MASKIT_daily_' + today + '.new_',
                 suffix='.sqlite3', dir=str(backup_dir))
             os.close(fd)
             temporary = pathlib.Path(unique_path)
@@ -158,7 +158,7 @@ class CaseBank:
                         temporary.unlink()
                     except PermissionError:
                         logging.warning('보조 백업 임시 파일 정리 지연: %s', temporary)
-        daily = sorted(backup_dir.glob('MALIGN_daily_????????.sqlite3'))
+        daily = sorted(backup_dir.glob('MASKIT_daily_????????.sqlite3'))
         for obsolete in daily[:-retain]:
             try:
                 obsolete.unlink()
@@ -265,7 +265,7 @@ class CaseBank:
 
 def make_handler(bank, token, link=None, sim_holder=None):
     class LocalHandler(BaseHTTPRequestHandler):
-        server_version = 'MALIGN-Local/3.5'
+        server_version = 'MASKIT-Local/3.5'
         protocol_version = 'HTTP/1.1'
 
         def log_message(self, fmt, *args):
@@ -289,7 +289,7 @@ def make_handler(bank, token, link=None, sim_holder=None):
             host = self.headers.get('Host', '')
             if host not in (f'127.0.0.1:{self.server.server_port}', f'localhost:{self.server.server_port}'):
                 return False
-            if self.headers.get('X-MALIGN-Token') != token:
+            if self.headers.get('X-MASKIT-Token') != token:
                 return False
             origin = self.headers.get('Origin')
             if origin and origin not in (f'http://127.0.0.1:{self.server.server_port}', f'http://localhost:{self.server.server_port}'):
@@ -325,7 +325,7 @@ def make_handler(bank, token, link=None, sim_holder=None):
                 return
             if p in ('/', '/index.html', '/3d', '/3d-align'):
                 content = resource_path({'/3d': APP_3D, '/3d-align': APP_3D_ALIGN}.get(p, APP_HTML)).read_text(encoding='utf-8')
-                inject = ('<script>window.MALIGN_DESKTOP_TOKEN=' + json.dumps(token) + ';</script>')
+                inject = ('<script>window.MASKIT_DESKTOP_TOKEN=' + json.dumps(token) + ';</script>')
                 content = content.replace('</head>', inject + '</head>', 1)
                 self._send(200, content.encode('utf-8'), 'text/html; charset=utf-8')
                 return
@@ -353,7 +353,7 @@ def make_handler(bank, token, link=None, sim_holder=None):
                 q = {k: v[0] for k, v in parse_qs(urlparse(self.path).query).items()}
                 self._json(bank.gate_bank(q.get('scenario', 'base'), q.get('estimator', 'history'), q.get('radius', '30')))
             elif p == '/api/health':
-                self._json({'ok': True, 'mode': 'desktop_disk', 'db': str(bank.file_path), 'count': bank.stats()['total'], 'schema': 'MALIGN_v35_casebank_v1'})
+                self._json({'ok': True, 'mode': 'desktop_disk', 'db': str(bank.file_path), 'count': bank.stats()['total'], 'schema': 'MASKIT_v35_casebank_v1'})
             else:
                 self._json({'error': 'not found'}, 404)
 
@@ -393,13 +393,13 @@ def make_handler(bank, token, link=None, sim_holder=None):
                     if obj.get('confirm') != 'CLEAR':
                         raise ValueError('confirmation required')
                     # Backup before clearing, never overwrite an earlier backup.
-                    name = 'MALIGN_preclear_' + datetime.now().strftime('%Y%m%d_%H%M%S_%f') + '.sqlite3'
+                    name = 'MASKIT_preclear_' + datetime.now().strftime('%Y%m%d_%H%M%S_%f') + '.sqlite3'
                     bank.backup(bank.file_path.parent / 'backups' / name)
                     bank.clear()
                     self._json({'ok': True})
                 else:
                     self._json({'error': 'not found'}, 404)
-            except malign_link.LinkRefused as exc:
+            except maskit_link.LinkRefused as exc:
                 self._json({'error': str(exc), 'state': link.status()['state'] if link else None}, 409)
             except LookupError as exc:
                 self._json({'error': str(exc)}, 404)
@@ -456,19 +456,19 @@ def start():
         backup_warning = f'{type(exc).__name__}: {exc}'
         logging.warning('일일 백업 실패. 실제 사례 DB는 그대로 사용: %s', backup_warning)
         if sys.stderr is not None:
-            print('M-ALIGN WARNING: daily backup failed: ' + backup_warning, file=sys.stderr, flush=True)
+            print('MAS-kit WARNING: daily backup failed: ' + backup_warning, file=sys.stderr, flush=True)
     link_dir = folder / 'Link' if args.data_dir else folder.parent / 'Link'
-    runtime = malign_link.open_link(link_dir)
+    runtime = maskit_link.open_link(link_dir)
     link, link_cfg_path = runtime.link, runtime.cfg_path
     server, token = create_server(bank, link, runtime)
     port = server.server_port
     url = f'http://127.0.0.1:{port}/'
     th = threading.Thread(target=server.serve_forever, daemon=True)
     th.start()
-    if os.environ.get('MALIGN_DEBUG_STACKS'):     # test-only: periodic thread dumps to find hangs
+    if os.environ.get('MASKIT_DEBUG_STACKS'):     # test-only: periodic thread dumps to find hangs
         import faulthandler
-        _stack_file = open(os.environ['MALIGN_DEBUG_STACKS'], 'w', encoding='utf-8')
-        faulthandler.dump_traceback_later(float(os.environ.get('MALIGN_DEBUG_STACKS_S', '20')), repeat=True, file=_stack_file)
+        _stack_file = open(os.environ['MASKIT_DEBUG_STACKS'], 'w', encoding='utf-8')
+        faulthandler.dump_traceback_later(float(os.environ.get('MASKIT_DEBUG_STACKS_S', '20')), repeat=True, file=_stack_file)
     if args.headless:
         info = json.dumps({'url': url, 'token': token, 'database': str(bank.file_path),
                            'link_config': str(link_cfg_path), 'kit_id': link.kit_id})
@@ -492,7 +492,7 @@ def start():
     root.geometry('760x470')
     if backup_warning:
         root.after(500, lambda: messagebox.showwarning(
-            'M-ALIGN 백업 경고',
+            'MAS-kit 백업 경고',
             '기존 사례 데이터는 정상적으로 열렸지만 오늘의 백업 생성에 실패했습니다.\n'
             '사용 중 기록은 원래의 저장 위치에 계속 저장됩니다.\n'
             '저장 기록 백업 버튼으로 별도 백업을 확인하세요.\n\n'
@@ -500,7 +500,7 @@ def start():
     root.minsize(670, 300)
     frame = ttk.Frame(root, padding=18)
     frame.pack(fill='both', expand=True)
-    ttk.Label(frame, text='M-ALIGN | 센서 이력 + 누적 사례 데스크톱', font=('Malgun Gothic', 15, 'bold')).pack(anchor='w', pady=(0, 8))
+    ttk.Label(frame, text='MAS-kit | 센서 이력 + 누적 사례 데스크톱', font=('Malgun Gothic', 15, 'bold')).pack(anchor='w', pady=(0, 8))
     ttk.Label(frame, text='HTML 화면은 로컬 브라우저에서 열립니다. 이 창은 데이터 저장 서버입니다.\n창을 닫으면 서버는 종료되지만 저장된 성공·실패 기록은 남습니다.', justify='left').pack(anchor='w')
     ttk.Label(frame, text='영구 저장 위치: ' + str(bank.file_path), wraplength=650).pack(anchor='w', pady=(12, 4))
     stats = tk.StringVar(value='저장 건수 확인 중')
@@ -547,7 +547,7 @@ def start():
             messagebox.showinfo('저장 위치', str(folder))
     ttk.Button(bar, text='저장 폴더 열기', command=open_dir).pack(side='left', padx=(0, 7))
     def back_up():
-        name = 'MALIGN_backup_' + datetime.now().strftime('%Y%m%d_%H%M%S_%f') + '.sqlite3'
+        name = 'MASKIT_backup_' + datetime.now().strftime('%Y%m%d_%H%M%S_%f') + '.sqlite3'
         try:
             output = bank.backup(folder / 'backups' / name)
             messagebox.showinfo('백업 완료', '기록 백업을 저장했습니다:\n' + output)
@@ -567,8 +567,8 @@ def start():
     def remove_app():
         from tkinter import simpledialog
         if not messagebox.askyesno(
-                'M-ALIGN 완전 제거',
-                '이 Windows 계정의 M-ALIGN 누적 성공/실패 사례, DB, 모든 백업·로그·설정이 영구 삭제됩니다.\n'
+                'MAS-kit 완전 제거',
+                '이 Windows 계정의 MAS-kit 누적 성공/실패 사례, DB, 모든 백업·로그·설정이 영구 삭제됩니다.\n'
                 f"메인 서버로 아직 보내지 못한 보정 기록 {link.status()['outbox']['pending']:,}건도 함께 삭제됩니다.\n"
                 '앱 실행 파일(EXE)도 함께 삭제합니다.\n\n'
                 '한 번 삭제하면 복구하기 어려우며 기존 데이터의 자동 백업은 남기지 않습니다.\n'
@@ -582,13 +582,13 @@ def start():
             messagebox.showerror('지원되지 않는 환경', '완전 제거 기능은 Windows 배포판에서만 지원합니다.')
             return
         exe_path = pathlib.Path(sys.executable).resolve() if getattr(sys, 'frozen', False) else None
-        if exe_path and exe_path.name.lower() != 'malign_desktop.exe':
-            messagebox.showerror('실행 경로 확인 실패', '배포 실행 파일명이 MALIGN_Desktop.exe가 아니어서 안전하게 제거할 수 없습니다.')
+        if exe_path and exe_path.name.lower() != 'maskit_desktop.exe':
+            messagebox.showerror('실행 경로 확인 실패', '배포 실행 파일명이 MASKIT_Desktop.exe가 아니어서 안전하게 제거할 수 없습니다.')
             return
         try:
             # Pass uninstall PowerShell from bundled resources in-memory;
             # no disposable script is left in TEMP or the install folder.
-            script = resource_path('UNINSTALL_MALIGN.ps1').read_text(encoding='utf-8-sig')
+            script = resource_path('UNINSTALL_MASKIT.ps1').read_text(encoding='utf-8-sig')
             exe_b64 = base64.b64encode(str(exe_path or '').encode('utf-8')).decode('ascii')
             cmd = ('& {\n' + script + '\n} '
                    '-AppExePath ([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(\'' + exe_b64 + '\'))) '
@@ -613,9 +613,9 @@ def start():
         # Never prevent normal shutdown if an optional backup failed without warning.
         try:
             if bank.stats()['total']:
-                name = 'MALIGN_last_close_' + datetime.now().strftime('%Y%m%d_%H%M%S_%f') + '.sqlite3'
+                name = 'MASKIT_last_close_' + datetime.now().strftime('%Y%m%d_%H%M%S_%f') + '.sqlite3'
                 bank.backup(folder / 'backups' / name)
-                recent = sorted((folder / 'backups').glob('MALIGN_last_close_*.sqlite3'))
+                recent = sorted((folder / 'backups').glob('MASKIT_last_close_*.sqlite3'))
                 for old in recent[:-7]:
                     old.unlink()
         except Exception as exc:
@@ -648,11 +648,11 @@ def report_fatal(exc):
         try:
             import ctypes
             detail = '\n오류 기록: ' + str(logfile) if logfile else ''
-            ctypes.windll.user32.MessageBoxW(None, 'M-ALIGN 실행 실패. 기존 저장 데이터는 삭제하지 않았습니다.\n\n' + message + detail, 'M-ALIGN 시작 오류', 0x10)
+            ctypes.windll.user32.MessageBoxW(None, 'MAS-kit 실행 실패. 기존 저장 데이터는 삭제하지 않았습니다.\n\n' + message + detail, 'MAS-kit 시작 오류', 0x10)
             return
         except Exception:
             pass
-    print('M-ALIGN STARTUP ERROR:', message, file=sys.stderr)
+    print('MAS-kit STARTUP ERROR:', message, file=sys.stderr)
 
 
 if __name__ == '__main__':

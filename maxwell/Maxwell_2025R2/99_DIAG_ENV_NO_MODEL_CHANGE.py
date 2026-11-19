@@ -1,13 +1,13 @@
 # -*- coding: ascii -*-
-# M-ALIGN v1.5.2 diagnostic. Changes NOTHING in any model. Tools > Run Script.
-# Shows results in the AEDT Message Manager and writes MALIGN150_DIAG.txt
+# MAS-kit v1.5.2 diagnostic. Changes NOTHING in any model. Tools > Run Script.
+# Shows results in the AEDT Message Manager and writes MASKIT150_DIAG.txt
 # next to this script AND in your user home folder.
 import os, sys, json, traceback
 lines = []
 def say(m, lvl=0):
     lines.append(m)
     try:
-        oDesktop.AddMessage('', '', lvl, 'MALIGN150 DIAG ' + m)
+        oDesktop.AddMessage('', '', lvl, 'MASKIT150 DIAG ' + m)
     except Exception:
         pass
 try:
@@ -24,7 +24,7 @@ try:
     say('version=' + str(cfg.get('version')) + ' output_dir=' + cfg['output_dir'])
     src = os.path.join(here, cfg['source_aedt'])
     say('source_aedt_exists=' + str(os.path.isfile(src)) + ' ' + src)
-    say('core_exists=' + str(os.path.isfile(os.path.join(here, 'malign150_core.py'))))
+    say('core_exists=' + str(os.path.isfile(os.path.join(here, 'maskit150_core.py'))))
     od = cfg['output_dir']
     try:
         if not os.path.isdir(od):
@@ -36,7 +36,7 @@ try:
         say('output_dir_writable=False ' + traceback.format_exc()[-300:], 2)
     try:
         sys.path.insert(0, here)
-        import malign150_core as core
+        import maskit150_core as core
         say('core_import_ok version=' + core.VERSION)
     except Exception:
         say('core_import_FAILED ' + traceback.format_exc()[-600:], 2)
@@ -46,8 +46,8 @@ try:
         say('GetProjectList failed', 1)
 except Exception:
     say('DIAG_EXCEPTION ' + traceback.format_exc()[-800:], 2)
-for path in [os.path.join(locals().get('here', os.getcwd()), 'MALIGN150_DIAG.txt'),
-             os.path.join(os.path.expanduser('~'), 'MALIGN150_DIAG.txt')]:
+for path in [os.path.join(locals().get('here', os.getcwd()), 'MASKIT150_DIAG.txt'),
+             os.path.join(os.path.expanduser('~'), 'MASKIT150_DIAG.txt')]:
     try:
         f = open(path, 'w'); f.write('\n'.join(lines) + '\n'); f.close()
     except Exception:

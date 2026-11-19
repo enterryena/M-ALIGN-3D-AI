@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>M-ALIGN 3D · AI 컨테이너 야드</title>
+<title>MAS-kit 3D · AI 컨테이너 야드</title>
 <style>
 :root{--ink:#e9f1f6;--muted:#9fb3c2;--panel:rgba(12,22,30,.88);--line:rgba(255,255,255,.12);--ok:#3ddc97;--bad:#ff5d5d;--warn:#ffc04d;--ai:#8fb8ff}
 *{box-sizing:border-box}html,body{margin:0;height:100%;overflow:hidden;background:#b7c9d5;font-family:"Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif;color:var(--ink)}
@@ -60,7 +60,7 @@ button.sec{background:#1d2c38;border:1px solid var(--line);font-weight:500;font-
 <body>
 <canvas id="scene"></canvas>
 <div class="panel" id="ctrl">
- <h1>M-ALIGN 3D · AI 야드</h1>
+ <h1>MAS-kit 3D · AI 야드</h1>
  <div style="font-size:11px;color:var(--muted)">트럭 3대가 오가며 입고·반출, 메인 서버(AI)가 리치스태커를 운전·정렬합니다.</div>
  <label for="controller">제어 주체 (메인 서버)</label>
  <select id="controller"><option value="ai">Ollama AI (무료, 내 PC)</option><option value="autopilot">규칙 자동조종 (AI 없이)</option></select>
@@ -91,7 +91,7 @@ button.sec{background:#1d2c38;border:1px solid var(--line);font-weight:500;font-
  <h2 style="margin-top:8px">사례 누적 · 유도</h2>
  <div class="kv"><div>누적 사례<b id="m_n">0</b></div><div>최근 50 성공<b id="m_rate">-</b></div><div>재시도 성공<b id="m_retry">0/0</b></div><div>하강 기록<b id="m_low">0</b></div><div>오하강<b id="m_fl">0</b></div><div>하강 보류<b id="m_hold">0</b></div></div>
  <div id="m_plan" style="font-size:11px;color:var(--muted);margin-top:6px">계획 선택 없음</div>
- <div id="alignbox" style="display:none"><h2 style="margin-top:8px">M-ALIGN 정렬 (실제 코너 오차)</h2><div class="cgrid" id="cgrid"></div></div>
+ <div id="alignbox" style="display:none"><h2 style="margin-top:8px">MAS-kit 정렬 (실제 코너 오차)</h2><div class="cgrid" id="cgrid"></div></div>
 </div>
 <div class="panel" id="log"><h2>AI · 서버 · 현장 기록</h2><div id="logbody"></div></div>
 <div class="panel" id="help">컨테이너 클릭 → 빈 구역(A1–B5) 또는 대기 중인 빈 트럭 클릭 = 우선 지시. Esc = 취소. 끌기 회전 · 휠 확대.<br>초록 선 = 전진 경로, 주황 선 = 후진. 부채꼴 = 장애물 센서(16 m). 초록 띠 = 보행로(사람은 여기로만), 바깥 회색 = 서비스 도로.</div>
@@ -100,9 +100,9 @@ button.sec{background:#1d2c38;border:1px solid var(--line);font-weight:500;font-
 import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 
-const TOKEN = window.MALIGN_DESKTOP_TOKEN || '';
+const TOKEN = window.MASKIT_DESKTOP_TOKEN || '';
 async function api(path, body){
-  const opt = {method: body === undefined ? 'GET' : 'POST', headers: {'X-MALIGN-Token': TOKEN, 'Accept': 'application/json'}, cache: 'no-store'};
+  const opt = {method: body === undefined ? 'GET' : 'POST', headers: {'X-MASKIT-Token': TOKEN, 'Accept': 'application/json'}, cache: 'no-store'};
   if (body !== undefined){ opt.headers['Content-Type'] = 'application/json'; opt.body = JSON.stringify(body); }
   const r = await fetch('/api/' + path, opt); const j = await r.json();
   if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status)); return j;
@@ -587,7 +587,7 @@ function loop(now){ const dt = Math.min(.1, (now - last) / 1000); last = now;
     if (camMode === 'free' && camera.position.distanceTo(camGoal.pos) < .05) camGoal = null; }
   controls.update(); renderer.render(scene, camera); requestAnimationFrame(loop); }
 requestAnimationFrame(loop);
-window.MALIGN_YARD = {state: () => S, screen: (x, y, z) => { const v = new THREE.Vector3(x, y, z).project(camera), r = canvas.getBoundingClientRect(); return [r.left + (v.x + 1) / 2 * r.width, r.top + (1 - v.y) / 2 * r.height]; }, setCam: m => { camMode = m; }};
+window.MASKIT_YARD = {state: () => S, screen: (x, y, z) => { const v = new THREE.Vector3(x, y, z).project(camera), r = canvas.getBoundingClientRect(); return [r.left + (v.x + 1) / 2 * r.width, r.top + (1 - v.y) / 2 * r.height]; }, setCam: m => { camMode = m; }};
 </script>
 </body>
 </html>

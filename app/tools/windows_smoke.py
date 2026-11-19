@@ -3,9 +3,9 @@
 
 usage:
   python tools/windows_smoke.py                       # runs desktop_host.py with this Python
-  python tools/windows_smoke.py --exe dist/MALIGN_Desktop.exe --shot yard.png
+  python tools/windows_smoke.py --exe dist/MASKIT_Desktop.exe --shot yard.png
 Checks: host starts headless, /3d and bundled three.js are served, the AI yard (rule autopilot) unloads /
-loads trucks with M-ALIGN alignment and no contact; with --shot also opens /3d in Chromium (Playwright),
+loads trucks with MAS-kit alignment and no contact; with --shot also opens /3d in Chromium (Playwright),
 presses start, takes a screenshot and fails on page errors.
 """
 import argparse
@@ -56,7 +56,7 @@ def main():
     info_file = tmp / 'info.json'
     cmd = ([a.exe] if a.exe else [sys.executable, str(ROOT / 'desktop_host.py')]) + \
         ['--headless', '--data-dir', str(tmp), '--info-file', str(info_file)]
-    env = dict(os.environ, MALIGN_DEBUG_STACKS=str(pathlib.Path(a.stacks or (tmp / 'stacks.txt')).resolve()))
+    env = dict(os.environ, MASKIT_DEBUG_STACKS=str(pathlib.Path(a.stacks or (tmp / 'stacks.txt')).resolve()))
     host_log = open(tmp / 'host_output.txt', 'w', encoding='utf-8', errors='replace')
     proc = subprocess.Popen(cmd, stdout=host_log, stderr=subprocess.STDOUT, env=env)
     def host_tail():
@@ -70,9 +70,9 @@ def main():
         assert info_file.exists(), 'host did not start'
         time.sleep(0.3)
         info = json.loads(info_file.read_text(encoding='utf-8'))
-        H = {'X-MALIGN-Token': info['token']}
+        H = {'X-MASKIT-Token': info['token']}
         page = urllib.request.urlopen(info['url'] + '3d', timeout=20).read().decode('utf-8')
-        assert 'MALIGN_YARD' in page, '3D yard page missing'
+        assert 'MASKIT_YARD' in page, '3D yard page missing'
         js = urllib.request.urlopen(info['url'] + 'vendor/three/three.core.js', timeout=20).read()
         assert b"REVISION = '187'" in js, 'bundled three.js missing'
         print('host ok:', info['url'], flush=True)
@@ -80,13 +80,13 @@ def main():
         if a.shot:
             from playwright.sync_api import sync_playwright
             pw = sync_playwright().start()
-            exe = os.environ.get('MALIGN_CHROMIUM')
+            exe = os.environ.get('MASKIT_CHROMIUM')
             b = pw.chromium.launch(executable_path=exe if exe and os.path.exists(exe) else None,
                                    args=['--no-sandbox', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'])
             pg = b.new_page(viewport={'width': 1500, 'height': 900})
             pg.on('pageerror', lambda e: errors.append(str(e)))
             pg.goto(info['url'] + '3d')
-            pg.wait_for_function('window.MALIGN_YARD !== undefined', timeout=60000)
+            pg.wait_for_function('window.MASKIT_YARD !== undefined', timeout=60000)
             time.sleep(1)
             pg.select_option('#controller', 'autopilot')
             pg.select_option('#speed', '8')

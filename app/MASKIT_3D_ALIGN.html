@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>M-ALIGN 3D · AI 정렬 시뮬레이터</title>
+<title>MAS-kit 3D · AI 정렬 시뮬레이터</title>
 <style>
 :root{--ink:#e9f1f6;--muted:#9fb3c2;--panel:rgba(14,24,33,.82);--line:rgba(255,255,255,.12);--ok:#3ddc97;--bad:#ff5d5d;--warn:#ffc04d;--ai:#8fb8ff}
 *{box-sizing:border-box}html,body{margin:0;height:100%;overflow:hidden;background:#9fbcd0;font-family:"Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif;color:var(--ink)}
@@ -33,7 +33,7 @@ button:disabled{opacity:.5;cursor:default}
 <body>
 <canvas id="scene"></canvas>
 <div class="panel" id="ctrl">
- <h1>M-ALIGN 3D · AI 정렬</h1>
+ <h1>MAS-kit 3D · AI 정렬</h1>
  <label for="controller">제어 주체 (메인 서버)</label>
  <select id="controller"><option value="ai">Ollama AI (무료, 내 PC)</option><option value="autopilot">규칙 자동조종 (AI 없이)</option></select>
  <label for="model">AI 모델 (Ollama)</label><input id="model" value="qwen2.5:7b">
@@ -56,9 +56,9 @@ button:disabled{opacity:.5;cursor:default}
 import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 
-const TOKEN = window.MALIGN_DESKTOP_TOKEN || '';
+const TOKEN = window.MASKIT_DESKTOP_TOKEN || '';
 async function api(path, body){
-  const opt = {method: body === undefined ? 'GET' : 'POST', headers: {'X-MALIGN-Token': TOKEN, 'Accept': 'application/json'}, cache: 'no-store'};
+  const opt = {method: body === undefined ? 'GET' : 'POST', headers: {'X-MASKIT-Token': TOKEN, 'Accept': 'application/json'}, cache: 'no-store'};
   if (body !== undefined){ opt.headers['Content-Type'] = 'application/json'; opt.body = JSON.stringify(body); }
   const r = await fetch('/api/' + path, opt); const j = await r.json();
   if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status)); return j;
@@ -252,7 +252,7 @@ function loop(now){
 }
 requestAnimationFrame(loop);
 poll();
-window.MALIGN_3D = {state: () => st, shown};
+window.MASKIT_3D = {state: () => st, shown};
 </script>
 </body>
 </html>

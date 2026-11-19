@@ -13,7 +13,7 @@ def start(script, home, cwd):
     return proc,json.loads(line)
 
 def req(info,path,payload=None,token=True):
-    headers={'X-MALIGN-Token':info['token'] if token else 'wrong'}
+    headers={'X-MASKIT-Token':info['token'] if token else 'wrong'}
     raw=None
     if payload is not None:
         headers['Content-Type']='application/json'
@@ -25,15 +25,15 @@ def req(info,path,payload=None,token=True):
 def stop(proc):
     proc.terminate();proc.wait(timeout=8)
 
-with tempfile.TemporaryDirectory(prefix='malign_stable_path_') as tmp:
+with tempfile.TemporaryDirectory(prefix='maskit_stable_path_') as tmp:
     base=Path(tmp); profile=base/'Windows_A';profile.mkdir()
     alternate=base/'release_in_another_location';alternate.mkdir()
     shutil.copy2(ROOT/'desktop_host.py',alternate/'desktop_host.py')
-    shutil.copy2(ROOT/'MALIGN_Desktop.html',alternate/'MALIGN_Desktop.html')
-    for name in ('malign_link.py', 'malign_engine.py', 'kit_device.py', 'matrix5_data.json', 'main_controller.py',
+    shutil.copy2(ROOT/'MASKIT_Desktop.html',alternate/'MASKIT_Desktop.html')
+    for name in ('maskit_link.py', 'maskit_engine.py', 'kit_device.py', 'matrix5_data.json', 'main_controller.py',
                  'reachstacker_sim.py', 'sim_site.py', 'sim_bridge.py', 'sim_job.py'):
         shutil.copy2(ROOT/name, alternate/name)
-    expected=profile/'MALIGN'/'CaseBank'/'cases.sqlite3'
+    expected=profile/'MASKIT'/'CaseBank'/'cases.sqlite3'
     p,info=start(ROOT/'desktop_host.py',profile,ROOT)
     try:
         assert Path(info['database'])==expected
@@ -46,11 +46,11 @@ with tempfile.TemporaryDirectory(prefix='malign_stable_path_') as tmp:
     try:
         assert Path(info['database'])==expected
         assert req(info,'api/stats')['success']==1
-        assert len(list(expected.parent.joinpath('backups').glob('MALIGN_daily_*.sqlite3')))==1
+        assert len(list(expected.parent.joinpath('backups').glob('MASKIT_daily_*.sqlite3')))==1
         assert req(info,'api/add',{'records':[record]})['added']==0
         assert req(info,'api/clear',{'confirm':'CLEAR'})['ok']
         assert req(info,'api/stats')['total']==0
-        backup=list(expected.parent.joinpath('backups').glob('MALIGN_preclear_*.sqlite3'))
+        backup=list(expected.parent.joinpath('backups').glob('MASKIT_preclear_*.sqlite3'))
         assert len(backup)==1
         with closing(sqlite3.connect(backup[0])) as connection:
             assert connection.execute('select count(*) from cases').fetchone()[0]==1

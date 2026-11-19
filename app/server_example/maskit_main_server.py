@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
-"""Example M-ALIGN main server. Python stdlib only.
+"""Example MAS-kit main server. Python stdlib only.
 
 Reference for the real main server and a test partner for the kit. It follows
 the job sequence:
 
-  1. machine is in position          -> POST /malign/v1/machines/<machine_id>/ready {"kit_id": ...}
+  1. machine is in position          -> POST /maskit/v1/machines/<machine_id>/ready {"kit_id": ...}
   2. server -> kit: start_job        (kit senses round 1, sends a 4-unit bundle)
   3. server applies the correction to the machine, confirms the move
   4. server -> kit: sense            (kit senses round n+1, sends a bundle)  ... about 6 times
@@ -17,18 +17,18 @@ own sensor, lowering interlock) and a virtual reach stacker (app/reachstacker_si
 The kit's simulated coil readers fetch readings from /sim/v1/kits/<kit>/readings.
 With --manual, commands are only queued through the HTTP API (a real controller's job).
 
-    python malign_main_server.py --port 8750 [--rounds 6] [--move-delay 1] [--manual] [--api-key KEY]
+    python maskit_main_server.py --port 8750 [--rounds 6] [--move-delay 1] [--manual] [--api-key KEY]
 
-Kit side (link_config.json):  "server_url": "http://<this PC IP>:8750/malign/v1/bundles"
+Kit side (link_config.json):  "server_url": "http://<this PC IP>:8750/maskit/v1/bundles"
 
 Endpoints
-  POST /malign/v1/bundles                       kit upload -> {accepted, rejected, commands}
-  POST /malign/v1/machines/<machine_id>/ready   {"kit_id": "..."}  machine ready -> start_job for that kit
-  POST /malign/v1/kits/<kit_id>/commands        {"type": "start_job"|"sense"|"end_job"|"stop", ...}
-  GET  /malign/v1/kits                          kits, last state, counts
-  GET  /malign/v1/kits/<kit_id>/messages[?session_id=...]
-  GET  /malign/v1/jobs                          jobs and their round counts / result
-  GET  /malign/v1/jobs/<job_id>/decisions       server decisions per bundle (AUTO)
+  POST /maskit/v1/bundles                       kit upload -> {accepted, rejected, commands}
+  POST /maskit/v1/machines/<machine_id>/ready   {"kit_id": "..."}  machine ready -> start_job for that kit
+  POST /maskit/v1/kits/<kit_id>/commands        {"type": "start_job"|"sense"|"end_job"|"stop", ...}
+  GET  /maskit/v1/kits                          kits, last state, counts
+  GET  /maskit/v1/kits/<kit_id>/messages[?session_id=...]
+  GET  /maskit/v1/jobs                          jobs and their round counts / result
+  GET  /maskit/v1/jobs/<job_id>/decisions       server decisions per bundle (AUTO)
 Simulation only (AUTO):
   POST /sim/v1/kits/<kit_id>/start   {"hardware","machine","fault","strategy","seed"}  start a virtual job
   GET  /sim/v1/kits/<kit_id>/readings   the kit's simulated coil readings of the virtual site
@@ -49,14 +49,14 @@ from urllib.parse import urlparse, parse_qs
 
 import sys
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))   # app/ : engine, brain, virtual site
-import malign_engine  # noqa: E402
+import maskit_engine  # noqa: E402
 import sim_site  # noqa: E402
 
-KNOWN = {'MALIGN_round_bundle_v2': 'round', 'MALIGN_kit_event_v1': 'event'}
+KNOWN = {'MASKIT_round_bundle_v2': 'round', 'MASKIT_kit_event_v1': 'event'}
 ID = r'[A-Za-z0-9][A-Za-z0-9._-]{0,63}'
-KIT_PATH = re.compile(r'^/malign/v1/kits/(' + ID + r')/(commands|messages)$')
-READY_PATH = re.compile(r'^/malign/v1/machines/(' + ID + r')/ready$')
-DECISION_PATH = re.compile(r'^/malign/v1/jobs/(' + ID + r')/decisions$')
+KIT_PATH = re.compile(r'^/maskit/v1/kits/(' + ID + r')/(commands|messages)$')
+READY_PATH = re.compile(r'^/maskit/v1/machines/(' + ID + r')/ready$')
+DECISION_PATH = re.compile(r'^/maskit/v1/jobs/(' + ID + r')/decisions$')
 SIM_PATH = re.compile(r'^/sim/v1/kits/(' + ID + r')/(start|readings|state)$')
 COMMANDS = ('start_job', 'sense', 'resense', 'end_job', 'stop', 'fault_reset', 'self_test')
 MAX_HOLD_RESENSE = 2
@@ -73,7 +73,7 @@ class Store:
         self.ai_url, self.ai_model = ai_url, ai_model
         self.auto, self.rounds, self.move_delay = auto, rounds, move_delay
         self.lock = threading.RLock()
-        self.model = malign_engine.Model() if auto else None
+        self.model = maskit_engine.Model() if auto else None
         self.sites = {}       # kit_id -> SimSite (in memory: an example server restart forgets running jobs)
         self.decisions = {}   # job_id -> [decision, ...]
         self.outq = []        # commands produced by the sites, written to the DB on the next kit poll
@@ -197,7 +197,7 @@ class Store:
             self._queue(con, kit, cmd, delay)
 
     def ingest(self, batch):
-        if not isinstance(batch, dict) or batch.get('schema') != 'MALIGN_upload_batch_v2':
+        if not isinstance(batch, dict) or batch.get('schema') != 'MASKIT_upload_batch_v2':
             raise ValueError('batch schema 오류')
         kit = batch.get('kit_id')
         msgs = batch.get('messages')
@@ -267,7 +267,7 @@ class Store:
 
 def make_handler(store, api_key):
     class H(BaseHTTPRequestHandler):
-        server_version = 'MALIGN-Main/2'
+        server_version = 'MASKIT-Main/2'
 
         def log_message(self, fmt, *args):
             pass
@@ -290,9 +290,9 @@ def make_handler(store, api_key):
             if not self._auth():
                 return
             u = urlparse(self.path)
-            if u.path == '/malign/v1/kits':
+            if u.path == '/maskit/v1/kits':
                 return self._json(store.kits())
-            if u.path == '/malign/v1/jobs':
+            if u.path == '/maskit/v1/jobs':
                 return self._json(store.jobs())
             m = DECISION_PATH.match(u.path)
             if m:
@@ -321,7 +321,7 @@ def make_handler(store, api_key):
                     return self._json({'error': 'payload too large'}, 413)
                 obj = json.loads(self.rfile.read(n).decode('utf-8') or '{}')
                 path = urlparse(self.path).path
-                if path == '/malign/v1/bundles':
+                if path == '/maskit/v1/bundles':
                     return self._json(store.ingest(obj))
                 m = SIM_PATH.match(path)
                 if m and m.group(2) == 'start':
@@ -342,7 +342,7 @@ def make_handler(store, api_key):
 
 
 def main():
-    ap = argparse.ArgumentParser(description='M-ALIGN example main server')
+    ap = argparse.ArgumentParser(description='MAS-kit example main server')
     ap.add_argument('--host', default='0.0.0.0')
     ap.add_argument('--port', type=int, default=8750)
     ap.add_argument('--db', default=str(pathlib.Path(__file__).with_name('main_server_v3.sqlite3')))

@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""M-ALIGN v1.5.0 post-processing (normal CPython 3.8+, no numpy needed).
+"""MAS-kit v1.5.0 post-processing (normal CPython 3.8+, no numpy needed).
 
 Usage
-  python malign150_post.py collect       <output_dir>   # tables + all checks available so far
-  python malign150_post.py predict-blind <output_dir>   # needs P1_center + all four P2 cases
-  python malign150_post.py check-blind   <output_dir>   # after P3_blind_m2_p4 is solved
+  python maskit150_post.py collect       <output_dir>   # tables + all checks available so far
+  python maskit150_post.py predict-blind <output_dir>   # needs P1_center + all four P2 cases
+  python maskit150_post.py check-blind   <output_dir>   # after P3_blind_m2_p4 is solved
 
 All numbers are FEM model results of one model family (5-winding Matrix, AFAST tier).
 They are not hardware accuracy. Checks print PASS / FAIL / N/A, never fabricate data.

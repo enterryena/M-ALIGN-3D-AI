@@ -1,10 +1,10 @@
 """Which base-assumption error limits success? Improve one factor at a time to its target value (1,500 jobs each)."""
 import sys, json, numpy as np
 import pathlib; sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
-import malign_engine as E, malign_link
+import maskit_engine as E, maskit_link
 from multiprocessing import Pool
 def init():
-    global M; M = malign_link._load_model()
+    global M; M = maskit_link._load_model()
 def one(a):
     over, s = a; P = E.settings('base', 'history', **over); return E.run_once(M, P, E.Rng(s))['ok']
 if __name__ == '__main__':

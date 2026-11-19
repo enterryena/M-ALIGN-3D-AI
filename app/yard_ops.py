@@ -11,7 +11,7 @@ What happens:
     sensors see obstacles on the path ahead: fixed ones (cones, pallets) and moving ones (workers,
     a service car). It stops and the main server decides: horn, wait, detour (re-plan), or call a
     ground crew to clear a fixed object.
-  * Picking a container up uses the M-ALIGN kit job (SimSite) for the mm-level alignment and lock.
+  * Picking a container up uses the MAS-kit kit job (SimSite) for the mm-level alignment and lock.
 
 A safety guard sits between the AI and the yard: it refuses tasks that break the rules (user request
 first, slot must be free, ...) and actions that make no sense (horn at a cone, crew for a person),
@@ -890,7 +890,7 @@ horns, detour; if they block again after 2 detours (detours >= 2), wait and soun
         if not self._creep(Y.dock_pose(sx, sz, syaw), 1, ignore=src_ex):
             return False
         # 2 kit alignment + lock
-        self.task['step'] = 'M-ALIGN 정렬·결합'
+        self.task['step'] = 'MAS-kit 정렬·결합'
         with self.lock:
             self.st['h_target'] = sy + Y.H + KIT_GAP
         self.wait_until(lambda: abs(self.st['h'] - self.st['h_target']) < 0.005, 40)
@@ -1283,7 +1283,7 @@ horns, detour; if they block again after 2 detours (detours >= 2), wait and soun
             end = time.time() + 10
             while time.time() < end and self.kit_state() != 'IDLE':
                 time.sleep(0.05)
-        self.log('서버', 'M-ALIGN 키트 정렬 시작 (%s%s)' % (cid_of(task), ', %d회차' % (attempt + 1) if attempt else ''))
+        self.log('서버', 'MAS-kit 키트 정렬 시작 (%s%s)' % (cid_of(task), ', %d회차' % (attempt + 1) if attempt else ''))
         try:
             site.start(**params)
         except RuntimeError:

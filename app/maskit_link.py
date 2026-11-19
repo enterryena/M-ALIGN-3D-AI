@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""M-ALIGN kit link: the kit is a field device — it reports to the main server and acts on its commands.
+"""MAS-kit kit link: the kit is a field device — it reports to the main server and acts on its commands.
 
 One kit = 4 correction units (one per container corner), each with its own unique
 number. The machine (e.g. reach stacker) and every decision about moving it belong to
@@ -50,10 +50,10 @@ import urllib.request
 from contextlib import contextmanager
 from datetime import datetime, timezone
 
-SCHEMA_DB = 'MALIGN_link_outbox_v1'
-SCHEMA_ROUND = 'MALIGN_round_bundle_v2'
-SCHEMA_EVENT = 'MALIGN_kit_event_v1'
-SCHEMA_BATCH = 'MALIGN_upload_batch_v2'
+SCHEMA_DB = 'MASKIT_link_outbox_v1'
+SCHEMA_ROUND = 'MASKIT_round_bundle_v2'
+SCHEMA_EVENT = 'MASKIT_kit_event_v1'
+SCHEMA_BATCH = 'MASKIT_upload_batch_v2'
 HEADS = ['Xp', 'Xm', 'Yp', 'Ym', 'Ref']
 # Same corner order as the simulator's CORNERS array (twistlock centres, mm).
 CORNER_POS_MM = [(-2926.5, 1129.5), (2926.5, 1129.5), (2926.5, -1129.5), (-2926.5, -1129.5)]
@@ -72,7 +72,7 @@ DEFAULT_CONFIG = {
     'kit_id': None,            # generated once on first run; edit to the real kit number
     'units': None,             # 4 unique unit numbers in corner order 1..4
     'source': 'simulation',    # 'hardware' once the real sensor reader is attached
-    'server_url': '',          # e.g. http://10.0.0.5:8750/malign/v1/bundles ; '' = store only
+    'server_url': '',          # e.g. http://10.0.0.5:8750/maskit/v1/bundles ; '' = store only
     'api_key': '',             # sent as "Authorization: Bearer <api_key>" when set
     'max_rounds': 10,          # safety cap per job (the main server normally ends after ~6)
     'max_resense': 3,          # safety cap of re-measurements per round
@@ -120,7 +120,7 @@ def load_config(folder):
     cfg.update({k: v for k, v in raw.items() if k in DEFAULT_CONFIG})
     created = not path.exists()
     if not cfg['kit_id']:
-        cfg['kit_id'] = 'MALIGN-KIT-' + secrets.token_hex(4).upper()
+        cfg['kit_id'] = 'MASKIT-KIT-' + secrets.token_hex(4).upper()
         created = True
     if not cfg['units']:
         cfg['units'] = [cfg['kit_id'] + '-U' + str(i) for i in range(1, 5)]
@@ -612,7 +612,7 @@ class KitLink:
 
 class Watchdog(threading.Thread):
     def __init__(self, link, period=0.25):
-        super().__init__(daemon=True, name='MALIGN-watchdog')
+        super().__init__(daemon=True, name='MASKIT-watchdog')
         self.link, self.period = link, period
         self.stop_event = threading.Event()
 
@@ -632,7 +632,7 @@ class Uploader(threading.Thread):
     """Background sender: pending messages -> main server, oldest first; commands come back in the reply."""
 
     def __init__(self, outbox, link, config, urlopen=None):
-        super().__init__(daemon=True, name='MALIGN-uploader')
+        super().__init__(daemon=True, name='MASKIT-uploader')
         self.outbox, self.link, self.cfg = outbox, link, config
         self.urlopen = urlopen or urllib.request.urlopen
         self.wake_event = threading.Event()
@@ -663,7 +663,7 @@ class Uploader(threading.Thread):
                                           'fault_code': st['fault_code']},
                            'messages': [p for _, p in batch]}, ensure_ascii=False, allow_nan=False).encode('utf-8')
         headers = {'Content-Type': 'application/json', 'Accept': 'application/json',
-                   'User-Agent': 'MALIGN-Kit/3', 'X-MALIGN-Kit': self.link.kit_id}
+                   'User-Agent': 'MASKIT-Kit/3', 'X-MASKIT-Kit': self.link.kit_id}
         if self.cfg['api_key']:
             headers['Authorization'] = 'Bearer ' + self.cfg['api_key']
         self.link.uplink['last_attempt_at'] = utc_now()
@@ -719,8 +719,8 @@ class Uploader(threading.Thread):
 
 # --------------------------------------------------------------------------- factory
 def _load_model():
-    import malign_engine
-    return malign_engine.Model()
+    import maskit_engine
+    return maskit_engine.Model()
 
 
 def default_processor(model):

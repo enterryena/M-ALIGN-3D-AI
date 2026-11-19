@@ -1,14 +1,14 @@
-"""Re-run every stored batch case of a MALIGN_casebank_backup_v1 export from its seed with the defined equations
-(malign_engine = v3.4 JS runOnce) and compare sensor readings, estimates, commands, true errors and outcome.
+"""Re-run every stored batch case of a MASKIT_casebank_backup_v1 export from its seed with the defined equations
+(maskit_engine = v3.4 JS runOnce) and compare sensor readings, estimates, commands, true errors and outcome.
 usage: python tools/verify_casebank.py <casebank.json> [out.json]
 """
 import sys, json, math, numpy as np
 from multiprocessing import Pool
 import pathlib; sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
-import malign_engine as E, malign_link
+import maskit_engine as E, maskit_link
 P = E.settings('base', 'history'); M = None
 def init():
-    global M; M = malign_link._load_model()
+    global M; M = maskit_link._load_model()
 def replay_one(x, rnd):
     """Re-run the job from its seed with the defined equations; compare every stored number."""
     w = E.World(P, rnd); hist = [[], [], [], []]; rounds = []

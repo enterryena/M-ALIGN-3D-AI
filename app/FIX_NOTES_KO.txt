@@ -1,4 +1,4 @@
-M-ALIGN v3.6.0 3단계 / 2026-11-13 / 규칙 기반 메인 서버 + 가상 리치스태커
+MAS-kit v3.6.0 3단계 / 2026-11-13 / 규칙 기반 메인 서버 + 가상 리치스태커
 
 - '1회 작업 실행' = 가상 현장 작업 1건: 접근 → 센싱 범위 진입 → 메인 서버가 키트 센싱 지시
   → 기존 센서와 키트를 우선순위로 비교해 보정값 결정 → 리치스태커 보정 이동 → … → 하강·결합
@@ -9,17 +9,17 @@ M-ALIGN v3.6.0 3단계 / 2026-11-13 / 규칙 기반 메인 서버 + 가상 리�
 - 비교 실험 결과: docs\3단계_메인서버_가상현장.md
 - 선택: 무료 로컬 AI 운영 비서(Ollama) — 허용 명령만, 보정·하강 불가 (tools\ai_operator.py)
 
-M-ALIGN v3.6.0 1단계 / 2026-11-13 / 키트 = 현장 장치
+MAS-kit v3.6.0 1단계 / 2026-11-13 / 키트 = 현장 장치
 
 - 지시 7종: 작업 시작, 센싱, 재측정, 작업 종료, 정지, 이상 해제, 자가 점검
 - 장치 1대당 23항목 (식별 6, 측정 5, 추정 3, 신뢰도 5, 진단 4), 측정 번호(재측정 포함)
 - 상태: 대기 / 센싱 중 / 보정 반영 대기 / 자가 점검 / 이상(FAULT). 워치독(통신 끊김 → 이상), 생존 신호
 - 역할 분리: 장치는 자기 코너만 계산(kit_device.py), 4코너 종합·이력 추정·보정값은 메인 서버
-  (server_example\malign_server_logic.py). 분리 후에도 v3.5.4 결과 동일(격자 68, 이력 586 / 1,000회)
-- 계산 엔진 Python 이식(malign_engine.py) — JS와 시행 단위로 같은 결과
+  (server_example\maskit_server_logic.py). 분리 후에도 v3.5.4 결과 동일(격자 68, 이력 586 / 1,000회)
+- 계산 엔진 Python 이식(maskit_engine.py) — JS와 시행 단위로 같은 결과
 - numpy 필요: BUILD_EXE.cmd 와 RUN_WITH_PYTHON.cmd 가 처음 한 번 설치
 
-M-ALIGN v3.6.0 / 2026-11-13 / 메인 서버 지시형 키트 연동 + 값 저장·묶음 전송
+MAS-kit v3.6.0 / 2026-11-13 / 메인 서버 지시형 키트 연동 + 값 저장·묶음 전송
 
 작업 순서 (리치스태커 기준)
 1) 기계 이동·작업 준비 → 2) 기계가 메인 서버에 준비 완료 → 3) 메인 서버가 키트에 작업 실시(start_job)
@@ -29,14 +29,14 @@ M-ALIGN v3.6.0 / 2026-11-13 / 메인 서버 지시형 키트 연동 + 값 저장
 추가
 - 보정장치 4대(코너별 고유 번호)를 1세트(키트 번호)로 묶어, 센싱 1회마다
   네 장치의 5헤드 측정값·추정 오차·보정값을 "묶음 1개"로 만듭니다.
-- 묶음은 먼저 %LOCALAPPDATA%\MALIGN\Link\outbox.sqlite3 에 저장하고,
+- 묶음은 먼저 %LOCALAPPDATA%\MASKIT\Link\outbox.sqlite3 에 저장하고,
   link_config.json 의 server_url 이 있으면 메인 서버로 순서대로 전송합니다.
   서버가 꺼져 있으면 '전송 대기'로 남았다가 연결되면 자동 재전송합니다.
 - 메인 서버 지시(start_job / sense / end_job / stop)는 전송 응답으로 받습니다.
   회차 수와 종료는 메인 서버가 정합니다. 키트는 측정·보고만 합니다.
 - server_url 이 없으면 시뮬레이터 안의 내장 시뮬 서버가 메인 서버 역할을 합니다(6회).
 - 시뮬레이터 '1회 작업 실행' = 작업 1건. 성공률 계산(반복 시험)은 전송하지 않습니다.
-- 메인 서버 예제: server_example\malign_main_server.py (자동/수동 모드)
+- 메인 서버 예제: server_example\maskit_main_server.py (자동/수동 모드)
 
 바뀌지 않은 것
 - 시뮬레이터 계산(시드 2026·기준 가정·100회 = 성공 6/실패 94 동일), cases.sqlite3 경로·형식.
@@ -45,11 +45,11 @@ M-ALIGN v3.6.0 / 2026-11-13 / 메인 서버 지시형 키트 연동 + 값 저장
 - 완전 제거 시 전송 대기 중인 기록도 함께 삭제됩니다(관리 창 경고에 건수 표시).
 - 실제 센서 연결부(하드웨어 어댑터)는 아직 없습니다. docs\전송_프로토콜.md 6절 참고.
 
-M-ALIGN v3.5.4 / 2026-11-11 / Windows sqlite3 handle cleanup fix
+MAS-kit v3.5.4 / 2026-11-11 / Windows sqlite3 handle cleanup fix
 
 증상
 BUILD_EXE.cmd [3/4] 테스트에서 PASS 두 줄 출력 직후
-TemporaryDirectory 정리 시 MALIGN_daily_YYYYMMDD.sqlite3 파일 WinError 32.
+TemporaryDirectory 정리 시 MASKIT_daily_YYYYMMDD.sqlite3 파일 WinError 32.
 
 원인
 - tests/test_backup_windows_regression.py 에서 `with sqlite3.connect(snap) as c:`
@@ -65,7 +65,7 @@ TemporaryDirectory 정리 시 MALIGN_daily_YYYYMMDD.sqlite3 파일 WinError 32.
 - 시뮬레이터 JS/HTML, Maxwell 21케이스, 성공률 조건, 사례 DB 경로, 제거 규칙은 변경하지 않음.
 
 저장 데이터
-사용자의 %LOCALAPPDATA%\MALIGN\CaseBank\cases.sqlite3 파일은 이 ZIP이나
+사용자의 %LOCALAPPDATA%\MASKIT\CaseBank\cases.sqlite3 파일은 이 ZIP이나
 빌드 스크립트가 삭제·초기화하지 않음. 기존 v3.5.3 ZIP도 롤백 가능.
 
 주의

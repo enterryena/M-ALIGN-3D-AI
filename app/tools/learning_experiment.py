@@ -16,8 +16,8 @@ import time
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 import case_memory as CM  # noqa: E402
-import malign_engine as E  # noqa: E402
-import malign_link  # noqa: E402
+import maskit_engine as E  # noqa: E402
+import maskit_link  # noqa: E402
 import sim_job  # noqa: E402
 
 
@@ -42,7 +42,7 @@ def run(M, cond, seed, plan_hook, tol=None):
 
 
 def main(n=400, out=None):
-    M = malign_link._load_model()
+    M = maskit_link._load_model()
     rnd = random.Random(2026)
     stream = [(conditions(rnd), rnd.randrange(1, 1 << 30)) for _ in range(n)]
     mem = CM.CaseMemory()

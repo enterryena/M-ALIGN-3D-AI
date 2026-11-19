@@ -27,7 +27,7 @@ jobs:
           python -m pip install numpy playwright
           python -m playwright install chromium
           $chrome = python -c "from playwright.sync_api import sync_playwright as s; p=s().start(); print(p.chromium.executable_path); p.stop()"
-          "MALIGN_CHROMIUM=$chrome" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "MASKIT_CHROMIUM=$chrome" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
       - name: All tests (Windows, Python)
         run: |
           $failed = @()
@@ -45,17 +45,17 @@ jobs:
           if ($LASTEXITCODE -ne 0) { Get-Content host_stacks.txt -Tail 150; exit 1 }
       - name: Build EXE with the user's BUILD_EXE.cmd
         shell: cmd
-        run: cmd /c "BUILD_EXE.cmd < NUL" && if not exist dist\MALIGN_Desktop.exe exit /b 1
+        run: cmd /c "BUILD_EXE.cmd < NUL" && if not exist dist\MASKIT_Desktop.exe exit /b 1
       - name: Smoke the built EXE
         run: |
-          python tools/windows_smoke.py --exe dist/MALIGN_Desktop.exe --tasks 2 --stacks exe_stacks.txt
+          python tools/windows_smoke.py --exe dist/MASKIT_Desktop.exe --tasks 2 --stacks exe_stacks.txt
           if ($LASTEXITCODE -ne 0) { Get-Content exe_stacks.txt -Tail 150; exit 1 }
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: MALIGN_Desktop_windows
+          name: MASKIT_Desktop_windows
           path: |
-            app/dist/MALIGN_Desktop.exe
+            app/dist/MASKIT_Desktop.exe
             app/yard_windows.png
             app/audit_yard_alignment.json
             app/test_*.log

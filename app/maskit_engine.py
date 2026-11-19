@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-"""M-ALIGN Matrix5 engine — Python port of the v3.5.4 JavaScript engine.
+"""MAS-kit Matrix5 engine — Python port of the v3.5.4 JavaScript engine.
 
-Ported operation-for-operation from MALIGN_Desktop.html (v3.5.4 commit 18ae279):
+Ported operation-for-operation from MASKIT_Desktop.html (v3.5.4 commit 18ae279):
 rng, PCHIP, response model, measurement (truth), grid estimator, history
 estimator, 4-corner rigid fit and the full closed loop (run_once).
 The same seed gives the same results as the JS engine; tests/test_engine_port.py

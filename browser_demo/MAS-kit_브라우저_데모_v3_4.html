@@ -1,4 +1,4 @@
-<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>M-ALIGN Matrix5 · 3D 보정 시뮬레이터</title>
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MAS-kit Matrix5 · 3D 보정 시뮬레이터</title>
 <style>
 :root{color-scheme:light;--bg:#f0f4f8;--paper:#fff;--ink:#14283e;--muted:#5c7084;--line:#d8e3ec;--blue:#155ba5;--teal:#087c78;--bad:#ae423d}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,"Malgun Gothic","Apple SD Gothic Neo",sans-serif}
@@ -14,7 +14,7 @@ select,input{border:1px solid #bdcddb;border-radius:7px;padding:8px;width:100%;f
 .log{font:11px/1.55 ui-monospace,Consolas,monospace;max-height:170px;overflow:auto;background:#f6f9fb;border-radius:8px;padding:10px;white-space:pre-wrap}.batch{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-top:10px}.batch .stat{padding:9px}.notes{font-size:12px;line-height:1.65}.notes b{color:#193e68}.archive-state{background:#eef7f4;border:1px solid #cce7dd;padding:9px 10px;border-radius:9px;font-size:12px;margin:8px 0}.archive-warning{color:#9a3b29}.recent-case{font-size:11px;padding:5px 0;border-top:1px solid #dde9e6;overflow-wrap:anywhere}
 @media(max-width:900px){.layout{grid-template-columns:1fr}}@media(max-width:480px){.controls{grid-template-columns:repeat(2,minmax(0,1fr))}.control-wide{grid-column:span 2}main{padding:12px 9px}.card{padding:11px}.stage-list span{font-size:10px}.stat strong{font-size:17px}}
 </style></head><body><main>
-<header class="top"><div><div class="eyebrow">M-ALIGN · MATRIX5 · 3D 시각화 / 2026-11-11 기반</div><h1>컨테이너 정렬 보정 시뮬레이터 · 센서 이력 추정 · 성공사례 누적 v3.4</h1><p class="subtitle">5권선 인덕턴스 21개 Maxwell 조건을 기반으로 만든 <b>가상 정렬 보조 키트</b>. 실행하면 센서 추정과 보정값을 계산하고 스프레더 이동 과정을 애니메이션으로 재생합니다. 자동 잠금·실물 성능을 의미하지 않습니다.</p></div></header>
+<header class="top"><div><div class="eyebrow">MAS-kit · MATRIX5 · 3D 시각화 / 2026-11-11 기반</div><h1>컨테이너 정렬 보정 시뮬레이터 · 센서 이력 추정 · 성공사례 누적 v3.4</h1><p class="subtitle">5권선 인덕턴스 21개 Maxwell 조건을 기반으로 만든 <b>가상 정렬 보조 키트</b>. 실행하면 센서 추정과 보정값을 계산하고 스프레더 이동 과정을 애니메이션으로 재생합니다. 자동 잠금·실물 성능을 의미하지 않습니다.</p></div></header>
 <div class="layout">
 <section>
 <div class="card"><h2>① 컨테이너·스프레더 3D 시뮬레이션</h2>
@@ -63,7 +63,7 @@ select,input{border:1px solid #bdcddb;border-radius:7px;padding:8px;width:100%;f
 <script>/* ORIGINAL MATRIX5 ENGINE, UNMODIFIED */
 
 
-/* M-ALIGN Matrix5 engine (v2.0). Pure functions, no DOM. Runs in browser and node.
+/* MAS-kit Matrix5 engine (v2.0). Pure functions, no DOM. Runs in browser and node.
    Truth model and controller model are both built from the 21 Maxwell cases (v1.5.11 + v1.5.12). */
 (function (root) {
   'use strict';
@@ -235,11 +235,11 @@ select,input{border:1px solid #bdcddb;border-radius:7px;padding:8px;width:100%;f
           var hst = historyByCorner[k];
           // Retain ONLY measured inductance and commanded local offsets. No true position.
           hst.push({m:meas.slice(), ox:0, oy:0});
-          es = (hst.length >= 2 && root.MALIGN_HISTORY)
-            ? root.MALIGN_HISTORY.estimate(M, hst, P, function(){ return estimate(M, meas, P); })
+          es = (hst.length >= 2 && root.MASKIT_HISTORY)
+            ? root.MASKIT_HISTORY.estimate(M, hst, P, function(){ return estimate(M, meas, P); })
             : estimate(M, meas, P);
         } else {
-          es = (P.estimator==='lm' && root.MALIGN_LM) ? root.MALIGN_LM.estimate(M,meas,P) : estimate(M,meas,P);
+          es = (P.estimator==='lm' && root.MASKIT_LM) ? root.MASKIT_LM.estimate(M,meas,P) : estimate(M,meas,P);
         }
         est.push([f[0] * es.x, f[1] * es.y]);
       }
@@ -306,7 +306,7 @@ select,input{border:1px solid #bdcddb;border-radius:7px;padding:8px;width:100%;f
         var ex = x, ey = y;
         for (var it = 0; it < P.iters; it++) {
           measure(M, st, ex, ey, rnd, P, meas);
-          var es = (P.estimator==='lm' && root.MALIGN_LM) ? root.MALIGN_LM.estimate(M,meas,P) : estimate(M,meas,P);
+          var es = (P.estimator==='lm' && root.MASKIT_LM) ? root.MASKIT_LM.estimate(M,meas,P) : estimate(M,meas,P);
           ex -= P.K * es.x + P.act * rnd.n(); ey -= P.K * es.y + P.act * rnd.n();
           if (Math.abs(es.x) <= P.stopMM && Math.abs(es.y) <= P.stopMM) break;
         }
@@ -318,9 +318,9 @@ select,input{border:1px solid #bdcddb;border-radius:7px;padding:8px;width:100%;f
     return cells;
   }
 
-  root.MALIGN = { HEADS: HEADS, rng: rng, pchip: pchip, buildModel: buildModel, measure: measure, estimate: estimate,
+  root.MASKIT = { HEADS: HEADS, rng: rng, pchip: pchip, buildModel: buildModel, measure: measure, estimate: estimate,
                   runOnce: runOnce, batch: batch, captureMap: captureMap, wilson: wilson, CORNERS: CORNERS, frame: frame };
-  if (typeof module !== 'undefined') module.exports = root.MALIGN;
+  if (typeof module !== 'undefined') module.exports = root.MASKIT;
 })(typeof window !== 'undefined' ? window : globalThis);
 
 
@@ -330,7 +330,7 @@ select,input{border:1px solid #bdcddb;border-radius:7px;padding:8px;width:100%;f
 const DATA={"heads":["Xp","Xm","Yp","Ym","Ref"],"cases":{"P1_center":{"dx":0,"dy":0,"dz":0,"pitch":0,"roll":0,"setup":"afast","L":[1109.5791,1123.839,1126.2125,1124.8763,1123.3949],"passes":23,"tets":295622,"err":0.41138,"min":12.8,"maxMutualPct":0.627},"P1_offaxis_30_30":{"dx":30,"dy":30,"dz":0,"pitch":0,"roll":0,"setup":"afast","L":[1120.0192,1119.9881,1121.616,1117.155,1122.8073],"passes":22,"tets":274262,"err":0.43231,"min":11.7,"maxMutualPct":0.669},"P2_xm5":{"dx":-5,"dy":0,"dz":0,"pitch":0,"roll":0,"setup":"afast","L":[1111.3803,1122.615,1125.2959,1125.0064,1122.9715],"passes":23,"tets":293272,"err":0.41,"min":12.8,"maxMutualPct":0.636},"P2_xp5":{"dx":5,"dy":0,"dz":0,"pitch":0,"roll":0,"setup":"afast","L":[1108.8223,1123.9692,1125.8777,1125.0899,1123.8305],"passes":23,"tets":291904,"err":0.40724,"min":12.4,"maxMutualPct":0.62},"P2_ym5":{"dx":0,"dy":-5,"dz":0,"pitch":0,"roll":0,"setup":"afast","L":[1110.2758,1123.9639,1125.7016,1124.7527,1122.9241],"passes":23,"tets":307694,"err":0.39883,"min":13.4,"maxMutualPct":0.621},"P2_yp5":{"dx":0,"dy":5,"dz":0,"pitch":0,"roll":0,"setup":"afast","L":[1110.4919,1124.2127,1125.5915,1124.2922,1123.4155],"passes":23,"tets":306887,"err":0.40189,"min":13.4,"maxMutualPct":0.636},"P3_blind_m2_p4":{"dx":-2,"dy":4,"dz":0,"pitch":0,"roll":0,"setup":"afast","L":[1111.2664,1123.1488,1125.7152,1125.0435,1124.0859],"passes":22,"tets":295280,"err":0.40565,"min":12.7,"maxMutualPct":0.639},"P3_diag_p3_m3":{"dx":3,"dy":-3,"dz":0,"pitch":0,"roll":0,"setup":"afast","L":[1110.3389,1124.4421,1126.4231,1124.8554,1124.0666],"passes":22,"tets":275789,"err":0.44389,"min":11.6,"maxMutualPct":0.619},"P3_diag_p3_p3":{"dx":3,"dy":3,"dz":0,"pitch":0,"roll":0,"setup":"afast","L":[1110.0946,1124.0207,1126.2261,1125.0492,1123.5683],"passes":23,"tets":300488,"err":0.40654,"min":13.1,"maxMutualPct":0.631},"P4_gap18":{"dx":0,"dy":0,"dz":-2,"pitch":0,"roll":0,"setup":"afast","L":[1111.5072,1129.4292,1131.7824,1130.6393,1127.4631],"passes":22,"tets":285951,"err":0.43458,"min":12.1,"maxMutualPct":0.622},"P4_gap22":{"dx":0,"dy":0,"dz":2,"pitch":0,"roll":0,"setup":"afast","L":[1109.4299,1120.676,1122.1183,1120.8473,1118.7202],"passes":22,"tets":279144,"err":0.42501,"min":11.8,"maxMutualPct":0.633},"P4_pitch_p1":{"dx":0,"dy":0,"dz":0,"pitch":1,"roll":0,"setup":"afast","L":[1110.7545,1121.9878,1125.5231,1124.939,1125.7904],"passes":22,"tets":276254,"err":0.44362,"min":11.8,"maxMutualPct":0.623},"P4_roll_p1":{"dx":0,"dy":0,"dz":0,"pitch":0,"roll":1,"setup":"afast","L":[1109.5691,1124.2764,1123.8275,1127.4537,1120.9576],"passes":23,"tets":306951,"err":0.39962,"min":13.4,"maxMutualPct":0.627},"P5_xm15":{"dx":-15,"dy":0,"dz":0,"pitch":0,"roll":0,"setup":"afast","L":[1117.548,1118.8604,1124.5336,1125.1375,1122.4443],"passes":23,"tets":305475,"err":0.40479,"min":13.2,"maxMutualPct":0.634},"P5_xm30":{"dx":-30,"dy":0,"dz":0,"pitch":0,"roll":0,"setup":"afast","L":[1121.674,1112.9238,1125.5163,1124.5396,1117.2958],"passes":23,"tets":295359,"err":0.41649,"min":12.5,"maxMutualPct":0.609},"P5_xp15":{"dx":15,"dy":0,"dz":0,"pitch":0,"roll":0,"setup":"afast","L":[1108.7724,1124.1958,1125.2525,1125.0538,1124.5605],"passes":23,"tets":305389,"err":0.39273,"min":13.1,"maxMutualPct":0.608},"P5_xp30":{"dx":30,"dy":0,"dz":0,"pitch":0,"roll":0,"setup":"afast","L":[1108.4762,1120.1807,1125.9206,1124.9842,1124.7057],"passes":23,"tets":298115,"err":0.39711,"min":12.9,"maxMutualPct":0.597},"P5_yp15":{"dx":0,"dy":15,"dz":0,"pitch":0,"roll":0,"setup":"afast","L":[1113.607,1124.7037,1124.7682,1124.0505,1124.9873],"passes":22,"tets":283015,"err":0.44153,"min":12.1,"maxMutualPct":0.659},"P5_yp30":{"dx":0,"dy":30,"dz":0,"pitch":0,"roll":0,"setup":"afast","L":[1119.9111,1125.0609,1117.8754,1116.8019,1124.0434],"passes":23,"tets":307901,"err":0.39196,"min":13.3,"maxMutualPct":0.687},"P6_center_strict":{"dx":0,"dy":0,"dz":0,"pitch":0,"roll":0,"setup":"strict","L":[1109.3275,1122.7932,1124.7982,1123.7841,1122.3553],"passes":26,"tets":417612,"err":0.28923,"min":19.0,"maxMutualPct":0.631},"P6_gap40":{"dx":0,"dy":0,"dz":20,"pitch":0,"roll":0,"setup":"afast","L":[1105.7715,1107.7799,1108.3203,1107.8285,1107.8884],"passes":22,"tets":270492,"err":0.4257,"min":11.1,"maxMutualPct":0.708}},"centerMatrix":[[1109.579,-0.294,-1.649,-1.642,-6.956],[-0.294,1123.839,-2.019,-2.205,-1.35],[-1.649,-2.019,1126.212,-2.248,2.129],[-1.642,-2.205,-2.248,1124.876,-1.627],[-6.956,-1.35,2.129,-1.627,1123.395]]};
 </script>
 <script>
-/* M-ALIGN optional LM local refinement, independent of the 21-case Matrix5 data.
+/* MAS-kit optional LM local refinement, independent of the 21-case Matrix5 data.
    Original grid search is always the initial solution.  The objective below is
    exactly the grid search's gap-projected sum of squared residuals.
    All accepted LM steps strictly decrease that SAME objective.  No new noise,
@@ -340,7 +340,7 @@ const DATA={"heads":["Xp","Xm","Yp","Ym","Ref"],"cases":{"P1_center":{"dx":0,"dy
 */
 (function(root){ 'use strict';
  function refine(M,meas,P){
-   var baseline=root.MALIGN.estimate(M,meas,P);
+   var baseline=root.MASKIT.estimate(M,meas,P);
    var x=baseline.x,y=baseline.y;
    // Do not extend a local derivative beyond the actually sampled X/Y axis interval.
    if(Math.abs(x)>30 || Math.abs(y)>30)return baseline;
@@ -391,7 +391,7 @@ const DATA={"heads":["Xp","Xm","Yp","Ym","Ref"],"cases":{"P1_center":{"dx":0,"dy
    if(!accepted || !(cur.score<initial-1e-12))return baseline;
    return {x:x,y:y,rss:cur.score,lmAccepted:accepted,gridRss:baseline.rss};
  }
- root.MALIGN_LM={estimate:refine};
+ root.MASKIT_LM={estimate:refine};
 })(typeof window!=='undefined'?window:globalThis);
 
 </script>
@@ -447,13 +447,13 @@ const DATA={"heads":["Xp","Xm","Yp","Ym","Ref"],"cases":{"P1_center":{"dx":0,"dy
    if(!Number.isFinite(best))return fallback();
    return {x:-R+fi*S,y:-R+fj*S,rss:best,historyUsed:n};
  }
- root.MALIGN_HISTORY={estimate:estimate};
+ root.MASKIT_HISTORY={estimate:estimate};
 })(typeof window!=='undefined'?window:globalThis);
 </script>
 <script>
 /* IndexedDB case bank: browser-local append/deduplicate. No change to Matrix5 physics or estimator. */
 (function(root){'use strict';
- const NAME='MALIGN_CaseBank_v34', STORE='cases';let dbPromise=null;
+ const NAME='MASKIT_CaseBank_v34', STORE='cases';let dbPromise=null;
  function dbOpen(){
   if(dbPromise)return dbPromise;
   dbPromise=new Promise((resolve,reject)=>{
@@ -494,12 +494,12 @@ const DATA={"heads":["Xp","Xm","Yp","Ym","Ref"],"cases":{"P1_center":{"dx":0,"dy
   const tx=db.transaction(STORE,'readonly'),req=tx.objectStore(STORE).getAll();req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error||new Error('전체 기록 읽기 실패'));
  });}
  async function clear(){const db=await dbOpen();await new Promise((resolve,reject)=>{const tx=db.transaction(STORE,'readwrite');tx.objectStore(STORE).clear();tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error||new Error('삭제 실패'));});}
- root.MALIGN_CASE_BANK={dbOpen,add,stats,all,clear};
+ root.MASKIT_CASE_BANK={dbOpen,add,stats,all,clear};
 })(window);
 </script>
 <script>
 (function(){'use strict';
-const E=window.MALIGN, C=E.CORNERS, heads=E.HEADS;
+const E=window.MASKIT, C=E.CORNERS, heads=E.HEADS;
 const $=id=>document.getElementById(id);
 const presets={
  ideal:{modelBias:0,noise:.1,gapSd:0,tiltSd:0,tolC:.7,act:.2},
@@ -508,7 +508,7 @@ const presets={
 };
 const base={R0:30,theta0:.1,K:.8,iters:6,tolMM:5,fitGap:true,mirror:true,useHead:[1,1,1,1,1],searchMM:36,stopMM:1};
 let model=null,busy=false,runId=0,firstFail=null,lastBatch=null,caseArchive=null,shownErrors=null,approach=0,lastEstimate=null,highlightStep=-1;
-let bankReady=false;const BANK=window.MALIGN_CASE_BANK;let bankSequence=0;
+let bankReady=false;const BANK=window.MASKIT_CASE_BANK;let bankSequence=0;
 const canvas=$('scene'),ctx=canvas.getContext('2d'),zoom=$('cornerZoom'),zx=zoom.getContext('2d');
 function setting(){return {...base,...presets[$('scenario').value],R0:+$('radius').value,estimator:$('estimator').value,tolModel:$('tolModel').value,capture:$('capture').value};}
 function scenKey(){return $('scenario').value+($('tolModel').value==='iso'?'|iso':'')+($('capture').value!=='pm5'?'|'+$('capture').value:'');}
@@ -536,7 +536,7 @@ function bankId(seed,P,i){/* scenario key includes tolerance model and capture *
 function toBankRecord(r,seed,P,index,origin,savedAt){
  const trace=r.trace||[], rounds=trace.filter(t=>Array.isArray(t.est));
  return {
-  uid:bankId(seed,P,index),schema:'MALIGN_observation_case_v1',origin:origin,
+  uid:bankId(seed,P,index),schema:'MASKIT_observation_case_v1',origin:origin,
   outcome:r.ok?'success':'failure',gate:r.gate_p!=null?{held:!!r.held,similar_success:r.gate_p}:undefined,saved_at:savedAt,saved_order:Date.now()+(bankSequence++/100000),
   source_seed:seed>>>0,trial_index:index,scenario:scenKey(),estimator:P.estimator,radius_mm:P.R0,
   simulation_only:true,source_model:'Maxwell Matrix5 21 FEM cases + interpolation/assumptions',
@@ -610,7 +610,7 @@ function draw3d(errors=baselineErr,info=null,approachPct=0){
    disc([p[0],p[1],zBottom],7.6,'#223e4c','#ebca82');
    if(highlightStep===0){disc([p[0],p[1],zBottom-2],12,'#41c6e34f','#33a9c6');}
  });
- text('M-ALIGN  5권선 × 4코너',25,34,'#164e84',20,true);
+ text('MAS-kit  5권선 × 4코너',25,34,'#164e84',20,true);
  text('노란색: 스프레더/트위스트록    파란색: 컨테이너/캐스팅',25,57,'#526f85',13);
  text('이동 시각 확대 ×16 (계산은 실제 mm)',25,80,'#936d27',13,true);
  text('스프레더 보정 표시: 정렬의 시각화, 실제 충돌/잠금 시뮬레이션 아님',25,532,'#647d91',13);
@@ -711,7 +711,7 @@ async function monteCarlo(){if(busy)return;busy=true;$('run').disabled=true;$('b
  $('batchError').textContent=`${errors[Math.floor(n/2)].toFixed(1)} / ${errors[Math.min(n-1,Math.floor(n*.95))].toFixed(1)} mm`;
  $('batchState').textContent=`완료 · 시드 ${runSeed} · ${P.estimator==='history'?'이력 기반 편향 제거':P.estimator==='lm'?'격자+LM 실험안':'원본 격자'} · 성공 ${ok}회 / 실패 ${fail}회 · 수동 초기 조건만으로 충족 ${ok0}회`;
  firstFail=failExample;lastBatch={n,ok,fail,ext,ci,seed:runSeed};
- caseArchive={schema:'MALIGN_matrix5_virtual_trials_v1',data_source:'Matrix5 21-case FEM based simulated response; unmeasured regions assumed',purpose:'offline audit + cumulative case bank; NOT used by controller or adaptation; controller consumes only 5-head Lii and commanded movements',created_at:new Date().toISOString(),batch_seed:runSeed,scenario:$('scenario').value,estimator:P.estimator,radius_mm:P.R0,n,success:ok,failed:fail,extrapolated:ext,success_definition:'max absolute true simulated X/Y corner error <= 5 mm',scenario_parameters:P,original_reference_rates:{ideal:99.9,target:60.5,base:6.8},cases:rows};$('saveCases').disabled=false;
+ caseArchive={schema:'MASKIT_matrix5_virtual_trials_v1',data_source:'Matrix5 21-case FEM based simulated response; unmeasured regions assumed',purpose:'offline audit + cumulative case bank; NOT used by controller or adaptation; controller consumes only 5-head Lii and commanded movements',created_at:new Date().toISOString(),batch_seed:runSeed,scenario:$('scenario').value,estimator:P.estimator,radius_mm:P.R0,n,success:ok,failed:fail,extrapolated:ext,success_definition:'max absolute true simulated X/Y corner error <= 5 mm',scenario_parameters:P,original_reference_rates:{ideal:99.9,target:60.5,base:6.8},cases:rows};$('saveCases').disabled=false;
  await storeTrialRecords(newBankRecords,`${n}회 성공·실패 기록`);
  }catch(err){console.error(err);$('batchState').textContent='시험 오류: '+String(err.message||err);}finally{busy=false;$('run').disabled=false;$('batchRun').disabled=false;$('reroll').disabled=false;$('failReplay').disabled=!firstFail;}}
 async function replayFailure(){if(busy||!firstFail)return;busy=true;const token=++runId;$('run').disabled=true;$('batchRun').disabled=true;$('failReplay').disabled=true;
@@ -720,16 +720,16 @@ async function replayFailure(){if(busy||!firstFail)return;busy=true;const token=
 $('run').addEventListener('click',play);$('batchRun').addEventListener('click',monteCarlo);$('failReplay').addEventListener('click',replayFailure);
 $('estimator').addEventListener('change',()=>{const v=$('estimator').value;$('phase').textContent=v==='history'?'이력 기반 센서 추정 선택':v==='lm'?'LM 실험안 선택':'원본 v3 추정기로 복귀';$('phaseDesc').textContent='원본 21개 FEM 데이터·K=0.8·최대 6회·±5mm 판정 유지. 내부 정답 좌표는 제어기에 주지 않습니다.';});
 $('reroll').addEventListener('click',()=>{$('seed').value=freshSeed();$('phase').textContent='새 난수 시드 설정';$('phaseDesc').textContent='실행을 눌러 다른 초기 오차를 생성합니다.';});
-$('saveCases').addEventListener('click',()=>{if(!caseArchive)return;const content=JSON.stringify(caseArchive,null,2);const blob=new Blob([content],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`MALIGN_Matrix5_trials_${caseArchive.scenario}_${caseArchive.estimator}_${caseArchive.batch_seed}.json`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);});
-$('bankExport').addEventListener('click',async()=>{try{bankLabel('누적 기록 읽는 중…');const rows=await BANK.all();downloadJSON({schema:'MALIGN_casebank_backup_v1',exported_at:new Date().toISOString(),source:'Matrix5 21-case virtual simulation; do not feed evaluation_only to estimator',count:rows.length,records:rows},`MALIGN_CaseBank_${new Date().toISOString().slice(0,10)}.json`);await updateBankStats();bankLabel(`누적 ${rows.length.toLocaleString()}건 JSON 내보내기 요청 완료`);}catch(e){bankLabel('내보내기 실패: '+String(e.message||e),true);}});
+$('saveCases').addEventListener('click',()=>{if(!caseArchive)return;const content=JSON.stringify(caseArchive,null,2);const blob=new Blob([content],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`MASKIT_Matrix5_trials_${caseArchive.scenario}_${caseArchive.estimator}_${caseArchive.batch_seed}.json`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);});
+$('bankExport').addEventListener('click',async()=>{try{bankLabel('누적 기록 읽는 중…');const rows=await BANK.all();downloadJSON({schema:'MASKIT_casebank_backup_v1',exported_at:new Date().toISOString(),source:'Matrix5 21-case virtual simulation; do not feed evaluation_only to estimator',count:rows.length,records:rows},`MASKIT_CaseBank_${new Date().toISOString().slice(0,10)}.json`);await updateBankStats();bankLabel(`누적 ${rows.length.toLocaleString()}건 JSON 내보내기 요청 완료`);}catch(e){bankLabel('내보내기 실패: '+String(e.message||e),true);}});
 $('bankImport').addEventListener('click',()=>$('bankFile').click());
 $('bankFile').addEventListener('change',async event=>{
  const f=event.target.files?.[0];if(!f)return;
  try{bankLabel('JSON 검사·불러오기 중…');const parsed=JSON.parse(await f.text());let rows=[];
- if(parsed.schema==='MALIGN_casebank_backup_v1' && Array.isArray(parsed.records))rows=parsed.records;
- else if(parsed.schema==='MALIGN_matrix5_virtual_trials_v1' && Array.isArray(parsed.cases)){
-  rows=parsed.cases.map((c,i)=>({uid:['legacy',parsed.scenario,parsed.estimator,parsed.radius_mm,parsed.batch_seed,c.index||i+1].join('|'),schema:'MALIGN_legacy_audit_v1',origin:'imported_legacy',outcome:c.passed_5mm?'success':'failure',saved_at:new Date().toISOString(),saved_order:Date.now()+i/100000,source_seed:parsed.batch_seed,trial_index:c.index||i+1,scenario:parsed.scenario,estimator:parsed.estimator,radius_mm:parsed.radius_mm,simulation_only:true,initial_worst_axis_mm:c.initial_worst_axis_mm,final_worst_axis_mm:c.final_worst_axis_mm,iterations:c.steps,extrapolated:c.extrapolated,controller_observable:null,evaluation_only:{initial_true_corner_error_mm:c.initial_corner_errors_mm,final_true_corner_error_mm:c.final_corner_errors_mm,within_5mm:!!c.passed_5mm},warning:'이전 저장본에는 센서 측정 이력이 없어 관측 학습 자료가 아님'}));
- }else throw new Error('M-ALIGN 누적 백업 또는 v3.3 실험 JSON 형식만 지원');
+ if(parsed.schema==='MASKIT_casebank_backup_v1' && Array.isArray(parsed.records))rows=parsed.records;
+ else if(parsed.schema==='MASKIT_matrix5_virtual_trials_v1' && Array.isArray(parsed.cases)){
+  rows=parsed.cases.map((c,i)=>({uid:['legacy',parsed.scenario,parsed.estimator,parsed.radius_mm,parsed.batch_seed,c.index||i+1].join('|'),schema:'MASKIT_legacy_audit_v1',origin:'imported_legacy',outcome:c.passed_5mm?'success':'failure',saved_at:new Date().toISOString(),saved_order:Date.now()+i/100000,source_seed:parsed.batch_seed,trial_index:c.index||i+1,scenario:parsed.scenario,estimator:parsed.estimator,radius_mm:parsed.radius_mm,simulation_only:true,initial_worst_axis_mm:c.initial_worst_axis_mm,final_worst_axis_mm:c.final_worst_axis_mm,iterations:c.steps,extrapolated:c.extrapolated,controller_observable:null,evaluation_only:{initial_true_corner_error_mm:c.initial_corner_errors_mm,final_true_corner_error_mm:c.final_corner_errors_mm,within_5mm:!!c.passed_5mm},warning:'이전 저장본에는 센서 측정 이력이 없어 관측 학습 자료가 아님'}));
+ }else throw new Error('MAS-kit 누적 백업 또는 v3.3 실험 JSON 형식만 지원');
  if(rows.length>500000)throw new Error('500,000건 초과 파일은 분할해 불러와 주세요.');
  for(const r of rows){if(!r || typeof r.uid!=='string'||r.uid.length>350||!['success','failure','held'].includes(r.outcome))throw new Error('기록 형식 오류 (uid/outcome)');}
  const added=await BANK.add(rows);await updateBankStats(added);bankLabel(`불러오기 완료: ${rows.length}건 확인 / 신규 ${added}건 (중복 제외)`);
@@ -744,6 +744,6 @@ updateBankStats();
 $('seed').value=freshSeed();$('batchseed').value=freshSeed();
 // ready state must paint immediately without calculating the FEM table
 const first=[[18,-10],[18,-10],[18,-10],[18,-10]];draw3d(first);$('worst').textContent='—';
-window.MALIGN_UI_TEST={run:play,batch:monteCarlo,state:()=>({busy,batch:lastBatch,phase:$('phase').textContent,archive:caseArchive})};
+window.MASKIT_UI_TEST={run:play,batch:monteCarlo,state:()=>({busy,batch:lastBatch,phase:$('phase').textContent,archive:caseArchive})};
 })();
 </script></body></html>

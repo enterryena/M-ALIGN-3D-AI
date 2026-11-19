@@ -2,10 +2,10 @@
 waiting for answers that never come (regression: seed 700096 waited minutes: sense -> refused move -> sense...)."""
 import sys, json, time, tempfile, pathlib, random
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
-import malign_link
+import maskit_link
 tmp = pathlib.Path(tempfile.mkdtemp()); (tmp / 'Link').mkdir()
 (tmp / 'Link' / 'link_config.json').write_text(json.dumps({'sim_move_delay_s': 0.0}))
-rt = malign_link.open_link(tmp / 'Link'); site = rt.sim.site; site.approach_s = 0.0
+rt = maskit_link.open_link(tmp / 'Link'); site = rt.sim.site; site.approach_s = 0.0
 r = random.Random(7096); tol = [[r.gauss(0, 1), r.gauss(0, 1)] for _ in range(4)]
 site.start(seed=700096, controller='autopilot', hardware='base', container_tol=tol)
 t0 = time.time()

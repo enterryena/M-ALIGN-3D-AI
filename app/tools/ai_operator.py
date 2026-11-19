@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Optional AI operator assistant for the M-ALIGN main server (free, local: Ollama).
+"""Optional AI operator assistant for the MAS-kit main server (free, local: Ollama).
 
 The rule-based controller (main_controller.py) makes every alignment / lowering decision.
 This assistant only turns an operator's words into a few WHITELISTED main-server API calls
@@ -19,7 +19,7 @@ import urllib.error
 import urllib.request
 
 SYSTEM = (
-    'You are the operator assistant of the M-ALIGN main server (container corner alignment kit + reach stacker). '
+    'You are the operator assistant of the MAS-kit main server (container corner alignment kit + reach stacker). '
     'Answer in Korean, briefly. Use ONLY the given tools to read state or act; never invent numbers or job ids. '
     'You must NOT decide corrections, lowering or sensing: the rule-based controller does that. '
     'If the operator asks for something outside your tools, say it is not allowed and why. '
@@ -76,9 +76,9 @@ class MainServer:
         args = args if isinstance(args, dict) else {}
         kit = str(args.get('kit_id', ''))
         if name == 'list_jobs':
-            return self.call('/malign/v1/jobs')[-10:]
+            return self.call('/maskit/v1/jobs')[-10:]
         if name == 'kit_status':
-            kits = [k for k in self.call('/malign/v1/kits') if isinstance(k, dict) and k.get('kit_id') == kit]
+            kits = [k for k in self.call('/maskit/v1/kits') if isinstance(k, dict) and k.get('kit_id') == kit]
             site = self.call('/sim/v1/kits/%s/state' % kit)
             if isinstance(site, dict):
                 site = {k: site.get(k) for k in ('active', 'job_id', 'phase', 'outcome', 'rounds', 'decision')}
@@ -88,11 +88,11 @@ class MainServer:
             st = self.call('/sim/v1/kits/%s/start' % kit, params)
             return {k: st.get(k) for k in ('job_id', 'phase', 'settings', 'error') if k in st}
         if name == 'machine_ready':
-            return self.call('/malign/v1/machines/%s/ready' % args.get('machine_id', ''), {'kit_id': kit})
+            return self.call('/maskit/v1/machines/%s/ready' % args.get('machine_id', ''), {'kit_id': kit})
         if name == 'kit_command':
             if args.get('type') not in ALLOWED_KIT_COMMANDS:
                 return {'error': 'not allowed: only ' + ', '.join(ALLOWED_KIT_COMMANDS)}
-            return self.call('/malign/v1/kits/%s/commands' % kit, {'type': args['type']})
+            return self.call('/maskit/v1/kits/%s/commands' % kit, {'type': args['type']})
         return {'error': 'unknown tool'}
 
 
@@ -130,7 +130,7 @@ def ask(server, text, ollama='http://127.0.0.1:11434', model='qwen2.5:7b', histo
 
 
 def main():
-    ap = argparse.ArgumentParser(description='M-ALIGN AI operator assistant (Ollama)')
+    ap = argparse.ArgumentParser(description='MAS-kit AI operator assistant (Ollama)')
     ap.add_argument('--server', default='http://127.0.0.1:8750')
     ap.add_argument('--api-key', default='')
     ap.add_argument('--ollama', default='http://127.0.0.1:11434')
@@ -146,7 +146,7 @@ def main():
                 print('  [도구]', l['tool'], json.dumps(l['args'], ensure_ascii=False))
             print(ans)
             return
-        print('M-ALIGN 운영 비서 (종료: 빈 줄)')
+        print('MAS-kit 운영 비서 (종료: 빈 줄)')
         while True:
             text = input('> ').strip()
             if not text:

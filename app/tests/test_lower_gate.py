@@ -5,7 +5,7 @@
 - the same container keeps its corner tolerance across attempts."""
 import sys, json, time, tempfile, pathlib
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
-import case_memory as CM, malign_link
+import case_memory as CM, maskit_link
 
 # store / lookup
 with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as d:
@@ -28,7 +28,7 @@ with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as d:
 
 tmp = pathlib.Path(tempfile.mkdtemp()); (tmp / 'Link').mkdir()
 (tmp / 'Link' / 'link_config.json').write_text(json.dumps({'sim_move_delay_s': 0.05}))
-rt = malign_link.open_link(tmp / 'Link'); site = rt.sim.site
+rt = maskit_link.open_link(tmp / 'Link'); site = rt.sim.site
 def idle():
     for _ in range(200):
         if rt.link.status()['state'] == 'IDLE': return

@@ -1,14 +1,14 @@
 @echo off
 setlocal EnableExtensions
 chcp 65001 >nul
-title M-ALIGN - Complete Uninstall
+title MAS-kit - Complete Uninstall
 cd /d "%~dp0"
 echo ======================================================
-echo M-ALIGN removal (this Windows user account)
+echo MAS-kit removal (this Windows user account)
 echo ======================================================
 echo This will PERMANENTLY remove ALL saved cases,
-echo backups, logs, and settings in %%LOCALAPPDATA%%\MALIGN.
-echo It will also remove dist\MALIGN_Desktop.exe if present.
+echo backups, logs, and settings in %%LOCALAPPDATA%%\MASKIT.
+echo It will also remove dist\MASKIT_Desktop.exe if present.
 echo It will NOT delete your downloads or unrelated files.
 echo.
 set /p "CONFIRM=To uninstall, type DELETE and press Enter: "
@@ -17,8 +17,8 @@ if /i not "%CONFIRM%"=="DELETE" (
  pause
  exit /b 1
 )
-set "MALIGN_EXE=%~dp0dist\MALIGN_Desktop.exe"
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0UNINSTALL_MALIGN.ps1" -AppExePath "%MALIGN_EXE%" -NoDialog
+set "MASKIT_EXE=%~dp0dist\MASKIT_Desktop.exe"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0UNINSTALL_MASKIT.ps1" -AppExePath "%MASKIT_EXE%" -NoDialog
 set "RET=%errorlevel%"
 if not "%RET%"=="0" (
  echo.

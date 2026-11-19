@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>M-ALIGN 3D · AI 컨테이너 야드 (브라우저판)</title>
+<title>MAS-kit 3D · AI 컨테이너 야드 (브라우저판)</title>
 <style>
 :root{--ink:#e9f1f6;--muted:#9fb3c2;--panel:rgba(12,22,30,.88);--line:rgba(255,255,255,.12);--ok:#3ddc97;--bad:#ff5d5d;--warn:#ffc04d;--ai:#8fb8ff}
 *{box-sizing:border-box}html,body{margin:0;height:100%;overflow:hidden;background:#b7c9d5;font-family:"Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif;color:var(--ink)}
@@ -60,7 +60,7 @@ button.sec{background:#1d2c38;border:1px solid var(--line);font-weight:500;font-
 <body>
 <canvas id="scene"></canvas>
 <div class="panel" id="ctrl">
- <h1>M-ALIGN 3D · AI 야드</h1>
+ <h1>MAS-kit 3D · AI 야드</h1>
  <div style="font-size:11px;color:var(--muted)">트럭 3대가 오가며 입고·반출, 메인 서버(AI)가 리치스태커를 운전·정렬합니다.</div>
  <label for="controller">제어 주체 (메인 서버)</label>
  <select id="controller"><option value="autopilot">규칙 자동조종 (AI 없이)</option><option value="ai">Ollama AI (무료, 내 PC)</option></select>
@@ -90,7 +90,7 @@ button.sec{background:#1d2c38;border:1px solid var(--line);font-weight:500;font-
  <h2 style="margin-top:8px">사례 누적 · 유도</h2>
  <div class="kv"><div>누적 사례<b id="m_n">0</b></div><div>최근 50 성공<b id="m_rate">-</b></div><div>재시도 성공<b id="m_retry">0/0</b></div><div>하강 기록<b id="m_low">0</b></div><div>오하강<b id="m_fl">0</b></div><div>하강 보류<b id="m_hold">0</b></div></div>
  <div id="m_plan" style="font-size:11px;color:var(--muted);margin-top:6px">계획 선택 없음</div>
- <div id="alignbox" style="display:none"><h2 style="margin-top:8px">M-ALIGN 정렬 (실제 코너 오차)</h2><div class="cgrid" id="cgrid"></div></div>
+ <div id="alignbox" style="display:none"><h2 style="margin-top:8px">MAS-kit 정렬 (실제 코너 오차)</h2><div class="cgrid" id="cgrid"></div></div>
 </div>
 <div class="panel" id="log"><h2>AI · 서버 · 현장 기록</h2><div id="logbody"></div></div>
 <div class="panel" id="help">컨테이너 클릭 → 빈 구역(A1–B5) 또는 대기 중인 빈 트럭 클릭 = 우선 지시. Esc = 취소. 끌기 회전 · 휠 확대.<br>초록 선 = 전진 경로, 주황 선 = 후진. 부채꼴 = 장애물 센서(16 m). 초록 띠 = 보행로(사람은 여기로만), 바깥 회색 = 서비스 도로.</div>
@@ -98,7 +98,7 @@ button.sec{background:#1d2c38;border:1px solid var(--line);font-weight:500;font-
 <script>/* ORIGINAL MATRIX5 ENGINE, UNMODIFIED */
 
 
-/* M-ALIGN Matrix5 engine (v2.0). Pure functions, no DOM. Runs in browser and node.
+/* MAS-kit Matrix5 engine (v2.0). Pure functions, no DOM. Runs in browser and node.
    Truth model and controller model are both built from the 21 Maxwell cases (v1.5.11 + v1.5.12). */
 (function (root) {
   'use strict';
@@ -258,11 +258,11 @@ button.sec{background:#1d2c38;border:1px solid var(--line);font-weight:500;font-
           var hst = historyByCorner[k];
           // Retain ONLY measured inductance and commanded local offsets. No true position.
           hst.push({m:meas.slice(), ox:0, oy:0});
-          es = (hst.length >= 2 && root.MALIGN_HISTORY)
-            ? root.MALIGN_HISTORY.estimate(M, hst, P, function(){ return estimate(M, meas, P); })
+          es = (hst.length >= 2 && root.MASKIT_HISTORY)
+            ? root.MASKIT_HISTORY.estimate(M, hst, P, function(){ return estimate(M, meas, P); })
             : estimate(M, meas, P);
         } else {
-          es = (P.estimator==='lm' && root.MALIGN_LM) ? root.MALIGN_LM.estimate(M,meas,P) : estimate(M,meas,P);
+          es = (P.estimator==='lm' && root.MASKIT_LM) ? root.MASKIT_LM.estimate(M,meas,P) : estimate(M,meas,P);
         }
         est.push([f[0] * es.x, f[1] * es.y]);
       }
@@ -325,7 +325,7 @@ button.sec{background:#1d2c38;border:1px solid var(--line);font-weight:500;font-
         var ex = x, ey = y;
         for (var it = 0; it < P.iters; it++) {
           measure(M, st, ex, ey, rnd, P, meas);
-          var es = (P.estimator==='lm' && root.MALIGN_LM) ? root.MALIGN_LM.estimate(M,meas,P) : estimate(M,meas,P);
+          var es = (P.estimator==='lm' && root.MASKIT_LM) ? root.MASKIT_LM.estimate(M,meas,P) : estimate(M,meas,P);
           ex -= P.K * es.x + P.act * rnd.n(); ey -= P.K * es.y + P.act * rnd.n();
           if (Math.abs(es.x) <= P.stopMM && Math.abs(es.y) <= P.stopMM) break;
         }
@@ -337,9 +337,9 @@ button.sec{background:#1d2c38;border:1px solid var(--line);font-weight:500;font-
     return cells;
   }
 
-  root.MALIGN = { HEADS: HEADS, rng: rng, pchip: pchip, buildModel: buildModel, measure: measure, estimate: estimate,
+  root.MASKIT = { HEADS: HEADS, rng: rng, pchip: pchip, buildModel: buildModel, measure: measure, estimate: estimate,
                   runOnce: runOnce, batch: batch, captureMap: captureMap, wilson: wilson, CORNERS: CORNERS, frame: frame };
-  if (typeof module !== 'undefined') module.exports = root.MALIGN;
+  if (typeof module !== 'undefined') module.exports = root.MASKIT;
 })(typeof window !== 'undefined' ? window : globalThis);
 
 
@@ -400,14 +400,14 @@ const DATA={"heads":["Xp","Xm","Yp","Ym","Ref"],"cases":{"P1_center":{"dx":0,"dy
    if(!Number.isFinite(best))return fallback();
    return {x:-R+fi*S,y:-R+fj*S,rss:best,historyUsed:n};
  }
- root.MALIGN_HISTORY={estimate:estimate};
+ root.MASKIT_HISTORY={estimate:estimate};
 })(typeof window!=='undefined'?window:globalThis);
 </script>
-<script>window.MALIGN_DATA = DATA;</script>
+<script>window.MASKIT_DATA = DATA;</script>
 <script>
-// M-ALIGN AI yard — in-browser port of the desktop program's yard (app/yard_world.py, yard_actors.py, yard_ops.py,
+// MAS-kit AI yard — in-browser port of the desktop program's yard (app/yard_world.py, yard_actors.py, yard_ops.py,
 // case_memory.py) so the whole simulation runs from a single HTML file, no Python / EXE needed.
-// The alignment uses the original Matrix5 engine (window.MALIGN + MALIGN_HISTORY) with the kit + reach stacker
+// The alignment uses the original Matrix5 engine (window.MASKIT + MASKIT_HISTORY) with the kit + reach stacker
 // camera / infrared fusion of the stand-alone demo. Optional: Ollama (local) for the main server's decisions.
 (function (root) {
 'use strict';
@@ -642,7 +642,7 @@ const PRESETS = {ideal: {modelBias: 0, noise: .1, gapSd: 0, tiltSd: 0, tolC: .7,
   base: {modelBias: .5, noise: .3, gapSd: 1, tiltSd: .2, tolC: 3, act: .5}};
 const BASEP = {R0: 30, theta0: .1, K: .8, iters: 6, tolMM: 5, fitGap: true, mirror: true, useHead: [1, 1, 1, 1, 1], searchMM: 36, stopMM: 1};
 const CMM = [[-2926.5, 1129.5], [2926.5, 1129.5], [2926.5, -1129.5], [-2926.5, -1129.5]];
-// ISO 668-based corner deviations (20 ft) and twistlock engagement (same as malign_engine.iso_tol / capture_ok)
+// ISO 668-based corner deviations (20 ft) and twistlock engagement (same as maskit_engine.iso_tol / capture_ok)
 function isoTol(zs, cast){ const clip = (v, lo, hi) => Math.max(lo, Math.min(hi, v)); const dS = clip(-1 + 8 / 6 * zs[0], -5, 3), dP = clip(-1 + 8 / 6 * zs[1], -5, 3), sh = clip(13 / 3 * zs[2], -13, 13) / 1.87;
   return CMM.map(([X, Y], k) => { const gx = X > 0 ? 1 : -1, gy = Y > 0 ? 1 : -1; return [gx * dS / 2 + gy * sh / 2 + .5 * cast[k][0], gy * dP / 2 + .5 * cast[k][1]]; }); }
 function captureOk(errs, cap){ const [cx, cy] = cap === 'head' ? [10, 3.8] : cap === 'float10' ? [10, 10] : [5, 5]; return errs.every(e => Math.abs(e[0]) <= cx && Math.abs(e[1]) <= cy); }
@@ -673,7 +673,7 @@ const COLORS = ['#d2601a', '#2a6fb0', '#2f8a4a', '#9b2d2d', '#7a7a7a', '#c8a024'
 
 class Yard {
   constructor(o = {}){
-    this.E = root.MALIGN; this.M = this.E.buildModel(root.MALIGN_DATA); this.HIST = root.MALIGN_HISTORY;
+    this.E = root.MASKIT; this.M = this.E.buildModel(root.MASKIT_DATA); this.HIST = root.MASKIT_HISTORY;
     this.seed = o.seed != null && o.seed !== '' ? Number(o.seed) >>> 0 : (Math.random() * 4294967296) >>> 0 || 1;
     this.rnd = this.E.rng(this.seed); this.speed = o.speed || 1; this.controller = o.controller || 'autopilot';
     this.aiUrl = o.ai_url || 'http://127.0.0.1:11434'; this.aiModel = o.ai_model || 'qwen2.5:7b'; this.aiFail = 0;
@@ -1013,7 +1013,7 @@ class Yard {
     const srcEx = task.kind === 'unload' ? [cid, task.source] : [cid];
     task.step = '컨테이너로 이동'; if (!await this.go(predockPose(sx, sz, syaw))) return false;
     task.step = '진입'; if (!await this.creep(dockPose(sx, sz, syaw), 1, srcEx)) return false;
-    task.step = 'M-ALIGN 정렬·결합'; this.st.h_target = sy + H + KIT_GAP; await this.waitUntil(() => Math.abs(this.st.h - this.st.h_target) < .005, 40);
+    task.step = 'MAS-kit 정렬·결합'; this.st.h_target = sy + H + KIT_GAP; await this.waitUntil(() => Math.abs(this.st.h - this.st.h_target) < .005, 40);
     const box = this.containers[cid];
     if (box.autoFail >= 1){ // automatic alignment failed 3x on this box (same corner tolerance): a signalman guides it, no endless loop
       this.log('서버', `${cid} 자동 정렬 반복 실패 이력 → 신호수 호출, 수동 유도 결합 (약 ${MANUAL_S}초)`); task.step = '신호수 수동 유도';
@@ -1128,7 +1128,7 @@ class Yard {
     const read = (kind, bias) => { const c = ENVS[env][kind]; if (aux() < c.drop) return null; let ex = c.sd * aux.n(), ey = c.sd * aux.n(); const et = c.sd / 3000 * aux.n();
       if (aux() < c.out) ex += (aux() < .5 ? -1 : 1) * (15 + 10 * aux()); return {x: tr.tx + bias[0] + ex, y: tr.ty + bias[1] + ey, th: tr.th + et, q: c.q}; };
     const pub = () => { this.align = {phase: 'sensing', truth_corner_errors_mm: errs(), truth_worst_mm: worst(), pose: {tx_mm: tr.tx, ty_mm: tr.ty, th_deg: tr.th * 180 / PI}}; };
-    pub(); this.log('서버', `M-ALIGN 키트 정렬 시작 (${task.container}${attempt ? ', ' + (attempt + 1) + '회차' : ''}) · 환경 ${ENVS[env].name}`);
+    pub(); this.log('서버', `MAS-kit 키트 정렬 시작 (${task.container}${attempt ? ', ' + (attempt + 1) + '회차' : ''}) · 환경 ${ENVS[env].name}`);
     const hist = [[], [], [], []], meas = [0, 0, 0, 0, 0]; let round = 0, verify = false, holds = 0, resense = false, fine = false, planObj = null, feats = null, everDis = false;
     let K = P.K, iters = P.iters, useMachine = true, outcome = null, lowF = null;
     while (this.running){
@@ -1201,7 +1201,7 @@ class Yard {
       metrics: Object.assign({}, this.metrics, {car_min_gap: this.car ? r2(this.car.min_gap) : null}), log: this.logLines.slice(-80)};
   }
 }
-root.MALIGN_YARD_SIM = {Yard, CaseMemory, ENVS, plan, DistanceField, straight, pathLen};
+root.MASKIT_YARD_SIM = {Yard, CaseMemory, ENVS, plan, DistanceField, straight, pathLen};
 })(typeof window !== 'undefined' ? window : globalThis);
 
 </script>
@@ -1212,7 +1212,7 @@ import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 const $ = id => document.getElementById(id);
 
 // ---- in-page yard server (src/yard_sim.js) instead of the desktop program's /api/yard/*
-const SIMLIB = window.MALIGN_YARD_SIM, MEM = new SIMLIB.CaseMemory('malign_yard_cases_v1');
+const SIMLIB = window.MASKIT_YARD_SIM, MEM = new SIMLIB.CaseMemory('maskit_yard_cases_v1');
 let YARD = null, lastTick = performance.now();
 setInterval(() => { const now = performance.now(); if (YARD) YARD.advance(Math.min(.5, (now - lastTick) / 1000)); lastTick = now; }, 40);
 async function api(path, body){
@@ -1706,7 +1706,7 @@ function loop(now){ const dt = Math.min(.1, (now - last) / 1000); last = now;
     if (camMode === 'free' && camera.position.distanceTo(camGoal.pos) < .05) camGoal = null; }
   controls.update(); renderer.render(scene, camera); requestAnimationFrame(loop); }
 requestAnimationFrame(loop);
-window.MALIGN_YARD = {state: () => S, screen: (x, y, z) => { const v = new THREE.Vector3(x, y, z).project(camera), r = canvas.getBoundingClientRect(); return [r.left + (v.x + 1) / 2 * r.width, r.top + (1 - v.y) / 2 * r.height]; }, setCam: m => { camMode = m; }};
+window.MASKIT_YARD = {state: () => S, screen: (x, y, z) => { const v = new THREE.Vector3(x, y, z).project(camera), r = canvas.getBoundingClientRect(); return [r.left + (v.x + 1) / 2 * r.width, r.top + (1 - v.y) / 2 * r.height]; }, setCam: m => { camMode = m; }};
 </script>
 </body>
 </html>

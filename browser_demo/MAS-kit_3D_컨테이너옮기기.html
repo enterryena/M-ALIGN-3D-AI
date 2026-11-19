@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>M-ALIGN 3D · 컨테이너 옮기기</title>
+<title>MAS-kit 3D · 컨테이너 옮기기</title>
 <style>
 :root{--ink:#e9f1f6;--muted:#9fb3c2;--panel:rgba(14,24,33,.82);--line:rgba(255,255,255,.12);--ok:#3ddc97;--bad:#ff5d5d;--warn:#ffc04d}
 *{box-sizing:border-box}html,body{margin:0;height:100%;overflow:hidden;background:#a9c6d9;font-family:"Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif;color:var(--ink)}
@@ -35,7 +35,7 @@ button:disabled{opacity:.45}
 <body>
 <canvas id="scene"></canvas>
 <div class="panel" id="ctrl">
- <h1>M-ALIGN 3D · 컨테이너 옮기기</h1>
+ <h1>MAS-kit 3D · 컨테이너 옮기기</h1>
  <div style="font-size:11px;color:var(--muted)">옮길 컨테이너를 클릭해 고른 뒤, 반투명 컨테이너를 원하는 곳에 두고 클릭 → 리치스태커가 가서 키트로 정렬·결합한 뒤 옮겨 놓습니다.</div>
  <div class="row"><button id="rotL">⟲ 회전</button><button id="rotR">⟳ 회전</button></div>
  <label class="chk"><input type="checkbox" id="slotMode"> 지정 구역(A1–B5)에만 내리기</label>
@@ -61,7 +61,7 @@ button:disabled{opacity:.45}
 <script>/* ORIGINAL MATRIX5 ENGINE, UNMODIFIED */
 
 
-/* M-ALIGN Matrix5 engine (v2.0). Pure functions, no DOM. Runs in browser and node.
+/* MAS-kit Matrix5 engine (v2.0). Pure functions, no DOM. Runs in browser and node.
    Truth model and controller model are both built from the 21 Maxwell cases (v1.5.11 + v1.5.12). */
 (function (root) {
   'use strict';
@@ -221,11 +221,11 @@ button:disabled{opacity:.45}
           var hst = historyByCorner[k];
           // Retain ONLY measured inductance and commanded local offsets. No true position.
           hst.push({m:meas.slice(), ox:0, oy:0});
-          es = (hst.length >= 2 && root.MALIGN_HISTORY)
-            ? root.MALIGN_HISTORY.estimate(M, hst, P, function(){ return estimate(M, meas, P); })
+          es = (hst.length >= 2 && root.MASKIT_HISTORY)
+            ? root.MASKIT_HISTORY.estimate(M, hst, P, function(){ return estimate(M, meas, P); })
             : estimate(M, meas, P);
         } else {
-          es = (P.estimator==='lm' && root.MALIGN_LM) ? root.MALIGN_LM.estimate(M,meas,P) : estimate(M,meas,P);
+          es = (P.estimator==='lm' && root.MASKIT_LM) ? root.MASKIT_LM.estimate(M,meas,P) : estimate(M,meas,P);
         }
         est.push([f[0] * es.x, f[1] * es.y]);
       }
@@ -288,7 +288,7 @@ button:disabled{opacity:.45}
         var ex = x, ey = y;
         for (var it = 0; it < P.iters; it++) {
           measure(M, st, ex, ey, rnd, P, meas);
-          var es = (P.estimator==='lm' && root.MALIGN_LM) ? root.MALIGN_LM.estimate(M,meas,P) : estimate(M,meas,P);
+          var es = (P.estimator==='lm' && root.MASKIT_LM) ? root.MASKIT_LM.estimate(M,meas,P) : estimate(M,meas,P);
           ex -= P.K * es.x + P.act * rnd.n(); ey -= P.K * es.y + P.act * rnd.n();
           if (Math.abs(es.x) <= P.stopMM && Math.abs(es.y) <= P.stopMM) break;
         }
@@ -300,9 +300,9 @@ button:disabled{opacity:.45}
     return cells;
   }
 
-  root.MALIGN = { HEADS: HEADS, rng: rng, pchip: pchip, buildModel: buildModel, measure: measure, estimate: estimate,
+  root.MASKIT = { HEADS: HEADS, rng: rng, pchip: pchip, buildModel: buildModel, measure: measure, estimate: estimate,
                   runOnce: runOnce, batch: batch, captureMap: captureMap, wilson: wilson, CORNERS: CORNERS, frame: frame };
-  if (typeof module !== 'undefined') module.exports = root.MALIGN;
+  if (typeof module !== 'undefined') module.exports = root.MASKIT;
 })(typeof window !== 'undefined' ? window : globalThis);
 
 
@@ -363,14 +363,14 @@ const DATA={"heads":["Xp","Xm","Yp","Ym","Ref"],"cases":{"P1_center":{"dx":0,"dy
    if(!Number.isFinite(best))return fallback();
    return {x:-R+fi*S,y:-R+fj*S,rss:best,historyUsed:n};
  }
- root.MALIGN_HISTORY={estimate:estimate};
+ root.MASKIT_HISTORY={estimate:estimate};
 })(typeof window!=='undefined'?window:globalThis);
 </script>
 <script type="module">
 import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 
-const E = window.MALIGN, MODEL = E.buildModel(DATA), HIST = window.MALIGN_HISTORY;
+const E = window.MASKIT, MODEL = E.buildModel(DATA), HIST = window.MASKIT_HISTORY;
 const PRESETS = {
   ideal:  {modelBias: 0, noise: .1, gapSd: 0, tiltSd: 0, tolC: .7, act: .2},
   target: {modelBias: .25, noise: .2, gapSd: .3, tiltSd: .05, tolC: .7, act: .2},
@@ -579,7 +579,7 @@ const ENVS = {
 const PRIO = {cam: 1.0, ir: 0.8, kit: 0.5};           // coarse stage: existing sensors first, kit cross-checks
 const PRIO_FINE = {cam: 0.5, ir: 0.4, kit: 1.2};      // fine stage (misalignment <= 5 mm): the kit is the precise sensor up close
 const FINE_MM = 5;
-const SNAME = {cam: '카메라', ir: '적외선', kit: 'M-ALIGN 키트'};
+const SNAME = {cam: '카메라', ir: '적외선', kit: 'MAS-kit 키트'};
 function readSensor(kind, env, aux, bias){
   const c = ENVS[env][kind];
   if (aux() < c.drop) return null;                                             // no reading this time
@@ -677,7 +677,7 @@ async function alignAndLock(P, seed){
   let round = 0, verify = false, holds = 0, resense = false, fine = false;
   while (true){
     if (!verify && !resense) round++;
-    stage(`4 · 센싱 ${round}회차${verify ? ' (최종 확인)' : resense ? ' (재측정)' : ''}`, '카메라 · 적외선 · M-ALIGN 키트 동시 측정');
+    stage(`4 · 센싱 ${round}회차${verify ? ' (최종 확인)' : resense ? ' (재측정)' : ''}`, '카메라 · 적외선 · MAS-kit 키트 동시 측정');
     const r = {cam: null, ir: null, kit: null};
     if (useMachine){ r.cam = readSensor('cam', env, aux, camBias); r.ir = readSensor('ir', env, aux, irBias); }
     showSensorFx(true, r);
@@ -847,7 +847,7 @@ function loop(now){
 showCorners(); requestAnimationFrame(loop);
 promptIdle();
 log('서버', `준비 완료 · 컨테이너 ${boxes.length}개, 지정 구역 ${slots.length}칸, 리치스태커 1대`);
-window.MALIGN_MOVE = {moveContainer, screen: (x, y, z) => { const v = new THREE.Vector3(x, y, z).project(camera), r = canvas.getBoundingClientRect(); return [r.left + (v.x + 1) / 2 * r.width, r.top + (1 - v.y) / 2 * r.height]; }, select: id => selectBox(boxes.find(b => b.id === id) || null), slots,
+window.MASKIT_MOVE = {moveContainer, screen: (x, y, z) => { const v = new THREE.Vector3(x, y, z).project(camera), r = canvas.getBoundingClientRect(); return [r.left + (v.x + 1) / 2 * r.width, r.top + (1 - v.y) / 2 * r.height]; }, select: id => selectBox(boxes.find(b => b.id === id) || null), slots,
   state: () => ({busy, selected: cur && cur.id, boxes: boxes.map(b => ({id: b.id, ...b.pose})), occupied: slots.filter(sl => slotHolder(sl, null)).map(sl => sl.id), cpose: {...cpose}, spose: {...spose}, truthWorst: worstTruth(), jobs,
   spreader: {x: spreader.position.x, y: spreader.position.y, z: spreader.position.z, yaw: spreader.rotation.y},
   container: {x: container.position.x, y: container.position.y, z: container.position.z, yaw: container.rotation.y}})};

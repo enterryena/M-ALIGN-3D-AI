@@ -1,23 +1,23 @@
 """Build the single-file browser version of the 3D AI yard (no Python server / EXE needed).
 
-  python build_yard_html.py  ->  M-ALIGN_3D_AI야드_브라우저.html
+  python build_yard_html.py  ->  MAS-kit_3D_AI야드_브라우저.html
 
-Takes the desktop yard page (app/MALIGN_3D.html), the original Matrix5 engine + 21-case data + history
-estimator (from M-ALIGN_3D_컨테이너옮기기.html, unmodified) and src/yard_sim.js (browser port of the yard
+Takes the desktop yard page (app/MASKIT_3D.html), the original Matrix5 engine + 21-case data + history
+estimator (from MAS-kit_3D_컨테이너옮기기.html, unmodified) and src/yard_sim.js (browser port of the yard
 server), and replaces the /api/yard/* calls with the in-page simulation.
 """
 import pathlib
 import re
 
 HERE = pathlib.Path(__file__).resolve().parent
-APP = HERE.parent / 'app' / 'MALIGN_3D.html'
-DEMO = HERE / 'M-ALIGN_3D_컨테이너옮기기.html'
+APP = HERE.parent / 'app' / 'MASKIT_3D.html'
+DEMO = HERE / 'MAS-kit_3D_컨테이너옮기기.html'
 SIM = HERE / 'src' / 'yard_sim.js'
-OUT = HERE / 'M-ALIGN_3D_AI야드_브라우저.html'
+OUT = HERE / 'MAS-kit_3D_AI야드_브라우저.html'
 
 LOCAL_API = r"""
 // ---- in-page yard server (src/yard_sim.js) instead of the desktop program's /api/yard/*
-const SIMLIB = window.MALIGN_YARD_SIM, MEM = new SIMLIB.CaseMemory('malign_yard_cases_v1');
+const SIMLIB = window.MASKIT_YARD_SIM, MEM = new SIMLIB.CaseMemory('maskit_yard_cases_v1');
 let YARD = null, lastTick = performance.now();
 setInterval(() => { const now = performance.now(); if (YARD) YARD.advance(Math.min(.5, (now - lastTick) / 1000)); lastTick = now; }, 40);
 async function api(path, body){
@@ -40,7 +40,7 @@ def main():
     # engine scripts: the three classic <script> blocks before the module in the stand-alone demo
     blocks = re.findall(r'<script>(/\* (?:ORIGINAL MATRIX5|HISTORY ESTIMATOR).*?)</script>', demo, re.S)
     assert len(blocks) == 3, len(blocks)
-    engine = ''.join(f'<script>{b}</script>\n' for b in blocks) + '<script>window.MALIGN_DATA = DATA;</script>\n'
+    engine = ''.join(f'<script>{b}</script>\n' for b in blocks) + '<script>window.MASKIT_DATA = DATA;</script>\n'
     sim = '<script>\n' + SIM.read_text(encoding='utf-8') + '\n</script>\n'
 
     page = page.replace('{"three":"/vendor/three/three.module.js","three/addons/":"/vendor/three/addons/"}',
@@ -48,13 +48,13 @@ def main():
                         '"three/addons/":"https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"}')
     page = page.replace('<script type="module">', engine + sim + '<script type="module">', 1)
     # replace the HTTP api() with the local one
-    page, n = re.subn(r"const TOKEN = window\.MALIGN_DESKTOP_TOKEN \|\| '';\nasync function api\(path, body\)\{.*?\n\}\n", '', page, count=1, flags=re.S)
+    page, n = re.subn(r"const TOKEN = window\.MASKIT_DESKTOP_TOKEN \|\| '';\nasync function api\(path, body\)\{.*?\n\}\n", '', page, count=1, flags=re.S)
     assert n == 1, 'api() not found'
     page = page.replace("const $ = id => document.getElementById(id);", "const $ = id => document.getElementById(id);\n" + LOCAL_API, 1)
     # desktop-only bits
     page = re.sub(r'\n <div style="font-size:11px;margin-top:8px"><a href="/3d-align".*?</div>', '', page, count=1)
     assert '/3d-align' not in page
-    page = page.replace('<title>M-ALIGN 3D · AI 컨테이너 야드</title>', '<title>M-ALIGN 3D · AI 컨테이너 야드 (브라우저판)</title>')
+    page = page.replace('<title>MAS-kit 3D · AI 컨테이너 야드</title>', '<title>MAS-kit 3D · AI 컨테이너 야드 (브라우저판)</title>')
     page = page.replace('<label for="model">AI 모델 (Ollama)</label><input id="model" value="qwen2.5:7b">',
                         '<label for="model">AI 모델 (Ollama)</label><input id="model" value="qwen2.5:7b">'
                         '<label for="aiurl">Ollama 주소 (OLLAMA_ORIGINS=* 필요)</label><input id="aiurl" value="http://127.0.0.1:11434">')

@@ -6,21 +6,21 @@
 
 [v3.5.3 WinError 32 시작 실패 수정]
 - 원인: v3.5.1의 SQLite 백업 함수가 with 구문 뒤에도 SQLite 파일 핸들을 닫지 않아,
-  Windows가 MALIGN_daily_YYYYMMDD.building.sqlite3 파일 rename을 거부할 수 있었음.
+  Windows가 MASKIT_daily_YYYYMMDD.building.sqlite3 파일 rename을 거부할 수 있었음.
 - 조치: 모든 DB 연결 종료 명시화, 고유 임시 백업명, 완성 백업만 이름 변경,
   Windows 일시 잠금 재시도, 오래된 .building 파일 건드리지 않음.
 - 매일 백업 실패는 데이터베이스를 바꾸거나 초기화하지 않으며 경고만 표시함.
 - 정상 백업은 cases.sqlite3를 직접 수정하지 않음.
-- 기존 %LOCALAPPDATA%\MALIGN\CaseBank\cases.sqlite3 저장 경로 및 스키마는 그대로 유지.
+- 기존 %LOCALAPPDATA%\MASKIT\CaseBank\cases.sqlite3 저장 경로 및 스키마는 그대로 유지.
 - 반드시 압축을 전부 풀고 새로운 BUILD_EXE.cmd 실행. 이전 dist 폴더의 EXE는 수정되지 않음.
 
-M-ALIGN v3.5.4  |  Windows 배포/영구 사례 누적
+MAS-kit v3.5.4  |  Windows 배포/영구 사례 누적
 ===============================================
 
 [핵심: 저장 위치는 EXE 위치와 무관]
 항상 현재 Windows 사용자 계정의 다음 경로에 저장합니다.
-%LOCALAPPDATA%\MALIGN\CaseBank\cases.sqlite3
-예: C:\Users\(윈도우 계정)\AppData\Local\MALIGN\CaseBank\cases.sqlite3
+%LOCALAPPDATA%\MASKIT\CaseBank\cases.sqlite3
+예: C:\Users\(윈도우 계정)\AppData\Local\MASKIT\CaseBank\cases.sqlite3
 - EXE를 D:나 E:로 옮겨도, 업데이트된 EXE로 교체해도 같은 Windows 계정이면 저장 위치는 같습니다.
 - 동일 PC라도 다른 Windows 계정은 서로 다른 저장소를 사용합니다.
 - 다른 컴퓨터는 자동 동기화되지 않으므로 JSON 또는 SQLite 백업으로 이관해야 합니다.
@@ -31,9 +31,9 @@ M-ALIGN v3.5.4  |  Windows 배포/영구 사례 누적
 1. ZIP의 압축을 완전히 풉니다. ZIP 내부에서 바로 실행하지 마세요.
 2. Windows 10/11 + Python 3.10 이상(권장 3.11/3.12)이 준비되어 있어야 합니다.
 3. BUILD_EXE.cmd 더블클릭. 처음에는 PyInstaller 설치를 위해 인터넷이 필요할 수 있습니다.
-4. 생성물: dist\MALIGN_Desktop.exe. 다른 Windows PC로 옮길 때는 이 EXE만으로 실행됩니다.
+4. 생성물: dist\MASKIT_Desktop.exe. 다른 Windows PC로 옮길 때는 이 EXE만으로 실행됩니다.
 5. EXE를 더블클릭하면 작은 데이터 관리 창이 열리고 기본 브라우저에 시뮬레이터가 나타납니다.
-   MALIGN_Desktop.html을 직접 열면 별도 저장소를 만들지 않도록 실행이 차단됩니다.
+   MASKIT_Desktop.html을 직접 열면 별도 저장소를 만들지 않도록 실행이 차단됩니다.
 6. 사용자는 '시뮬레이터 열기', '주소 복사', '저장 폴더 열기', '저장 기록 백업' 버튼을 사용할 수 있습니다.
 ※ 아래의 배포 패키지는 EXE 자체가 아니라 Windows에서 EXE를 만드는 소스 및 빌더입니다.
 ※ 코드 서명되지 않은 개인 제작 EXE는 Windows SmartScreen의 게시자 확인 경고가 나올 수 있습니다.
@@ -79,11 +79,11 @@ ROLLBACK\v3_3_History.html 및 v3_4_IndexDB.html은 개발 검증 기록용으�
 
 [중요: 배포 후 완전 제거 — v3.5.3]
 * 프로그램 관리창의 '프로그램 + 모든 누적 기록 완전 제거'를 누르고, 두 번 확인하면
-  현재 Windows 사용자 계정의 %LOCALAPPDATA%\MALIGN 폴더(성공/실패 사례,
+  현재 Windows 사용자 계정의 %LOCALAPPDATA%\MASKIT 폴더(성공/실패 사례,
   cases.sqlite3 / -wal / -shm, backups, logs, 설정)를 모두 삭제하고,
-  EXE가 MALIGN_Desktop.exe로 실행 중이면 해당 EXE 파일도 함께 삭제합니다.
-* 개발/빌드용 ZIP에서 지울 때는 REMOVE_MALIGN.cmd를 더블클릭한 뒤 DELETE 입력.
-  dist\MALIGN_Desktop.exe 및 동일 사용자 데이터 폴더만 제거합니다.
+  EXE가 MASKIT_Desktop.exe로 실행 중이면 해당 EXE 파일도 함께 삭제합니다.
+* 개발/빌드용 ZIP에서 지울 때는 REMOVE_MASKIT.cmd를 더블클릭한 뒤 DELETE 입력.
+  dist\MASKIT_Desktop.exe 및 동일 사용자 데이터 폴더만 제거합니다.
   Python/소스/다운로드 ZIP은 배포 파일이므로 사용자가 별도로 제거하세요.
 * 삭제는 되돌릴 수 없습니다. 삭제 직전 자동 백업은 생성하지 않습니다.
 * 프로그램을 다른 계정에서 사용했으면 각 계정마다 제거하세요.

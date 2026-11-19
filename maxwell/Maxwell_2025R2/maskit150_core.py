@@ -1,5 +1,5 @@
 # -*- coding: ascii -*-
-# M-ALIGN v1.5.11 - 5-winding Matrix model for Maxwell 3D AC Magnetic (AEDT 2025 R2).
+# MAS-kit v1.5.11 - 5-winding Matrix model for Maxwell 3D AC Magnetic (AEDT 2025 R2).
 # IronPython 2.7 compatible (no f-strings). Run only through the 0x_*.py launchers.
 #
 # What this does
@@ -24,10 +24,10 @@ import os, sys, csv, json, math, shutil, hashlib, datetime, traceback
 VERSION = '1.5.12'
 HERE = os.path.dirname(os.path.abspath(__file__))
 CFG = json.load(open(os.path.join(HERE, 'config_v150.json'), 'r'))
-if os.environ.get('MALIGN150_OUTPUT_DIR'):
-    CFG['output_dir'] = os.environ['MALIGN150_OUTPUT_DIR']
+if os.environ.get('MASKIT150_OUTPUT_DIR'):
+    CFG['output_dir'] = os.environ['MASKIT150_OUTPUT_DIR']
 
-PFX = 'MALIGN150_'
+PFX = 'MASKIT150_'
 HEADS = ['Xp', 'Xm', 'Yp', 'Ym', 'Ref']
 WINDING = {'Xp': 'Winding_1', 'Xm': 'Winding_2', 'Yp': 'Winding_3',
            'Ym': 'Winding_4', 'Ref': 'Winding_5'}
@@ -48,7 +48,7 @@ def ui(msg, level=0):
     # level 0=info 1=warning 2=error. Shows in AEDT Message Manager (Global).
     try:
         if DESKTOP is not None:
-            DESKTOP.AddMessage('', '', level, 'MALIGN150 ' + str(msg)[:900])
+            DESKTOP.AddMessage('', '', level, 'MASKIT150 ' + str(msg)[:900])
     except Exception:
         pass
 
@@ -68,7 +68,7 @@ class Log(object):
         except Exception:
             pass
         try:
-            print('MALIGN150 | ' + line)
+            print('MASKIT150 | ' + line)
         except Exception:
             pass
         lvl = 2 if ('FAIL' in str(event) or 'ERROR' in str(event)) else 0
@@ -365,7 +365,7 @@ def build(oDesktop):
     if not os.path.isdir(root):
         os.makedirs(root)
     run_dir = new_dir(root, 'BUILD')
-    log = Log(os.path.join(run_dir, 'MALIGN150_build.log'))
+    log = Log(os.path.join(run_dir, 'MASKIT150_build.log'))
     audit = {'version': VERSION, 'status': 'START', 'run_dir': run_dir, 'errors': [],
              'warnings': []}
     project = None
@@ -743,7 +743,7 @@ def run_cases(oDesktop, solve, case_ids=None):
                 n_ok += 1
                 continue
         case_dir = new_dir(cases_root, cid + ('' if solve else '_PREFLIGHT'))
-        log = Log(os.path.join(case_dir, 'MALIGN150_case.log'))
+        log = Log(os.path.join(case_dir, 'MASKIT150_case.log'))
         res = {'version': VERSION, 'case': case, 'solve_requested': bool(solve),
                'status': 'START', 'exported': [], 'warnings': [], 'errors': [],
                'base_sha256': sha256(base), 'case_dir': case_dir,
@@ -754,7 +754,7 @@ def run_cases(oDesktop, solve, case_ids=None):
                 bp = os.path.join(root, 'BLIND_PREDICTION.json')
                 if not os.path.isfile(bp):
                     raise RuntimeError('BLIND_PREDICTION_MISSING: run '
-                                       'python malign150_post.py predict-blind first')
+                                       'python maskit150_post.py predict-blind first')
                 res['blind_prediction_sha256'] = sha256(bp)
             dst = os.path.join(case_dir, 'M150_' + os.path.basename(case_dir) + '.aedt')
             shutil.copy2(base, dst)
@@ -831,7 +831,7 @@ def register_manual(oDesktop):
     if not os.path.isdir(root):
         os.makedirs(root)
     run_dir = new_dir(root, 'REGISTER')
-    log = Log(os.path.join(run_dir, 'MALIGN150_register.log'))
+    log = Log(os.path.join(run_dir, 'MASKIT150_register.log'))
     audit = {'version': VERSION, 'status': 'START', 'errors': [], 'warnings': []}
     try:
         path = str(CFG.get('manual_base_aedt', '')).strip()
@@ -879,7 +879,7 @@ def _post_module():
     pp = os.path.join(os.path.dirname(HERE), 'Python_Post')
     if pp not in sys.path:
         sys.path.insert(0, pp)
-    import malign150_post as post
+    import maskit150_post as post
     return post
 
 
@@ -988,7 +988,7 @@ def run_all(oDesktop):
 
 # ------------------------------------------------------------------ UPLOAD PACKS (v1.5.11)
 UPLOAD_FILES = ['result.json', 'geometry_audit.json', 'L_matrix.csv', 'R_matrix.csv', 'Z_matrix.csv',
-                'convergence.conv', 'profile.prof', 'MALIGN150_case.log']
+                'convergence.conv', 'profile.prof', 'MASKIT150_case.log']
 ROOT_FILES = ['RUN_ALL_SUMMARY.json', 'MATRIX5_CHECKS.json', 'matrix5_long.csv', 'H_matrix5_P2.json',
               'BLIND_PREDICTION.json', 'BLIND_CHECK.json', 'BASE_BUILD_AUDIT.json', 'ALL_DONE.txt']
 UPLOAD_GROUPS = [('1_P1_P2', ('P1_', 'P2_')), ('2_P3_P4', ('P3_', 'P4_')), ('3_P5_P6', ('P5_', 'P6_'))]
@@ -996,7 +996,7 @@ UPLOAD_GROUPS = [('1_P1_P2', ('P1_', 'P2_')), ('2_P3_P4', ('P3_', 'P4_')), ('3_P
 
 def make_upload_packs(root=None, max_mb=None):
     """Small evidence only (no .aedt / .aedtresults). One zip per stage group, each <= max_mb.
-    Output: <output_dir>/UPLOAD/MALIGN_UPLOAD_<group>[_partN].zip"""
+    Output: <output_dir>/UPLOAD/MASKIT_UPLOAD_<group>[_partN].zip"""
     import zipfile
     root = root or CFG['output_dir']
     max_bytes = int(float(max_mb or CFG.get('upload_zip_max_mb', 20)) * 1024 * 1024)
@@ -1009,7 +1009,7 @@ def make_upload_packs(root=None, max_mb=None):
     if not os.path.isdir(up):
         os.makedirs(up)
     for old in os.listdir(up):  # remove stale parts from a previous packing
-        if old.startswith('MALIGN_UPLOAD_') and old.endswith('.zip'):
+        if old.startswith('MASKIT_UPLOAD_') and old.endswith('.zip'):
             try:
                 os.remove(os.path.join(up, old))
             except Exception:
@@ -1042,7 +1042,7 @@ def make_upload_packs(root=None, max_mb=None):
                     zf.close()
                     made.append(zpath)
                     part += 1
-                zpath = os.path.join(up, 'MALIGN_UPLOAD_' + gname + ('' if part == 1 else '_part' + str(part)) + '.zip')
+                zpath = os.path.join(up, 'MASKIT_UPLOAD_' + gname + ('' if part == 1 else '_part' + str(part)) + '.zip')
                 if os.path.exists(zpath):
                     os.remove(zpath)
                 zf = zipfile.ZipFile(zpath, 'w', mode)

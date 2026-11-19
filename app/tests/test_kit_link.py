@@ -11,9 +11,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-import malign_engine as E  # noqa: E402
+import maskit_engine as E  # noqa: E402
 
-SERVER = ROOT / 'server_example' / 'malign_main_server.py'
+SERVER = ROOT / 'server_example' / 'maskit_main_server.py'
 UNITS = ['KIT-T01-U1', 'KIT-T01-U2', 'KIT-T01-U3', 'KIT-T01-U4']
 M = E.Model()
 DIAG = {'coil_temp_c': 26.5, 'supply_v': 23.9, 'fw_cal_version': 'TEST-1', 'error_code': 0}
@@ -35,7 +35,7 @@ def call(url, data=None, headers=None):
 
 
 def host(info, path, data=None):
-    return call(info['url'] + 'api/' + path, data, {'X-MALIGN-Token': info['token']})
+    return call(info['url'] + 'api/' + path, data, {'X-MASKIT-Token': info['token']})
 
 
 def host_err(info, path, data):
@@ -130,11 +130,11 @@ def count_items(u):
     return n
 
 
-with tempfile.TemporaryDirectory(prefix='malign_link_test_') as tmp:
+with tempfile.TemporaryDirectory(prefix='maskit_link_test_') as tmp:
     tmp = Path(tmp)
     # ------------------------------------------------------------------ A) manual server
     port = free_port()
-    srv_url = 'http://127.0.0.1:%d/malign/v1' % port
+    srv_url = 'http://127.0.0.1:%d/maskit/v1' % port
     auth = {'Authorization': 'Bearer k1'}
     cmd_url = srv_url + '/kits/KIT-T01/commands'
     config(tmp / 'A', 'KIT-T01', UNITS, srv_url + '/bundles', api_key='k1', watchdog_s=4.0, sim_auto_sensing=False)
@@ -261,7 +261,7 @@ with tempfile.TemporaryDirectory(prefix='malign_link_test_') as tmp:
 
     # ------------------------------------------------------------------ B) auto server: virtual site in the server
     port = free_port()
-    srv_url = 'http://127.0.0.1:%d/malign/v1' % port
+    srv_url = 'http://127.0.0.1:%d/maskit/v1' % port
     server = start_server(port, tmp / 'mainB.sqlite3', '--rounds', '6', '--move-delay', '0.1')
     config(tmp / 'B', 'KIT-T02', ['B-1', 'B-2', 'B-3', 'B-4'], srv_url + '/bundles')
     h, info = start_host(tmp / 'B')

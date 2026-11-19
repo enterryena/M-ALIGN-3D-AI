@@ -2,7 +2,7 @@ const fs=require('fs'),vm=require('vm');globalThis.window=globalThis;
 globalThis.localStorage={_:{},getItem(k){return this._[k]||null},setItem(k,v){this._[k]=v}};
 vm.runInThisContext(fs.readFileSync('process.argv[3]','utf8'));
 vm.runInThisContext(fs.readFileSync(process.argv[2],'utf8'));
-const S=globalThis.MALIGN_YARD_SIM, mem=new S.CaseMemory('k');
+const S=globalThis.MASKIT_YARD_SIM, mem=new S.CaseMemory('k');
 (async()=>{ for (const seed of [1,2,3]){
   const y=new S.Yard({seed,memory:mem,vary:true,speed:1}).start(); const t0=Date.now();
   while(y.t<1000){ y.step(.1); y._wake(); await new Promise(r=>setImmediate(r)); }

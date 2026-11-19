@@ -26,7 +26,7 @@ Lowering interlock: lower only when every usable corner is within STOP_MM (conve
 """
 import math
 
-import malign_engine as E
+import maskit_engine as E
 
 GRADE_W = {'good': 1.0, 'caution': 0.7, 'invalid': 0.0}   # tuned in stage 3 (tools/compare_strategies.py)
 OUTLIER_MM = 12.0         # corner residual from the rigid fit treated as an outlier (container tolerance up to ~3 mm sd)
@@ -47,7 +47,7 @@ CASE_KO = {'P1': '정상: 기존 센서 우선, 키트 교차 검증', 'P2': '�
 def fit_rigid(est, w):
     """Weighted LS rigid misalignment (tx, ty, th) with corner error model (tx - th*Y, ty + th*X).
 
-    For 4 corners with equal weights this is exactly malign_engine.rigid_fit."""
+    For 4 corners with equal weights this is exactly maskit_engine.rigid_fit."""
     idx = [k for k in range(4) if est[k] is not None and w[k] > 0]
     if len(idx) == 4 and all(w[k] == w[idx[0]] for k in idx):
         return E.rigid_fit(est)

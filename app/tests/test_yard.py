@@ -6,7 +6,7 @@ B. guard: user request first, slot must be free, horn only for people/vehicles, 
 C. rule autopilot (stub alignment, fast clock): trucks unloaded into slots, yard full -> outbound loading,
    obstacles met and handled (horn / detour / crew), no contact, user request done first
 D. desktop host + fake Ollama: the AI picks tasks and obstacle actions through the guard (wrong choices
-   refused and explained), alignment through the M-ALIGN kit job, user request via the API, 3D pages served
+   refused and explained), alignment through the MAS-kit kit job, user request via the API, 3D pages served
 E. Ollama unreachable -> rule autopilot takes over and the yard keeps working
 """
 import json, math, pathlib, random, subprocess, sys, tempfile, threading, time, urllib.request
@@ -106,7 +106,7 @@ threading.Thread(target=fake.serve_forever, daemon=True).start()
 with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:  # Windows may hold the closed host's DB a moment longer
     tmp = pathlib.Path(tmp)
     h, info = host(tmp, 'http://127.0.0.1:%d' % fake.server_port)
-    H = {'X-MALIGN-Token': info['token']}
+    H = {'X-MASKIT-Token': info['token']}
     try:
         st = call(info['url'] + 'api/yard/start', {'controller': 'ai', 'speed': 8, 'seed': 23, 'people': True, 'debris': True}, H)
         c = next(c for c in st['containers'] if c['where'] == 'slot')
@@ -130,15 +130,15 @@ with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:  # Windows 
         except urllib.error.HTTPError as exc:
             assert exc.code == 400
         page = urllib.request.urlopen(info['url'] + '3d', timeout=10).read().decode('utf-8')
-        assert 'MALIGN_YARD' in page and 'yard/state' in page
+        assert 'MASKIT_YARD' in page and 'yard/state' in page
         page2 = urllib.request.urlopen(info['url'] + '3d-align', timeout=10).read().decode('utf-8')
-        assert 'MALIGN_DESKTOP_TOKEN' in page2 and 'sim/start' in page2
+        assert 'MASKIT_DESKTOP_TOKEN' in page2 and 'sim/start' in page2
         call(info['url'] + 'api/yard/stop', {}, H)
     finally:
         h.terminate(); h.wait(timeout=8)
     # E. no Ollama -> rule autopilot takes over
     h, info = host(tmp, 'http://127.0.0.1:9')
-    H = {'X-MALIGN-Token': info['token']}
+    H = {'X-MASKIT-Token': info['token']}
     try:
         call(info['url'] + 'api/yard/start', {'controller': 'ai', 'speed': 8, 'seed': 5, 'people': False, 'debris': False}, H)
         end = time.time() + 150

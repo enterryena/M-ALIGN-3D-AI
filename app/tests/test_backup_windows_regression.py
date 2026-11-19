@@ -5,12 +5,12 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT))
 from desktop_host import CaseBank
-with tempfile.TemporaryDirectory(prefix='malign_win32_regression_') as td:
+with tempfile.TemporaryDirectory(prefix='maskit_win32_regression_') as td:
     folder=Path(td);bank=CaseBank(folder/'cases.sqlite3')
     r={'uid':'u1','outcome':'success','saved_order':1,'saved_at':'2026-11-11T00:00:00Z'}
     assert bank.add([r])==1
     # Left behind by v3.5.1. Must not reuse, rename, or delete it.
-    old=folder/'backups'/'MALIGN_daily_20261111.building.sqlite3'
+    old=folder/'backups'/'MASKIT_daily_20261111.building.sqlite3'
     old.parent.mkdir(exist_ok=True)
     old.write_bytes(b'v3.5.1 locked temporary backup - must be left alone')
     snap=bank.daily_backup()
@@ -21,8 +21,8 @@ with tempfile.TemporaryDirectory(prefix='malign_win32_regression_') as td:
         assert c.execute('SELECT COUNT(*) FROM cases').fetchone()[0]==1
     # The reader must be CLOSED before Windows temp-directory cleanup.
     assert bank.daily_backup()==snap
-    assert len(list(old.parent.glob('MALIGN_daily_????????.sqlite3')))==1
-    assert not list(old.parent.glob('MALIGN_daily_*.new_*.sqlite3'))
+    assert len(list(old.parent.glob('MASKIT_daily_????????.sqlite3')))==1
+    assert not list(old.parent.glob('MASKIT_daily_*.new_*.sqlite3'))
     # Simulate a brief Windows sharing violation during final rename.
     import unittest.mock
     from datetime import timedelta, datetime

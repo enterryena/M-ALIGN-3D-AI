@@ -1,18 +1,18 @@
 """Stage-1 completion check: with the work split between kit and main server
 (kit: own-corner grid estimate + reliability; server: history estimation with the
 moves IT commanded + 4-corner rigid fit + gain), the v3.5.4 results are unchanged,
-trial by trial. Default: grid 1,000 + history 150. MALIGN_SLOW=1: history 1,000 (586).
+trial by trial. Default: grid 1,000 + history 150. MASKIT_SLOW=1: history 1,000 (586).
 """
 import json, os, pathlib, sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / 'server_example'))
-import malign_engine as E  # noqa: E402
-import malign_server_logic as S  # noqa: E402
+import maskit_engine as E  # noqa: E402
+import maskit_server_logic as S  # noqa: E402
 
 REF = json.loads((ROOT / 'tests' / 'fixtures' / 'js_reference_v354.json').read_text(encoding='utf-8'))
-SLOW = os.environ.get('MALIGN_SLOW') == '1'
+SLOW = os.environ.get('MASKIT_SLOW') == '1'
 M = E.Model()
 
 
