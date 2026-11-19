@@ -12,7 +12,7 @@
 
 | 방법 | 준비물 | 내용 |
 |---|---|---|
-| `browser_demo/MAS-kit_브라우저_데모_v3_4.html` 내려받아 열기 | 웹 브라우저만 | 같은 계산 엔진의 브라우저판. 기록은 브라우저에만 저장 |
+| [`browser_demo/MAS-kit_브라우저_v3_6.html`](https://raw.githack.com/enterryena/MAS-kit-3D-AI/main/browser_demo/MAS-kit_%EB%B8%8C%EB%9D%BC%EC%9A%B0%EC%A0%80_v3_6.html) (링크로 바로 열림) | 웹 브라우저만 (휴대폰 가능) | 정식판 v3.6과 같은 화면·계산. 메인 서버·키트도 브라우저 안에서 가상으로 실행, 기록은 이 브라우저에만 저장 |
 | `app/RUN_WITH_PYTHON.cmd` | Windows + Python 3.10 이상 | 정식판(v3.6.0). 기록이 PC에 영구 저장, 메인 서버 연동 |
 | `app/BUILD_EXE.cmd` → `dist\MASKIT_Desktop.exe` | Windows + Python 3.10 이상 (빌드할 때만) | 정식판 EXE |
 
@@ -54,7 +54,7 @@
 | 경로 | 내용 |
 |---|---|
 | `app/` | 정식판 배포 패키지 v3.6.0 (`maskit_link.py` 저장·전송, `server_example/` 메인 서버 예제, `MANIFEST_SHA256.txt`로 확인 가능) |
-| `browser_demo/` | 브라우저에서 바로 여는 데모 (v3.4, 계산 엔진 동일) |
+| `browser_demo/` | 브라우저판 v3.6 (`build_browser_v36.py`로 정식판 화면에서 생성, `src/parity_test.js`로 정식판과 같은 결과인지 확인). 이전 v3.4 데모도 보관 |
 | `data/` | Maxwell 21개 케이스 결과 (자기 인덕턴스 표, 5×5 행렬 전체) |
 | `maxwell/` | 데이터를 만든 Ansys Maxwell 2025 R2 자동화 스크립트 v1.5.12 |
 | `docs/` | 실행 방법, 사용 안내, 데이터 설명, 화면 캡처 |

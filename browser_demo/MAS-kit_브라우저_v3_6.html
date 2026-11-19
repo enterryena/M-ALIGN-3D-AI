@@ -1,0 +1,1360 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MAS-kit 정렬 시뮬레이터 v3.6 (브라우저판)</title>
+<style>
+:root{color-scheme:light;--bg:#f0f4f8;--paper:#fff;--ink:#14283e;--muted:#5c7084;--line:#d8e3ec;--blue:#155ba5;--teal:#087c78;--bad:#ae423d}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,"Malgun Gothic","Apple SD Gothic Neo",sans-serif}
+main{max-width:1300px;margin:0 auto;padding:20px 15px 40px}h1{font-size:clamp(23px,3vw,31px);margin:3px 0}h2{font-size:16px;margin:0 0 9px}h3{margin:0 0 5px;font-size:13px}
+p{margin:4px 0;color:var(--muted)}.top{display:flex;justify-content:space-between;gap:20px;align-items:center;flex-wrap:wrap;margin-bottom:10px}.eyebrow{color:var(--blue);font-size:11px;font-weight:800;letter-spacing:1.6px}.subtitle{font-size:13px;max-width:900px}
+.layout{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(305px,.85fr);gap:15px}.card{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:15px;min-width:0;margin-bottom:13px;box-shadow:0 3px 8px #17406409}
+button{border:0;border-radius:9px;background:var(--blue);color:#fff;font:750 14px inherit;padding:11px 16px;cursor:pointer;min-height:40px}button.secondary{background:#e9f1fa;color:#204d7d}button:disabled{opacity:.55;cursor:wait}
+select,input{border:1px solid #bdcddb;border-radius:7px;padding:8px;width:100%;font:inherit;background:#fff;color:var(--ink)}label{display:block;font-size:12px;color:var(--muted);margin-bottom:3px}.controls{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;align-items:end}.control-wide{grid-column:span 2}.buttons{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px}.buttons button{flex:1 1 145px}.small{font-size:11px;color:var(--muted)}
+#scene{width:100%;height:auto;display:block;background:linear-gradient(180deg,#f8fbff,#e9f2f8);border-radius:11px;border:1px solid var(--line)}#cornerZoom{width:100%;max-width:420px;height:auto;display:block;border:1px solid var(--line);border-radius:10px;background:#f8fbff}
+.statgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.stat{background:#f5f8fb;padding:9px 10px;border-radius:9px}.stat strong{font-size:19px;display:block;font-variant-numeric:tabular-nums}.stat small{font-size:10px;color:var(--muted)}.state{font-size:15px;font-weight:800;margin:5px 0;min-height:24px}.stage-list{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin:11px 0}.stage-list span{font-size:11px;text-align:center;border-radius:8px;background:#f1f5f9;padding:8px 1px;color:#728394}.stage-list span.active{background:#d9ebfa;color:#155ba5;font-weight:800}.stage-list span.done{background:#e5f5ed;color:#167652}
+.meter{height:8px;background:#e7edf2;border-radius:4px;overflow:hidden}.meter>div{height:100%;width:0;background:#177c80;transition:width .1s}.notice{background:#fff6e7;border:1px solid #f0dbb7;color:#725728;font-size:11px;padding:10px;border-radius:9px;margin-top:9px}
+.grid-corners{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}.grid-corners div{background:#f4f8fc;padding:8px;border-radius:8px;font:12px ui-monospace,Consolas,monospace}.grid-corners strong{display:block;font:700 11px system-ui;color:#37648e}
+.log{font:11px/1.55 ui-monospace,Consolas,monospace;max-height:170px;overflow:auto;background:#f6f9fb;border-radius:8px;padding:10px;white-space:pre-wrap}.batch{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-top:10px}.batch .stat{padding:9px}.notes{font-size:12px;line-height:1.65}.notes b{color:#193e68}.archive-state{background:#eef7f4;border:1px solid #cce7dd;padding:9px 10px;border-radius:9px;font-size:12px;margin:8px 0}.archive-warning{color:#9a3b29}.recent-case{font-size:11px;padding:5px 0;border-top:1px solid #dde9e6;overflow-wrap:anywhere}
+@media(min-width:901px){html,body{height:100%;overflow:hidden}main{height:100vh;display:flex;flex-direction:column;padding-bottom:10px}.top{flex:0 0 auto;margin-bottom:8px}.layout{flex:1 1 auto;min-height:0}.layout>section,.layout>aside{height:100%;overflow-y:scroll;padding-right:8px}.layout>section .log{max-height:120px}.layout>section #scene{max-height:calc(100vh - 330px);object-fit:contain}#moreHint{position:sticky;bottom:0;margin:0 -8px 0 0;padding:16px 0 8px;text-align:center;font-size:12px;font-weight:700;color:#155ba5;background:linear-gradient(180deg,rgba(240,244,248,0),var(--bg) 55%);pointer-events:none;transition:opacity .2s}}@media(max-width:900px){#moreHint{display:none}}*{scrollbar-width:auto;scrollbar-color:#5f84a8 #dce6ef}::-webkit-scrollbar{width:13px;height:13px}::-webkit-scrollbar-track{background:#e1e9f0;border-radius:7px}::-webkit-scrollbar-thumb{background:#8fa9c1;border-radius:7px;border:3px solid #e1e9f0}::-webkit-scrollbar-thumb:hover{background:#5f84a8}.top{position:relative}.top .subtitle{display:none}.top h1{font-size:clamp(18px,2.2vw,23px)}@media(max-width:900px){.layout{grid-template-columns:1fr}}@media(max-width:480px){.controls{grid-template-columns:repeat(2,minmax(0,1fr))}.control-wide{grid-column:span 2}main{padding:12px 9px}.card{padding:11px}.stage-list span{font-size:10px}.stat strong{font-size:17px}}
+</style></head><body><main>
+<header class="top"><div><div class="eyebrow">MAS-kit · MATRIX5 · 3D 시각화 / 2026-11-11 기반</div><h1>MAS-kit 컨테이너 정렬 시뮬레이터 v3.6 · 브라우저판</h1><p class="subtitle">5권선 인덕턴스 21개 Maxwell 조건을 기반으로 만든 <b>가상 정렬 보조 키트</b>. 실행하면 센서 추정과 보정값을 계산하고 스프레더 이동 과정을 애니메이션으로 재생합니다. 자동 잠금·실물 성능을 의미하지 않습니다.</p></div></header>
+<div class="layout">
+<section>
+<div class="card"><h2>① 컨테이너·스프레더 3D 시뮬레이션</h2>
+<canvas id="scene" width="1000" height="560" aria-label="컨테이너 본체와 네 코너 캐스팅, 스프레더의 3차원 투영 애니메이션"></canvas>
+<p class="small">3D 투영 도식 · 노란색 스프레더, 파란색 컨테이너, 초록색 구멍. <b>위치 오차 움직임은 시인성을 위해 16배 확대</b>했고, 수치와 성공 판정은 원래 mm 단위로 계산합니다.</p>
+<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-top:9px"><div style="flex:1 1 240px"><h3>모서리 ① 확대 (실제 오차 mm 기준)</h3><canvas id="cornerZoom" width="420" height="230" aria-label="코너캐스팅 구멍과 트위스트록 축의 상대 오차 확대"></canvas></div><div style="flex:1 1 200px"><h3>모서리별 지금 어긋난 정도</h3><div class="grid-corners" id="corners"></div><p class="small">실제 오차는 시뮬레이터 내부 정답이며 현실 기기에는 주어지지 않습니다.</p></div></div>
+</div>
+<div class="card"><h2>② 보정 동작 기록</h2><div class="log" id="history">실행하면 단계별 보정값과 실제 최종 오차를 기록합니다.</div></div>
+</section>
+<aside>
+<div class="card"><h2>실행 설정</h2><div class="controls">
+<div class="control-wide"><label for="scenario">장비 상태</label><select id="scenario"><option value="base">보통 현장 · 오차 큼 (센서 치우침 0.5μH, 틈 변화 1mm)</option><option value="target">목표 성능 센서 (치우침 0.25μH, 틈 변화 0.3mm)</option><option value="ideal">이상적 조건 · 해석값 그대로 (오차 없음)</option></select></div>
+<div class="control-wide"><label for="estimator">구멍 위치 계산 방식</label><select id="estimator"><option value="history" selected>이동 기록 활용 · 센서 치우침 자동 제거 (추천)</option><option value="base">한 번 잰 값만 사용 (옛 방식)</option><option value="lm">옛 방식 + 미세 보정 (이전 실험)</option></select></div>
+<div class="control-wide"><label for="tolModel">컨테이너 모서리 제작 오차</label><select id="tolModel"><option value="orig" selected>장비 상태에 맞춤 (기본)</option><option value="iso">국제 규격(ISO 668) 허용 범위</option></select></div>
+<div class="control-wide"><label for="capture">잠금 성공 기준</label><select id="capture"><option value="pm5" selected>네 모서리 모두 ±5 mm 안 (기본)</option><option value="head">고정형 잠금쇠: 길이 ±10 · 폭 ±3.8 mm</option><option value="float10">움직이는 잠금쇠: ±10 mm (리치스태커 보통 사양)</option></select></div>
+<div><label for="radius">처음 어긋난 거리 (최대)</label><select id="radius"><option value="30" selected>30 mm</option><option value="10">10 mm</option><option value="20">20 mm</option><option value="40">40 mm (해석 범위 밖이라 부정확)</option></select></div>
+<div><label for="seed">상황 번호 (같은 번호 = 같은 상황)</label><input id="seed" type="number" step="1" value="2026"></div>
+<div><label for="speed">재생 속도</label><select id="speed"><option value="1">보통</option><option value="0.35" selected>빠르게</option></select></div>
+</div>
+<label class="small" style="display:flex;align-items:center;gap:7px;margin-top:8px"><input id="autoSeed" type="checkbox" checked style="width:auto"> 실행할 때마다 새 상황 (끄면 위 번호의 상황을 다시 재현)</label><div class="buttons"><button id="run">▶ 작업 1건 실행</button><button id="reroll" class="secondary">새 상황 번호</button></div><p class="small" id="runSeedUsed">마지막 실행 상황 번호: —</p>
+<div class="stage-list" id="stages"><span>센서 측정</span><span>위치 추정</span><span>보정 이동</span><span>재측정</span></div>
+<div id="phase" class="state" role="status" aria-live="polite">실행 준비 완료</div><p class="small" id="phaseDesc">실행 버튼을 누르면 즉시 계산과 애니메이션이 시작됩니다.</p><div class="meter"><div id="animProgress"></div></div>
+<div class="statgrid" style="margin-top:10px"><div class="stat"><small>보정 횟수</small><strong id="steps">0 / 6</strong></div><div class="stat"><small>가장 많이 어긋난 모서리</small><strong id="worst">—</strong></div><div class="stat"><small>정렬 판정</small><strong id="verdict">대기</strong></div></div>
+<div class="notice" id="warnings">보정 이동은 운전자가 안내를 따랐다고 가정한 가상 조작입니다. ±5mm는 기존 시뮬레이션 판정값입니다.</div>
+</div>
+<div class="card"><h2>③ 여러 번 돌려 성공률 보기 (100~1,000회)</h2><p class="small">위에서 선택한 <b>장비 상태·처음 어긋난 거리</b>을 그대로 적용합니다. 실행마다 초기 X/Y 위치·회전과 편향·잡음·구동 오차를 난수로 생성합니다. <b>제어기는 5개 센서 측정값과 실제로 명령한 이동량만 사용</b>합니다. 시뮬레이터 내부 참값은 애니메이션과 성공 판정 전용입니다. K=0.8, 최대 6회는 원본과 동일합니다.</p>
+<div class="controls"><div class="control-wide"><label for="count">시험 횟수</label><select id="count"><option value="100">100회</option><option value="300">300회</option><option value="500">500회</option><option value="1000" selected>1,000회</option></select></div><div><label for="batchseed">시작 상황 번호</label><input id="batchseed" type="number" value="2026"></div></div>
+<div class="controls"><div class="control-wide"><label for="gate">과거 기록으로 내릴지 판단</label><select id="gate"><option value="0.3" selected>켬 — 비슷한 과거 상황의 잠금 성공이 30% 미만이면 내리지 않음</option><option value="0.4">켬 — 40% 미만이면 내리지 않음 (더 조심)</option><option value="off">끔 — 6번 보정 후 항상 내림 (기본)</option></select></div></div>
+<div class="buttons"><button id="batchRun">■ 성공률 계산</button><button id="failReplay" class="secondary" disabled>실패 사례 재생</button><button id="saveCases" class="secondary" disabled>성공·실패 기록 JSON 저장</button></div><p class="small" id="batchState" role="status" aria-live="polite">아직 계산하지 않았습니다.</p><div class="meter"><div id="batchProgress"></div></div>
+<div class="batch"><div class="stat"><small>성공 / 전체</small><strong id="batchSuccess">—</strong></div><div class="stat"><small>실패(내렸는데 5mm 초과) / 전체</small><strong id="batchFail">—</strong></div><div class="stat"><small>가상 성공률</small><strong id="batchRate">—</strong></div><div class="stat"><small>성공률 오차 범위 (95%)</small><strong id="batchCI">—</strong></div><div class="stat"><small>해석 범위 밖을 지난 경우</small><strong id="batchExtrap">—</strong></div><div class="stat"><small>최종 어긋남: 보통 / 나쁜 5%</small><strong id="batchError">—</strong></div><div class="stat"><small>멈춤 → 다시 접근해 성공 / 사람이 직접</small><strong id="batchHeld">—</strong></div></div>
+<div id="batchCompare" class="small" style="margin-top:8px;padding:8px 10px;border:1px solid rgba(127,163,196,.45);border-radius:8px;display:none"></div>
+<div class="notice">성공: 네 코너 <b>실제 가상 오차의 최악축 ≤ 5mm</b>. 실패까지 포함해 기록합니다. 성공·실패 사례는 실행 간 <b>저장소에 누적</b>하되 현재는 검토용으로만 저장하고 센서 추정기에 정답을 제공하지 않습니다. 기존 비선형 격자와 이력 추정기를 선택해 비교할 수 있으며, 결과를 미리 성공으로 정하지 않습니다.</div>
+</div>
+<div class="card" id="caseBankPanel"><h2>④ 실행 기록 보관함</h2>
+<p class="small">실행할 때마다 <b>가상 성공·실패 사례를 자동 누적</b>합니다. 1회 실행도 저장합니다. 같은 <b>시드·시나리오·추정기·초기 반경·시행번호</b>의 재실험은 중복 저장하지 않습니다.</p>
+<div class="batch"><div class="stat"><small>누적 성공 사례</small><strong id="bankSuccess">—</strong></div><div class="stat"><small>누적 실패 사례</small><strong id="bankFailure">—</strong></div><div class="stat"><small>누적 전체 (중복 제외)</small><strong id="bankTotal">—</strong></div><div class="stat"><small>이번 시험 신규 저장</small><strong id="bankAdded">—</strong></div></div>
+<div id="bankStatus" class="archive-state" role="status" aria-live="polite">로컬 기록 저장소를 연결하는 중…</div>
+<div id="bankRecent" class="small">최근 성공 기록을 불러오는 중…</div>
+<div class="buttons"><button id="bankExport" class="secondary">누적 전체 JSON 내보내기</button><button id="bankImport" class="secondary">이전 JSON 불러오기</button><button id="bankClear" class="secondary">누적 기록 초기화</button></div>
+<input id="bankFile" type="file" accept="application/json,.json" hidden>
+<p class="small">보관 위치: <b>이 브라우저 안</b>(IndexedDB). 브라우저 기록을 지우면 사라지니 "누적 전체 JSON 내보내기"로 백업하세요. 저장한 기록은 정렬 계산에 쓰지 않고 검토용으로만 남깁니다.</p>
+</div>
+<div class="card" id="linkPanel"><h2>⑤ 메인 서버와 키트 (모서리 4개 = 1세트)</h2>
+<p class="small"><b>1회 작업 실행</b> = 가상 현장에서 작업 1건: 기계 접근 → 센싱 범위 진입 → 메인 서버 작업 지시 → 키트 센싱 → <b>메인 서버가 기존 센서와 키트를 비교해 우선순위·보정값 결정</b> → 리치스태커 보정 이동 → 다음 센싱 (약 6회) → 하강 조건 확인 후 하강·결합. 조건이 안 맞으면 하강하지 않고 안전 정지합니다. 회차마다 네 코너 장치(고유 번호)의 값을 <b>한 묶음</b>으로 PC에 먼저 저장하고 메인 서버로 보냅니다. 서버가 끊겨도 기록은 남았다가 순서대로 다시 보냅니다. 성공률 계산(반복 시험)은 전송하지 않습니다.</p>
+<div class="batch"><div class="stat"><small>키트 번호</small><strong id="linkKit" style="font-size:13px">—</strong></div><div class="stat"><small>키트 상태</small><strong id="linkState">—</strong></div><div class="stat"><small>전송 대기</small><strong id="linkPending">—</strong></div><div class="stat"><small>전송 완료</small><strong id="linkSent">—</strong></div></div>
+<div id="linkStatus" class="archive-state" role="status" aria-live="polite">키트 전송 상태를 확인하는 중…</div>
+<div id="linkUnits" class="small"></div>
+<div class="controls" style="margin-top:8px"><div><label for="simMachine">리치스태커 기존 센서</label><select id="simMachine"><option value="normal">정상</option><option value="unstable">불안정</option><option value="none">정보 없음</option><option value="biased">값이 치우침 (고장인 줄 모름)</option></select></div>
+<div><label for="simFault">키트 모서리 고장</label><select id="simFault"><option value="none">없음</option><option value="head_dead">모서리2 코일 2개 고장 (키트가 알아챔)</option><option value="drift">모서리2 보정값 틀어짐 (키트가 모름)</option></select></div>
+<div><label for="simStrategy">네 모서리 값 합치는 방법</label><select id="simStrategy"><option value="weighted">믿을 만한 값에 비중 + 튀는 모서리 제외 (추천)</option><option value="equal">네 모서리 같은 비중</option><option value="diagonal">대각선 모서리 1·3만 사용</option><option value="v354">옛 방식 v3.5.4 (확인 없이 내림)</option></select></div></div>
+<div class="log" id="simDecision" style="margin-top:8px;max-height:none">아직 판단 없음</div>
+<div class="buttons" style="display:none"><button id="open3d" class="secondary">🎮 3D 화면으로 보기 (AI 제어)</button></div>
+<p class="small">브라우저판은 메인 서버도 이 화면 안에서 가상으로 돌립니다. 키트는 재고 보고만 하고, 움직이고 내릴지는 메인 서버가 정합니다. 실제 서버 연결·PC 영구 저장은 설치판(v3.6)에서 됩니다.</p>
+</div>
+<div class="card"><h2>제어기가 실제로 아는 것 / 알 수 없는 것</h2><p class="notes"><b>아는 것:</b> 각 코너 Xp·Xm·Yp·Ym·Ref의 가상 인덕턴스 측정값, 21개 Maxwell 응답모델, 이전에 명령한 X/Y/회전 이동량. <b>모르는 것:</b> 구멍의 진짜 위치, 모델 편향·공극·기울기의 참값, 실제 이동 오차. 카메라·영상 위치 추정은 사용하지 않습니다.</p><p class="notes"><b>이력 추정:</b> 1회차는 기존 격자 추정, 2회차부터 이동 전후 센서값에서 코너·헤드별 정적 가산 편향을 제거한 잔차를 최소화합니다. 이동 이력으로 위치를 식별할 수 없는 경우에는 원본 추정으로 되돌아갑니다. 추가 보정 단계가 필요할 수 있지만 비교 공정을 위해 최대 6회 유지합니다.</p><p class="notes"><b>기준 하드웨어 가정 해설:</b> 기존 추정기는 X/Y·회전 보정과 공극의 간단한 선형 동시 추정을 수행합니다. 그러나 이 조건에서 공극 추정의 개선은 제한적(보고값: 켬 40%, 끔 36%), 편향·기울기의 별도 분리 모델은 없습니다. 기준 성공률 6.8%와 차이는 알고리즘뿐 아니라 코너 공차·구동 오차도 포함합니다. 이력 보정 결과가 곧 실제 센서 성능 증명은 아닙니다.</p></div>
+<div class="card"><h2>모델 범위·금지 해석</h2><p class="notes">원본 <b>Maxwell Matrix5 v1.5.11·v1.5.12의 21개 케이스</b>를 사용합니다. X±30mm까지 직접 해석 데이터가 있지만 <b>Y−15, −30mm는 대칭 가정</b>, 그 밖은 상수 외삽입니다. 공극·기울기 오차와 정적 편향도 가상 가정입니다. 동일 FEM 모델이 가상 플랜트와 추정기에 함께 사용돼 결과가 낙관적일 수 있습니다.</p><p class="notes">기존 총합본의 <b>99.9% / 60.5% / 6.8%</b>는 다른 실행에서 얻은 기준 결과로 보존하되 새로 계산된 수치와 혼동하지 않습니다. <b>자동 체결 성공률, 실제 장비 정밀도, 물리적 잠금 안전성은 검증하지 않았습니다.</b></p></div>
+<div id="moreHint">▼ 아래로 스크롤하면 설정·시험·보관함이 더 있어요</div></aside></div></main>
+<script>/* ORIGINAL MATRIX5 ENGINE, UNMODIFIED */
+
+
+/* MAS-kit Matrix5 engine (v2.0). Pure functions, no DOM. Runs in browser and node.
+   Truth model and controller model are both built from the 21 Maxwell cases (v1.5.11 + v1.5.12). */
+(function (root) {
+  'use strict';
+  var HEADS = ['Xp', 'Xm', 'Yp', 'Ym', 'Ref'];
+
+  // ---------- deterministic RNG ----------
+  function rng(seed) {
+    var s = (seed >>> 0) || 1;
+    var r = function () { s ^= s << 13; s >>>= 0; s ^= s >>> 17; s ^= s << 5; s >>>= 0; return s / 4294967296; };
+    r.n = function () { var u = 0, v = 0; while (u === 0) u = r(); v = r(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); };
+    return r;
+  }
+
+  // ---------- PCHIP (Fritsch-Carlson), held flat outside the data ----------
+  function pchip(xs, ys) {
+    var n = xs.length, h = [], d = [], m = new Array(n), i;
+    for (i = 0; i < n - 1; i++) { h[i] = xs[i + 1] - xs[i]; d[i] = (ys[i + 1] - ys[i]) / h[i]; }
+    m[0] = d[0]; m[n - 1] = d[n - 2];
+    for (i = 1; i < n - 1; i++) {
+      if (d[i - 1] * d[i] <= 0) m[i] = 0;
+      else { var w1 = 2 * h[i] + h[i - 1], w2 = h[i] + 2 * h[i - 1]; m[i] = (w1 + w2) / (w1 / d[i - 1] + w2 / d[i]); }
+    }
+    return function (x) {
+      if (x <= xs[0]) return ys[0];
+      if (x >= xs[n - 1]) return ys[n - 1];
+      var k = 0; while (x > xs[k + 1]) k++;
+      var t = (x - xs[k]) / h[k], t2 = t * t, t3 = t2 * t;
+      return (2 * t3 - 3 * t2 + 1) * ys[k] + (t3 - 2 * t2 + t) * h[k] * m[k] + (-2 * t3 + 3 * t2) * ys[k + 1] + (t3 - t2) * h[k] * m[k + 1];
+    };
+  }
+
+  // ---------- build the response model from the case data ----------
+  function buildModel(data) {
+    var C = data.cases, L0 = C.P1_center.L;
+    function dL(id) { return C[id].L.map(function (v, i) { return v - L0[i]; }); }
+    var zero = [0, 0, 0, 0, 0];
+    var xs = [-30, -15, -5, 0, 5, 15, 30];
+    var xRows = [dL('P5_xm30'), dL('P5_xm15'), dL('P2_xm5'), zero, dL('P2_xp5'), dL('P5_xp15'), dL('P5_xp30')];
+    var y5m = dL('P2_ym5'), y5 = dL('P2_yp5'), y15 = dL('P5_yp15'), y30 = dL('P5_yp30');
+    // y < -5: mirror about y=0 (Yp<->Ym swap, Xp/Xm unchanged). Ref (at +x,+y) has no mirror partner: held at its -5 mm value (ASSUMED).
+    function mir(r) { return [r[0], r[1], r[3], r[2], y5m[4]]; }
+    var yRows = [mir(y30), mir(y15), y5m, zero, y5, y15, y30];
+    var fx = [], fy = [], h;
+    for (h = 0; h < 5; h++) {
+      fx.push(pchip(xs, xRows.map(function (r) { return r[h]; })));
+      fy.push(pchip(xs, yRows.map(function (r) { return r[h]; })));
+    }
+    // x*y interaction from the (30,30) case
+    var d33 = dL('P1_offaxis_30_30'), cxy = [];
+    for (h = 0; h < 5; h++) cxy.push((d33[h] - fx[h](30) - fy[h](30)) / 900);
+    // gap: dz -2, 0, +2, +20 (gap 18, 20, 22, 40 mm)
+    var gz = [], g18 = dL('P4_gap18'), g22 = dL('P4_gap22'), g40 = dL('P6_gap40'), gslope = [];
+    for (h = 0; h < 5; h++) { gz.push(pchip([-2, 0, 2, 20], [g18[h], 0, g22[h], g40[h]])); gslope.push((g22[h] - g18[h]) / 4); }
+    var kp = dL('P4_pitch_p1'), kr = dL('P4_roll_p1'); // per +1 deg, assumed odd-linear
+    function resp(x, y, out) {
+      for (var k = 0; k < 5; k++) out[k] = fx[k](x) + fy[k](y) + cxy[k] * x * y;
+      return out;
+    }
+    // tabulate on a 0.5 mm grid, +-40 mm
+    var R = 40, S = 0.5, N = Math.round(2 * R / S) + 1, tab = [];
+    var tmp = [0, 0, 0, 0, 0];
+    for (h = 0; h < 5; h++) tab.push(new Float64Array(N * N));
+    // Same response formula and 0.5-mm grid as the original v2.0.
+    // Cache axis evaluations to avoid recalculating PCHIP at all 25,921 nodes.
+    var ax = [], ay = [];
+    for (h = 0; h < 5; h++) {
+      ax.push(new Float64Array(N)); ay.push(new Float64Array(N));
+      for (var ix = 0; ix < N; ix++) ax[h][ix] = fx[h](-R + ix * S);
+      for (var iy = 0; iy < N; iy++) ay[h][iy] = fy[h](-R + iy * S);
+    }
+    for (var i = 0; i < N; i++) for (var j = 0; j < N; j++) {
+      var x = -R + i * S, y = -R + j * S;
+      for (h = 0; h < 5; h++) tab[h][i * N + j] = ax[h][i] + ay[h][j] + cxy[h] * x * y;
+    }
+    return { L0: L0, fx: fx, fy: fy, cxy: cxy, gz: gz, gslope: gslope, kp: kp, kr: kr, resp: resp, tab: tab, R: R, S: S, N: N, xs: xs };
+  }
+
+  // ---------- one corner: sensor reading (truth) ----------
+  function measure(M, st, ex, ey, rnd, P, out) {
+    // st: per-corner static state {dz, pitch, roll, bias[5]}; ex,ey local true error (mm)
+    M.resp(ex, ey, out);
+    for (var h = 0; h < 5; h++) {
+      out[h] += M.gz[h](st.dz) + M.kp[h] * st.pitch + M.kr[h] * st.roll + st.bias[h] + P.noise * rnd.n();
+    }
+    return out;
+  }
+
+  // ---------- one corner: estimate (x,y[,dz]) from a reading ----------
+  function estimate(M, meas, P) {
+    var w = P.useHead, N = M.N, S = M.S, R = M.R, g = M.gslope, h;
+    var gg = 0; for (h = 0; h < 5; h++) if (w[h]) gg += g[h] * g[h];
+    function cost(idx) {
+      var r = [0, 0, 0, 0, 0], gr = 0, c = 0;
+      for (h = 0; h < 5; h++) if (w[h]) { r[h] = meas[h] - M.tab[h][idx]; gr += g[h] * r[h]; }
+      var dz = 0;
+      if (P.fitGap && gg > 0) { dz = gr / gg; if (dz > 3) dz = 3; if (dz < -3) dz = -3; }
+      for (h = 0; h < 5; h++) if (w[h]) { var e = r[h] - g[h] * dz; c += e * e; }
+      return c;
+    }
+    var lim = Math.round(P.searchMM / S), c0 = Math.round(R / S), best = 1e99, bi = c0, bj = c0, i, j, step = 4; // coarse 2 mm
+    for (i = c0 - lim; i <= c0 + lim; i += step) for (j = c0 - lim; j <= c0 + lim; j += step) {
+      var c = cost(i * N + j); if (c < best) { best = c; bi = i; bj = j; }
+    }
+    var fi = bi, fj = bj; // fine 0.5 mm, +-2.5 mm around the coarse best
+    for (i = bi - 5; i <= bi + 5; i++) for (j = bj - 5; j <= bj + 5; j++) {
+      if (i < 0 || j < 0 || i >= N || j >= N) continue;
+      var c2 = cost(i * N + j); if (c2 < best) { best = c2; fi = i; fj = j; }
+    }
+    return { x: -R + fi * S, y: -R + fj * S, rss: best };
+  }
+
+  // ---------- 20 ft container, 4 corners ----------
+  var CORNERS = [[-2926.5, 1129.5], [2926.5, 1129.5], [2926.5, -1129.5], [-2926.5, -1129.5]]; // twistlock centres (mm)
+  function frame(k, mirror) { // local sensor frame sign per corner
+    if (!mirror) return [1, 1];
+    return [CORNERS[k][0] > 0 ? 1 : -1, CORNERS[k][1] > 0 ? 1 : -1];
+  }
+
+  function wilson(k, n) {
+    if (!n) return [0, 0, 0];
+    var z = 1.96, p = k / n, d = 1 + z * z / n, c = (p + z * z / (2 * n)) / d, hw = z * Math.sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / d;
+    return [p, Math.max(0, c - hw), Math.min(1, c + hw)];
+  }
+
+  // ---------- full 4-corner closed loop ----------
+  function runOnce(M, P, rnd, keepTrace) {
+    // initial rigid error of the spreader relative to the container (manual approach)
+    var r0 = P.R0 * Math.sqrt(rnd()), a0 = 2 * Math.PI * rnd();
+    var tx = r0 * Math.cos(a0), ty = r0 * Math.sin(a0), th = P.theta0 * Math.PI / 180 * rnd.n();
+    var tol = [], st = [], k, h;
+    for (k = 0; k < 4; k++) {
+      tol.push([P.tolC * rnd.n(), P.tolC * rnd.n()]);
+      if (P.fixedTol) tol[k] = P.fixedTol[k].slice();   // same container re-approached: its corner tolerance stays
+      var b = []; for (h = 0; h < 5; h++) b.push(P.modelBias * rnd.n());
+      st.push({ dz: P.gapSd * rnd.n(), pitch: P.tiltSd * rnd.n(), roll: P.tiltSd * rnd.n(), bias: b });
+    }
+    if (P.tolModel === 'iso') {
+      // ISO 668-based container: corner-centre distances S/P within +3/-5 mm (20 ft), diagonal difference <= 13 mm,
+      // typical = limits at 3 sigma; plus 0.5 mm casting scatter per corner. (Draws come after the original ones.)
+      var clip = function (v, lo, hi) { return Math.max(lo, Math.min(hi, v)); };
+      var dS = clip(-1 + 8 / 6 * rnd.n(), -5, 3), dP = clip(-1 + 8 / 6 * rnd.n(), -5, 3), sh = clip(13 / 3 * rnd.n(), -13, 13) / 1.87;
+      for (k = 0; k < 4; k++) {
+        var gx = CORNERS[k][0] > 0 ? 1 : -1, gy = CORNERS[k][1] > 0 ? 1 : -1;
+        tol[k] = [gx * dS / 2 + gy * sh / 2 + 0.5 * rnd.n(), gy * dP / 2 + 0.5 * rnd.n()];
+        if (P.fixedTol) tol[k] = P.fixedTol[k].slice();
+      }
+    }
+    function errs() { // global error of each corner = hole centre - twistlock axis
+      var out = [];
+      for (var q = 0; q < 4; q++) {
+        var X = CORNERS[q][0], Y = CORNERS[q][1];
+        out.push([tx - th * Y + tol[q][0], ty + th * X + tol[q][1]]);
+      }
+      return out;
+    }
+    var trace = keepTrace ? [] : null, meas = [0, 0, 0, 0, 0], extrap = false, it, e0 = errs();
+    var historyByCorner = P.estimator === 'history' ? [[], [], [], []] : null;
+    for (it = 0; it <= P.iters; it++) {
+      var E = errs(), est = [];
+      if (keepTrace) trace.push({ e: E.map(function (v) { return v.slice(); }), est: null, sensor_uH: [] });
+      if (it === P.iters) break;
+      for (k = 0; k < 4; k++) {
+        var f = frame(k, P.mirror), lx = f[0] * E[k][0], ly = f[1] * E[k][1];
+        if (Math.abs(lx) > 30 || Math.abs(ly) > 30) extrap = true;
+        measure(M, st[k], lx, ly, rnd, P, meas);
+        if (keepTrace) trace[trace.length - 1].sensor_uH.push(meas.slice());
+        var es;
+        if (historyByCorner) {
+          var hst = historyByCorner[k];
+          // Retain ONLY measured inductance and commanded local offsets. No true position.
+          hst.push({m:meas.slice(), ox:0, oy:0});
+          es = (hst.length >= 2 && root.MASKIT_HISTORY)
+            ? root.MASKIT_HISTORY.estimate(M, hst, P, function(){ return estimate(M, meas, P); })
+            : estimate(M, meas, P);
+        } else {
+          es = (P.estimator==='lm' && root.MASKIT_LM) ? root.MASKIT_LM.estimate(M,meas,P) : estimate(M,meas,P);
+        }
+        est.push([f[0] * es.x, f[1] * es.y]);
+      }
+      if (keepTrace) trace[trace.length - 1].est = est;
+      // least-squares rigid fit (dx, dy, dtheta) of the 4 estimates
+      var sx = 0, sy = 0, num = 0, den = 0;
+      for (k = 0; k < 4; k++) { sx += est[k][0]; sy += est[k][1]; }
+      sx /= 4; sy /= 4;
+      for (k = 0; k < 4; k++) {
+        var X2 = CORNERS[k][0], Y2 = CORNERS[k][1];
+        num += X2 * (est[k][1] - sy) - Y2 * (est[k][0] - sx); den += X2 * X2 + Y2 * Y2;
+      }
+      var dth = num / den;
+      // History offsets use only commanded X/Y/rotation, never hidden actuator errors.
+      if (historyByCorner) {
+        var cmdX=-P.K*sx, cmdY=-P.K*sy, cmdTh=-P.K*dth;
+        for (k=0; k<4; k++) {
+          var lf=frame(k,P.mirror), CX=CORNERS[k][0], CY=CORNERS[k][1];
+          var deX=lf[0]*(cmdX-cmdTh*CY), deY=lf[1]*(cmdY+cmdTh*CX);
+          for (var hi=0;hi<historyByCorner[k].length;hi++) {
+            historyByCorner[k][hi].ox -= deX;
+            historyByCorner[k][hi].oy -= deY;
+          }
+        }
+      }
+      // move the spreader (actuator error included)
+      tx -= P.K * sx + P.act * rnd.n();
+      ty -= P.K * sy + P.act * rnd.n();
+      th -= P.K * dth;
+      var small = true; for (k = 0; k < 4; k++) if (Math.abs(est[k][0]) > P.stopMM || Math.abs(est[k][1]) > P.stopMM) small = false;
+      if (small) { if (keepTrace) trace.push({ e: errs(), est: null }); break; }
+    }
+    var EF = errs(), worst = 0, worst0 = 0;
+    // engagement: 'pm5' original +-5 mm both axes; 'head' rigid ISO twistlock in the 124.5 x 63.5 mm aperture
+    // (head ~104 x 56 mm -> about +-10 mm along the length, +-3.8 mm across); 'float10' floating twistlocks +-10 mm
+    var capOk = function (E2) { var cx = P.capture === 'head' ? 10 : P.capture === 'float10' ? 10 : P.tolMM, cy = P.capture === 'head' ? 3.8 : P.capture === 'float10' ? 10 : P.tolMM;
+      for (var q = 0; q < 4; q++) if (Math.abs(E2[q][0]) > cx || Math.abs(E2[q][1]) > cy) return false; return true; };
+    for (k = 0; k < 4; k++) {
+      worst = Math.max(worst, Math.abs(EF[k][0]), Math.abs(EF[k][1]));
+      worst0 = Math.max(worst0, Math.abs(e0[k][0]), Math.abs(e0[k][1]));
+    }
+    return { ok: capOk(EF), ok0: capOk(e0), worst: worst, worst0: worst0, steps: it, extrap: extrap, trace: trace, tol: tol };
+  }
+
+  function batch(M, P, n, seed) {
+    var rnd = rng(seed), ok = 0, ok0 = 0, ex = 0, ws = [], steps = 0;
+    for (var i = 0; i < n; i++) {
+      var r = runOnce(M, P, rnd, false);
+      if (r.ok) ok++; if (r.ok0) ok0++; if (r.extrap) ex++; ws.push(r.worst); steps += r.steps;
+    }
+    ws.sort(function (a, b) { return a - b; });
+    return { n: n, ok: ok, ok0: ok0, extrap: ex, rate: wilson(ok, n), rate0: wilson(ok0, n), worst: ws,
+             p50: ws[Math.floor(n * 0.5)], p95: ws[Math.floor(n * 0.95)], meanSteps: steps / n };
+  }
+
+  // single corner, no rotation / no tolerance: where does the loop capture?
+  function captureMap(M, P, step, trials, seed) {
+    var rnd = rng(seed), cells = [], meas = [0, 0, 0, 0, 0];
+    for (var x = -30; x <= 30; x += step) for (var y = -30; y <= 30; y += step) {
+      var ok = 0, fin = 0;
+      for (var t = 0; t < trials; t++) {
+        var b = []; for (var h = 0; h < 5; h++) b.push(P.modelBias * rnd.n());
+        var st = { dz: P.gapSd * rnd.n(), pitch: P.tiltSd * rnd.n(), roll: P.tiltSd * rnd.n(), bias: b };
+        var ex = x, ey = y;
+        for (var it = 0; it < P.iters; it++) {
+          measure(M, st, ex, ey, rnd, P, meas);
+          var es = (P.estimator==='lm' && root.MASKIT_LM) ? root.MASKIT_LM.estimate(M,meas,P) : estimate(M,meas,P);
+          ex -= P.K * es.x + P.act * rnd.n(); ey -= P.K * es.y + P.act * rnd.n();
+          if (Math.abs(es.x) <= P.stopMM && Math.abs(es.y) <= P.stopMM) break;
+        }
+        var w = Math.max(Math.abs(ex), Math.abs(ey)); fin += w;
+        if (w <= P.tolMM) ok++;
+      }
+      cells.push({ x: x, y: y, p: ok / trials, fin: fin / trials });
+    }
+    return cells;
+  }
+
+  root.MASKIT = { HEADS: HEADS, rng: rng, pchip: pchip, buildModel: buildModel, measure: measure, estimate: estimate,
+                  runOnce: runOnce, batch: batch, captureMap: captureMap, wilson: wilson, CORNERS: CORNERS, frame: frame };
+  if (typeof module !== 'undefined') module.exports = root.MASKIT;
+})(typeof window !== 'undefined' ? window : globalThis);
+
+
+
+</script>
+<script>/* ORIGINAL MATRIX5 21 CASE DATA, UNMODIFIED */
+const DATA={"heads":["Xp","Xm","Yp","Ym","Ref"],"cases":{"P1_center":{"dx":0,"dy":0,"dz":0,"pitch":0,"roll":0,"setup":"afast","L":[1109.5791,1123.839,1126.2125,1124.8763,1123.3949],"passes":23,"tets":295622,"err":0.41138,"min":12.8,"maxMutualPct":0.627},"P1_offaxis_30_30":{"dx":30,"dy":30,"dz":0,"pitch":0,"roll":0,"setup":"afast","L":[1120.0192,1119.9881,1121.616,1117.155,1122.8073],"passes":22,"tets":274262,"err":0.43231,"min":11.7,"maxMutualPct":0.669},"P2_xm5":{"dx":-5,"dy":0,"dz":0,"pitch":0,"roll":0,"setup":"afast","L":[1111.3803,1122.615,1125.2959,1125.0064,1122.9715],"passes":23,"tets":293272,"err":0.41,"min":12.8,"maxMutualPct":0.636},"P2_xp5":{"dx":5,"dy":0,"dz":0,"pitch":0,"roll":0,"setup":"afast","L":[1108.8223,1123.9692,1125.8777,1125.0899,1123.8305],"passes":23,"tets":291904,"err":0.40724,"min":12.4,"maxMutualPct":0.62},"P2_ym5":{"dx":0,"dy":-5,"dz":0,"pitch":0,"roll":0,"setup":"afast","L":[1110.2758,1123.9639,1125.7016,1124.7527,1122.9241],"passes":23,"tets":307694,"err":0.39883,"min":13.4,"maxMutualPct":0.621},"P2_yp5":{"dx":0,"dy":5,"dz":0,"pitch":0,"roll":0,"setup":"afast","L":[1110.4919,1124.2127,1125.5915,1124.2922,1123.4155],"passes":23,"tets":306887,"err":0.40189,"min":13.4,"maxMutualPct":0.636},"P3_blind_m2_p4":{"dx":-2,"dy":4,"dz":0,"pitch":0,"roll":0,"setup":"afast","L":[1111.2664,1123.1488,1125.7152,1125.0435,1124.0859],"passes":22,"tets":295280,"err":0.40565,"min":12.7,"maxMutualPct":0.639},"P3_diag_p3_m3":{"dx":3,"dy":-3,"dz":0,"pitch":0,"roll":0,"setup":"afast","L":[1110.3389,1124.4421,1126.4231,1124.8554,1124.0666],"passes":22,"tets":275789,"err":0.44389,"min":11.6,"maxMutualPct":0.619},"P3_diag_p3_p3":{"dx":3,"dy":3,"dz":0,"pitch":0,"roll":0,"setup":"afast","L":[1110.0946,1124.0207,1126.2261,1125.0492,1123.5683],"passes":23,"tets":300488,"err":0.40654,"min":13.1,"maxMutualPct":0.631},"P4_gap18":{"dx":0,"dy":0,"dz":-2,"pitch":0,"roll":0,"setup":"afast","L":[1111.5072,1129.4292,1131.7824,1130.6393,1127.4631],"passes":22,"tets":285951,"err":0.43458,"min":12.1,"maxMutualPct":0.622},"P4_gap22":{"dx":0,"dy":0,"dz":2,"pitch":0,"roll":0,"setup":"afast","L":[1109.4299,1120.676,1122.1183,1120.8473,1118.7202],"passes":22,"tets":279144,"err":0.42501,"min":11.8,"maxMutualPct":0.633},"P4_pitch_p1":{"dx":0,"dy":0,"dz":0,"pitch":1,"roll":0,"setup":"afast","L":[1110.7545,1121.9878,1125.5231,1124.939,1125.7904],"passes":22,"tets":276254,"err":0.44362,"min":11.8,"maxMutualPct":0.623},"P4_roll_p1":{"dx":0,"dy":0,"dz":0,"pitch":0,"roll":1,"setup":"afast","L":[1109.5691,1124.2764,1123.8275,1127.4537,1120.9576],"passes":23,"tets":306951,"err":0.39962,"min":13.4,"maxMutualPct":0.627},"P5_xm15":{"dx":-15,"dy":0,"dz":0,"pitch":0,"roll":0,"setup":"afast","L":[1117.548,1118.8604,1124.5336,1125.1375,1122.4443],"passes":23,"tets":305475,"err":0.40479,"min":13.2,"maxMutualPct":0.634},"P5_xm30":{"dx":-30,"dy":0,"dz":0,"pitch":0,"roll":0,"setup":"afast","L":[1121.674,1112.9238,1125.5163,1124.5396,1117.2958],"passes":23,"tets":295359,"err":0.41649,"min":12.5,"maxMutualPct":0.609},"P5_xp15":{"dx":15,"dy":0,"dz":0,"pitch":0,"roll":0,"setup":"afast","L":[1108.7724,1124.1958,1125.2525,1125.0538,1124.5605],"passes":23,"tets":305389,"err":0.39273,"min":13.1,"maxMutualPct":0.608},"P5_xp30":{"dx":30,"dy":0,"dz":0,"pitch":0,"roll":0,"setup":"afast","L":[1108.4762,1120.1807,1125.9206,1124.9842,1124.7057],"passes":23,"tets":298115,"err":0.39711,"min":12.9,"maxMutualPct":0.597},"P5_yp15":{"dx":0,"dy":15,"dz":0,"pitch":0,"roll":0,"setup":"afast","L":[1113.607,1124.7037,1124.7682,1124.0505,1124.9873],"passes":22,"tets":283015,"err":0.44153,"min":12.1,"maxMutualPct":0.659},"P5_yp30":{"dx":0,"dy":30,"dz":0,"pitch":0,"roll":0,"setup":"afast","L":[1119.9111,1125.0609,1117.8754,1116.8019,1124.0434],"passes":23,"tets":307901,"err":0.39196,"min":13.3,"maxMutualPct":0.687},"P6_center_strict":{"dx":0,"dy":0,"dz":0,"pitch":0,"roll":0,"setup":"strict","L":[1109.3275,1122.7932,1124.7982,1123.7841,1122.3553],"passes":26,"tets":417612,"err":0.28923,"min":19.0,"maxMutualPct":0.631},"P6_gap40":{"dx":0,"dy":0,"dz":20,"pitch":0,"roll":0,"setup":"afast","L":[1105.7715,1107.7799,1108.3203,1107.8285,1107.8884],"passes":22,"tets":270492,"err":0.4257,"min":11.1,"maxMutualPct":0.708}},"centerMatrix":[[1109.579,-0.294,-1.649,-1.642,-6.956],[-0.294,1123.839,-2.019,-2.205,-1.35],[-1.649,-2.019,1126.212,-2.248,2.129],[-1.642,-2.205,-2.248,1124.876,-1.627],[-6.956,-1.35,2.129,-1.627,1123.395]]};
+</script>
+<script>
+/* MAS-kit optional LM local refinement, independent of the 21-case Matrix5 data.
+   Original grid search is always the initial solution.  The objective below is
+   exactly the grid search's gap-projected sum of squared residuals.
+   All accepted LM steps strictly decrease that SAME objective.  No new noise,
+   training parameters or Maxwell samples are introduced.
+   Numerical solver settings (NOT physical coefficients): derivative dx=0.25mm,
+   8 iterations, LM damping, max 1mm step, position bound +/-30mm.
+*/
+(function(root){ 'use strict';
+ function refine(M,meas,P){
+   var baseline=root.MASKIT.estimate(M,meas,P);
+   var x=baseline.x,y=baseline.y;
+   // Do not extend a local derivative beyond the actually sampled X/Y axis interval.
+   if(Math.abs(x)>30 || Math.abs(y)>30)return baseline;
+   var mask=P.useHead,g=M.gslope,gg=0,h;
+   for(h=0;h<5;h++)if(mask[h])gg+=g[h]*g[h];
+   function residual(x,y){
+     var response=[0,0,0,0,0]; M.resp(x,y,response);
+     var r=[],gz=0;
+     for(var i=0;i<5;i++){
+       r[i]=mask[i]?meas[i]-response[i]:0;
+       if(mask[i])gz+=g[i]*r[i];
+     }
+     var dz=(P.fitGap&&gg>0)?Math.max(-3,Math.min(3,gz/gg)):0;
+     var score=0;
+     for(i=0;i<5;i++)if(mask[i]){r[i]-=dz*g[i];score+=r[i]*r[i];}
+     return {r:r,score:score};
+   }
+   var cur=residual(x,y), initial=cur.score,lambda=.05,accepted=0;
+   // Starting candidate and minimized objective must be the same as grid baseline.
+   if(!Number.isFinite(initial))return baseline;
+   for(var step=0;step<8;step++){
+      var dx=.25, xp=residual(Math.min(30,x+dx),y).r,
+          xm=residual(Math.max(-30,x-dx),y).r,
+          yp=residual(x,Math.min(30,y+dx)).r,
+          ym=residual(x,Math.max(-30,y-dx)).r;
+      var ddx=Math.min(30,x+dx)-Math.max(-30,x-dx);
+      var ddy=Math.min(30,y+dx)-Math.max(-30,y-dx);
+      if(ddx<1e-8 || ddy<1e-8)break;
+      var a=0,b=0,c=0,rhsx=0,rhsy=0;
+      for(h=0;h<5;h++)if(mask[h]){
+         var jx=(xp[h]-xm[h])/ddx,jy=(yp[h]-ym[h])/ddy;
+         a+=jx*jx;b+=jx*jy;c+=jy*jy;rhsx-=jx*cur.r[h];rhsy-=jy*cur.r[h];
+      }
+      if(a<1e-14 || c<1e-14)break;
+      // Scale damping to local curvature, not to physical measurement values.
+      var A=a*(1+lambda)+1e-12,C=c*(1+lambda)+1e-12, det=A*C-b*b;
+      if(!(det>1e-16) || !Number.isFinite(det))break;
+      var ux=(rhsx*C-b*rhsy)/det,uy=(A*rhsy-b*rhsx)/det;
+      var norm=Math.hypot(ux,uy);
+      if(!Number.isFinite(norm)||norm<1e-8)break;
+      if(norm>1){ux/=norm;uy/=norm;}
+      var nx=Math.max(-30,Math.min(30,x+ux)),ny=Math.max(-30,Math.min(30,y+uy));
+      var nxt=residual(nx,ny);
+      if(Number.isFinite(nxt.score)&&nxt.score<cur.score-1e-12){
+         x=nx;y=ny;cur=nxt;accepted++;lambda=Math.max(.001,lambda/2);
+      }else lambda=Math.min(1e6,lambda*8);
+   }
+   if(!accepted || !(cur.score<initial-1e-12))return baseline;
+   return {x:x,y:y,rss:cur.score,lmAccepted:accepted,gridRss:baseline.rss};
+ }
+ root.MASKIT_LM={estimate:refine};
+})(typeof window!=='undefined'?window:globalThis);
+
+</script>
+<script>/* HISTORY ESTIMATOR: 5 SENSOR READINGS + COMMANDED MOVEMENTS ONLY. Cached separable PCHIP. */
+(function(root){'use strict';
+ function estimate(M,hist,P,fallback){
+   if(hist.length<2)return fallback();
+   var x0=hist[0].ox,y0=hist[0].oy,travel=0;
+   for(var q=1;q<hist.length;q++)travel=Math.max(travel,Math.hypot(hist[q].ox-x0,hist[q].oy-y0));
+   if(!(travel>1e-9))return fallback(); // no distinct observation positions
+   var N=M.N,S=M.S,R=M.R,w=P.useHead,n=hist.length,lim=Math.round(P.searchMM/S),c0=Math.round(R/S);
+   var sum=new Float64Array(5),ss=new Float64Array(5);
+   var fx=[],fy=[],haveX=new Uint8Array(N),haveY=new Uint8Array(N);
+   for(var k=0;k<n;k++){
+     var xx=[],yy=[];
+     for(var h=0;h<5;h++){xx.push(new Float64Array(N));yy.push(new Float64Array(N));}
+     fx.push(xx);fy.push(yy);
+   }
+   function prepX(i){if(haveX[i])return;var x=-R+i*S;
+     for(var k=0;k<n;k++)for(var h=0;h<5;h++)if(w[h])fx[k][h][i]=M.fx[h](x+hist[k].ox);
+     haveX[i]=1;
+   }
+   function prepY(j){if(haveY[j])return;var y=-R+j*S;
+     for(var k=0;k<n;k++)for(var h=0;h<5;h++)if(w[h])fy[k][h][j]=M.fy[h](y+hist[k].oy);
+     haveY[j]=1;
+   }
+   function score(i,j){
+     var x=-R+i*S,y=-R+j*S;
+     sum.fill(0);ss.fill(0);
+     for(var k=0;k<n;k++){
+       var ob=hist[k],px=x+ob.ox,py=y+ob.oy;
+       for(var h=0;h<5;h++)if(w[h]){
+         var predicted=fx[k][h][i]+fy[k][h][j]+M.cxy[h]*px*py;
+         var v=ob.m[h]-predicted;sum[h]+=v;ss[h]+=v*v;
+       }
+     }
+     var c=0;for(var h=0;h<5;h++)if(w[h])c+=Math.max(0,ss[h]-sum[h]*sum[h]/n);
+     return c;
+   }
+   var best=Infinity,bi=c0,bj=c0,step=4;
+   for(var i=c0-lim;i<=c0+lim;i+=step)prepX(i);
+   for(var j=c0-lim;j<=c0+lim;j+=step)prepY(j);
+   for(var i=c0-lim;i<=c0+lim;i+=step)for(var j=c0-lim;j<=c0+lim;j+=step){
+     var c=score(i,j);if(c<best){best=c;bi=i;bj=j;}
+   }
+   var fi=bi,fj=bj;
+   for(var i=bi-5;i<=bi+5;i++)if(i>=0&&i<N)prepX(i);
+   for(var j=bj-5;j<=bj+5;j++)if(j>=0&&j<N)prepY(j);
+   for(var i=bi-5;i<=bi+5;i++)for(var j=bj-5;j<=bj+5;j++){
+     if(i<0||j<0||i>=N||j>=N)continue;
+     var c=score(i,j);if(c<best){best=c;fi=i;fj=j;}
+   }
+   if(!Number.isFinite(best))return fallback();
+   return {x:-R+fi*S,y:-R+fj*S,rss:best,historyUsed:n};
+ }
+ root.MASKIT_HISTORY={estimate:estimate};
+})(typeof window!=='undefined'?window:globalThis);
+</script>
+<script>
+/* IndexedDB case bank: browser-local append/deduplicate. No change to Matrix5 physics or estimator. */
+(function(root){'use strict';
+ const NAME='MASKIT_CaseBank_v34', STORE='cases';let dbPromise=null;
+ function dbOpen(){
+  if(dbPromise)return dbPromise;
+  dbPromise=new Promise((resolve,reject)=>{
+   if(!root.indexedDB){reject(new Error('이 환경에서는 IndexedDB를 사용할 수 없습니다.'));return;}
+   const req=root.indexedDB.open(NAME,1);
+   req.onupgradeneeded=()=>{const db=req.result, s=db.createObjectStore(STORE,{keyPath:'uid'});s.createIndex('by_outcome','outcome',{unique:false});s.createIndex('by_saved_order','saved_order',{unique:false});};
+   req.onsuccess=()=>{req.result.onversionchange=()=>req.result.close();resolve(req.result);};
+   req.onerror=()=>reject(req.error||new Error('보관함 열기 실패'));
+   req.onblocked=()=>reject(new Error('같은 보관함을 사용하는 다른 탭을 닫아 주세요.'));
+  });return dbPromise;
+ }
+ async function add(records){
+  const db=await dbOpen();if(!Array.isArray(records)||!records.length)return 0;
+  let total=0;
+  for(let off=0;off<records.length;off+=100){
+   const chunk=records.slice(off,off+100);
+   total+=await new Promise((resolve,reject)=>{
+    const tx=db.transaction(STORE,'readwrite'),s=tx.objectStore(STORE);let added=0;
+    for(const rec of chunk){
+     const req=s.add(rec);
+     req.onsuccess=()=>added++;
+     req.onerror=e=>{if(req.error&&req.error.name==='ConstraintError'){e.preventDefault();e.stopPropagation();}else{ /* transaction fails and rejects below */ }};
+    }
+    tx.oncomplete=()=>resolve(added);tx.onerror=()=>reject(tx.error||new Error('저장 실패'));tx.onabort=()=>reject(tx.error||new Error('저장 취소'));
+   });
+  }return total;
+ }
+ async function stats(){const db=await dbOpen();return await new Promise((resolve,reject)=>{
+  const tx=db.transaction(STORE,'readonly'),s=tx.objectStore(STORE),results={total:0,success:0,failure:0,recent:[]};
+  s.count().onsuccess=e=>results.total=e.target.result;
+  s.index('by_outcome').count('success').onsuccess=e=>results.success=e.target.result;
+  s.index('by_outcome').count('failure').onsuccess=e=>results.failure=e.target.result;
+  const cur=s.index('by_saved_order').openCursor(null,'prev');let seen=0;
+  cur.onsuccess=e=>{let c=e.target.result;if(!c||results.recent.length>=3||seen>=150)return;seen++;if(c.value.outcome==='success')results.recent.push({source_seed:c.value.source_seed,trial_index:c.value.trial_index,final_mm:c.value.final_worst_axis_mm,scenario:c.value.scenario,estimator:c.value.estimator,saved_at:c.value.saved_at});c.continue();};
+  tx.oncomplete=()=>resolve(results);tx.onerror=()=>reject(tx.error||new Error('통계 조회 실패'));
+ });}
+ async function all(){const db=await dbOpen();return await new Promise((resolve,reject)=>{
+  const tx=db.transaction(STORE,'readonly'),req=tx.objectStore(STORE).getAll();req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error||new Error('전체 기록 읽기 실패'));
+ });}
+ async function clear(){const db=await dbOpen();await new Promise((resolve,reject)=>{const tx=db.transaction(STORE,'readwrite');tx.objectStore(STORE).clear();tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error||new Error('삭제 실패'));});}
+ root.MASKIT_CASE_BANK={dbOpen,add,stats,all,clear};
+})(window);
+</script>
+<script>
+/* Desktop mode: persistence goes to SQLite via a loopback server. Browser-only mode retains original IndexedDB.
+   NEVER fall back silently if desktop server is unavailable: that would hide a save failure. */
+(function(root){'use strict';
+ if(!root.MASKIT_DESKTOP_TOKEN)return;
+ const auth=root.MASKIT_DESKTOP_TOKEN;
+ async function req(path,data){
+   const opt={method:data===undefined?'GET':'POST',headers:{'X-MASKIT-Token':auth,'Accept':'application/json'},cache:'no-store'};
+   if(data!==undefined){opt.headers['Content-Type']='application/json';opt.body=JSON.stringify(data);}
+   let resp=await fetch('/api/'+path,opt);
+   const result=await resp.json();
+   if(!resp.ok){const err=new Error(result.error||'로컬 저장소 응답 오류 ('+resp.status+')');err.status=resp.status;throw err;}
+   return result;
+ }
+ root.MASKIT_CASE_BANK={
+  mode:'desktop_sqlite',
+  dbOpen:()=>req('health'),
+  add:async(records)=>{let total=0;for(let i=0;i<records.length;i+=100){const r=await req('add',{records:records.slice(i,i+100)});total+=r.added;}return total;},
+  stats:()=>req('stats'),all:()=>req('all'),clear:()=>req('clear',{confirm:'CLEAR'}),
+  gateBank:(q)=>req('gate_bank?'+new URLSearchParams(q).toString())
+ };
+ /* Kit link: main server commands each sensing; each result -> local outbox -> main server. */
+ root.MASKIT_LINK={
+  status:()=>req('link/status'),
+  selfTest:(results)=>req('link/self_test_result',{results}),
+  machineReady:()=>req('link/sim_machine_ready',{machine_id:'SIM-REACHSTACKER-1'}),
+  round:(data)=>req('link/round',data),
+  senseFailed:(session_id,round_no,reason)=>req('link/sense_failed',{session_id,round_no,reason}),
+  abort:(session_id,reason)=>req('link/abort',{session_id,reason})
+ };
+ root.MASKIT_SIM={start:(p)=>req('sim/start',p),state:()=>req('sim/state')};
+})(window);
+</script>
+<script>
+/* MAS-kit browser edition (v3.6): the virtual site and the kit link that the desktop version runs in Python,
+   ported to JavaScript so the same screen works from a single HTML file without installing anything.
+
+   Ported from app/ (operation for operation, same random streams, so the same seed gives the same job):
+     reachstacker_sim.py  -> VirtualReachStacker      main_controller.py -> ControllerBrain
+     kit_device.py        -> processReading            sim_site.py        -> Site (job sequence, log, frames)
+     maskit_engine.World  -> World                     case_memory.lower_features -> lowerFeatures
+   The kit link (maskit_link.py) is reduced to what the screen shows: there is no external main server in the
+   browser, so every result stays in this browser (IndexedDB) and the built-in main server gives the orders. */
+(function (root) {
+  'use strict';
+  var E = root.MASKIT, HIST = root.MASKIT_HISTORY;
+  var CORNERS = E.CORNERS, frame = E.frame;
+
+  // ---------------------------------------------------------------- settings (maskit_engine.settings)
+  var PRESETS = {
+    ideal: { modelBias: 0, noise: .1, gapSd: 0, tiltSd: 0, tolC: .7, act: .2 },
+    target: { modelBias: .25, noise: .2, gapSd: .3, tiltSd: .05, tolC: .7, act: .2 },
+    base: { modelBias: .5, noise: .3, gapSd: 1, tiltSd: .2, tolC: 3, act: .5 }
+  };
+  var BASE = { R0: 30, theta0: .1, K: .8, iters: 6, tolMM: 5, fitGap: true, mirror: true, useHead: [1, 1, 1, 1, 1], searchMM: 36, stopMM: 1 };
+  function settings(hw, est, over) { return Object.assign({}, BASE, PRESETS[hw], { estimator: est }, over || {}); }
+  function cp(a) { return a.map(function (v) { return v.slice(); }); }
+  function deg(r) { return r * 180 / Math.PI; }
+
+  // ---------------------------------------------------------------- kit side (kit_device.py + engine helpers)
+  var FEM_RANGE_MM = 30, GAP_FIT_LIMIT = 3, RSS_CAUTION = 1.0;
+  function gridEstimate(M, meas, P) {          // = maskit_engine.grid_estimate (JS estimate + fitted gap)
+    var es = E.estimate(M, meas, P), w = P.useHead, g = M.gslope, h, gg = 0, gr = 0;
+    var i = Math.round((es.x + M.R) / M.S), j = Math.round((es.y + M.R) / M.S), idx = i * M.N + j;
+    for (h = 0; h < 5; h++) if (w[h]) { gg += g[h] * g[h]; gr += g[h] * (meas[h] - M.tab[h][idx]); }
+    var dz = 0;
+    if (P.fitGap && gg > 0) dz = Math.max(-3, Math.min(3, gr / gg));
+    return { x: es.x, y: es.y, rss: es.rss, dz: dz };
+  }
+  function cornerQuality(es, headOk) {
+    var extrap = Math.abs(es.x) > FEM_RANGE_MM || Math.abs(es.y) > FEM_RANGE_MM;
+    var gapOut = Math.abs(es.dz) >= GAP_FIT_LIMIT - 1e-9;
+    var bad = headOk.filter(function (v) { return !v; }).length, rss = es.rss, grade;
+    if (bad >= 2 || !isFinite(rss)) grade = 'invalid';
+    else if (extrap || gapOut || bad === 1 || rss > RSS_CAUTION) grade = 'caution';
+    else grade = 'good';
+    return { rss_uH2: rss, extrapolated: extrap, gap_out_of_range: gapOut, head_ok: headOk.slice(), grade: grade };
+  }
+  var DEVICE = { useHead: [1, 1, 1, 1, 1], searchMM: 36, fitGap: true };
+  function processReading(M, k, uH, headOk) {
+    headOk = (headOk || [true, true, true, true, true]).map(Boolean);
+    var P = Object.assign({}, DEVICE, { useHead: headOk.map(function (v) { return v ? 1 : 0; }) });
+    if (P.useHead.reduce(function (a, b) { return a + b; }, 0) < 3)
+      return { est_mm: null, quality: { rss_uH2: null, extrapolated: null, gap_out_of_range: null, head_ok: headOk, grade: 'invalid' } };
+    var es = gridEstimate(M, uH, P), f = frame(k, true);
+    return { est_mm: { x: f[0] * es.x, y: f[1] * es.y }, gap_mm: es.dz, quality: cornerQuality(es, headOk) };
+  }
+  function kitUnits(M, readings) {
+    return readings.map(function (r, k) {
+      var res = processReading(M, k, r.sensor_uH, r.head_ok);
+      return { sensor_uH: r.sensor_uH, est_mm: res.est_mm, quality: res.quality };
+    });
+  }
+
+  // ---------------------------------------------------------------- truth (maskit_engine.World)
+  function isoTol(zs, cast) {
+    var clip = function (v, lo, hi) { return Math.max(lo, Math.min(hi, v)); };
+    var dS = clip(-1 + 8 / 6 * zs[0], -5, 3), dP = clip(-1 + 8 / 6 * zs[1], -5, 3), sh = clip(13 / 3 * zs[2], -13, 13) / 1.87;
+    return CORNERS.map(function (c, k) {
+      var gx = c[0] > 0 ? 1 : -1, gy = c[1] > 0 ? 1 : -1;
+      return [gx * dS / 2 + gy * sh / 2 + 0.5 * cast[k][0], gy * dP / 2 + 0.5 * cast[k][1]];
+    });
+  }
+  function captureOk(errs, P) {
+    var cap = P.capture || 'pm5';
+    var cx = cap === 'head' || cap === 'float10' ? 10 : P.tolMM, cy = cap === 'head' ? 3.8 : cap === 'float10' ? 10 : P.tolMM;
+    return errs.every(function (e) { return Math.abs(e[0]) <= cx && Math.abs(e[1]) <= cy; });
+  }
+  function World(P, rnd) {
+    this.P = P; this.rnd = rnd;
+    var r0 = P.R0 * Math.sqrt(rnd()), a0 = 2 * Math.PI * rnd();
+    this.tx = r0 * Math.cos(a0); this.ty = r0 * Math.sin(a0); this.th = P.theta0 * Math.PI / 180 * rnd.n();
+    this.tol = []; this.st = [];
+    for (var k = 0; k < 4; k++) {
+      this.tol.push([P.tolC * rnd.n(), P.tolC * rnd.n()]);
+      var b = []; for (var h = 0; h < 5; h++) b.push(P.modelBias * rnd.n());
+      var dz = P.gapSd * rnd.n(), pitch = P.tiltSd * rnd.n(), roll = P.tiltSd * rnd.n();
+      this.st.push({ dz: dz, pitch: pitch, roll: roll, bias: b });
+    }
+    if (P.tolModel === 'iso') {
+      var zs = [rnd.n(), rnd.n(), rnd.n()], cast = [];
+      for (var q = 0; q < 4; q++) cast.push([rnd.n(), rnd.n()]);
+      this.tol = isoTol(zs, cast);
+    }
+    this.extrap = false;
+  }
+  World.prototype.errs = function () {
+    var out = [];
+    for (var q = 0; q < 4; q++) {
+      var X = CORNERS[q][0], Y = CORNERS[q][1];
+      out.push([this.tx - this.th * Y + this.tol[q][0], this.ty + this.th * X + this.tol[q][1]]);
+    }
+    return out;
+  };
+  World.prototype.readCorner = function (M, k, Er) {
+    Er = Er || this.errs();
+    var f = frame(k, this.P.mirror), lx = f[0] * Er[k][0], ly = f[1] * Er[k][1];
+    if (Math.abs(lx) > 30 || Math.abs(ly) > 30) this.extrap = true;
+    var out = [0, 0, 0, 0, 0];
+    return E.measure(M, this.st[k], lx, ly, this.rnd, this.P, out);
+  };
+  World.prototype.applyMove = function (sx, sy, dth) {
+    this.tx -= sx + this.P.act * this.rnd.n();
+    this.ty -= sy + this.P.act * this.rnd.n();
+    this.th -= dth;
+  };
+
+  // ---------------------------------------------------------------- virtual reach stacker (reachstacker_sim.py)
+  var MACHINE_MODES = {
+    normal: { sxy: 1.5, sth: 0.01, bias: 1.0, status: 'valid' },
+    unstable: { sxy: 6.0, sth: 0.05, bias: 1.0, status: 'unstable' },
+    none: { sxy: null, sth: null, bias: 0.0, status: 'none' },
+    biased: { sxy: 1.5, sth: 0.01, bias: 8.0, status: 'valid' }
+  };
+  var DRIFT_UH = [2.5, 0.0, -2.0, 0.0, 0.0];
+  function VirtualReachStacker(M, P, worldRnd, auxRnd, machineMode, fault, faultCorner) {
+    if (!MACHINE_MODES[machineMode]) throw new Error('machine_mode');
+    if (['none', 'head_dead', 'drift'].indexOf(fault) < 0) throw new Error('fault');
+    this.M = M; this.P = P; this.aux = auxRnd; this.mode = machineMode; this.fault = fault;
+    this.faultCorner = faultCorner == null ? 1 : faultCorner;
+    this.world = new World(P, worldRnd);
+    var mm = MACHINE_MODES[machineMode];
+    this.mbias = [mm.bias * auxRnd.n(), mm.bias * auxRnd.n()];
+    this.lowered = this.locked = false;
+  }
+  VirtualReachStacker.prototype.cornerErrors = function () { return this.world.errs(); };
+  VirtualReachStacker.prototype.worstMM = function () {
+    return Math.max.apply(null, this.world.errs().map(function (v) { return Math.max(Math.abs(v[0]), Math.abs(v[1])); }));
+  };
+  VirtualReachStacker.prototype.approach = function () { return { in_range: true, range_mm: 30 }; };
+  VirtualReachStacker.prototype.machineSensor = function () {
+    var mm = MACHINE_MODES[this.mode];
+    if (mm.sxy === null) return { status: 'none' };
+    var w = this.world;
+    return { status: mm.status, x_mm: w.tx + this.mbias[0] + mm.sxy * this.aux.n(),
+             y_mm: w.ty + this.mbias[1] + mm.sxy * this.aux.n(), theta_rad: w.th + mm.sth * Math.PI / 180 * this.aux.n() };
+  };
+  VirtualReachStacker.prototype.move = function (x, y, th) { this.world.applyMove(x, y, th); };
+  VirtualReachStacker.prototype.lower = function () { this.lowered = true; };
+  VirtualReachStacker.prototype.lock = function () {
+    this.locked = this.lowered && captureOk(this.world.errs(), this.P);
+    return { locked: this.locked, worst_mm: this.worstMM() };
+  };
+  VirtualReachStacker.prototype.kitReadings = function () {
+    var Er = this.world.errs(), out = [];
+    for (var k = 0; k < 4; k++) {
+      var r = this.world.readCorner(this.M, k, Er), ok = [true, true, true, true, true];
+      if (k === this.faultCorner && this.fault === 'head_dead') { ok = [true, false, true, false, true]; r = [r[0], 0.0, r[2], 0.0, r[4]]; }
+      else if (k === this.faultCorner && this.fault === 'drift') r = r.map(function (v, h) { return v + DRIFT_UH[h]; });
+      out.push({ sensor_uH: r, head_ok: ok });
+    }
+    return out;
+  };
+
+  // ---------------------------------------------------------------- main-server brain (main_controller.py)
+  var GRADE_W = { good: 1.0, caution: 0.7, invalid: 0.0 };
+  var OUTLIER_MM = 12.0, KIT_RESID_OK_MM = 4.0, DISAGREE_MM = 6.0, LOWER_OK_MM = 4.0, STOP_MM = 1.0, CORNER_R_MM = 3137.0, MAX_HOLD = 2;
+  var PRIORITY_W = { P1: [0.7, 0.3], P2: [0.2, 0.8], P3: [0.0, 1.0], P4: [0.5, 0.5] };
+  var CASE_KO = { P1: '기존 센서 정상 → 기존 센서 위주, 키트로 다시 확인', P2: '기존 센서 불안정 → 키트 위주',
+    P3: '기존 센서 정보 없음 → 키트만 사용', P4: '한쪽만으로는 부족 → 둘을 반반 섞음',
+    P5: '둘 다 믿기 어려움 → 이동 보류', KIT_OVERRIDE: '기존 센서와 어긋남 → 앞뒤가 맞는 키트 값을 채택',
+    MACHINE_OVERRIDE: '키트 값이 불확실 → 기존 센서 값을 채택', V354: '옛 방식(v3.5.4): 네 모서리 같은 비중' };
+  function rigidFit(est) {
+    var sx = 0, sy = 0, num = 0, den = 0, k;
+    for (k = 0; k < 4; k++) { sx += est[k][0]; sy += est[k][1]; }
+    sx /= 4; sy /= 4;
+    for (k = 0; k < 4; k++) { var X2 = CORNERS[k][0], Y2 = CORNERS[k][1]; num += X2 * (est[k][1] - sy) - Y2 * (est[k][0] - sx); den += X2 * X2 + Y2 * Y2; }
+    return [sx, sy, num / den];
+  }
+  function fitRigid(est, w) {
+    var idx = [0, 1, 2, 3].filter(function (k) { return est[k] != null && w[k] > 0; });
+    if (idx.length === 4 && idx.every(function (k) { return w[k] === w[idx[0]]; })) return rigidFit(est);
+    if (!idx.length) return null;
+    var W = 0, sx = 0, sy = 0, cx = 0, cy = 0, num = 0, den = 0;
+    idx.forEach(function (k) { W += w[k]; });
+    idx.forEach(function (k) { sx += w[k] * est[k][0]; }); sx /= W;
+    idx.forEach(function (k) { sy += w[k] * est[k][1]; }); sy /= W;
+    if (idx.length === 1) return [sx, sy, 0.0];
+    idx.forEach(function (k) { cx += w[k] * CORNERS[k][0]; }); cx /= W;
+    idx.forEach(function (k) { cy += w[k] * CORNERS[k][1]; }); cy /= W;
+    idx.forEach(function (k) {
+      var X = CORNERS[k][0] - cx, Y = CORNERS[k][1] - cy;
+      num += w[k] * (X * (est[k][1] - sy) - Y * (est[k][0] - sx)); den += w[k] * (X * X + Y * Y);
+    });
+    var th = num / den;
+    return [sx + th * cy, sy - th * cx, th];
+  }
+  function cornerModel(fit, k) { var X = CORNERS[k][0], Y = CORNERS[k][1]; return [fit[0] - fit[2] * Y, fit[1] + fit[2] * X]; }
+  function residuals(est, fit, idx) {
+    var out = {};
+    idx.forEach(function (k) { var m = cornerModel(fit, k); out[k] = Math.hypot(est[k][0] - m[0], est[k][1] - m[1]); });
+    return out;
+  }
+  function ControllerBrain(M, strategy, useMachine, interlock, maxRounds, K, estimator) {
+    if (['equal', 'diagonal', 'weighted', 'v354'].indexOf(strategy) < 0) throw new Error('strategy');
+    this.M = M; this.strategy = strategy;
+    this.useMachine = useMachine && strategy !== 'v354'; this.interlock = interlock && strategy !== 'v354';
+    this.maxRounds = maxRounds; this.K = K; this.estimator = estimator || 'history';
+    this.P =Object.assign({}, BASE, { useHead: [1, 1, 1, 1, 1] });
+    this.hist = [[], [], [], []]; this.rounds = 0; this.holds = 0; this.disagreeSeen = false; this.verifying = false; this.decisions = [];
+  }
+  ControllerBrain.prototype._cornerEstimates = function (units, resense) {
+    var self = this, est = [], method = [], grade = [];
+    units.forEach(function (u, k) {
+      var f = frame(k, true), q = u.quality || {};
+      grade.push(q.grade || 'good');
+      var kit = u.est_mm;
+      if (kit == null) { est.push(null); method.push('none'); return; }
+      var kitLocal = { x: f[0] * kit.x, y: f[1] * kit.y }, es = kitLocal, m = 'kit_grid';
+      if (self.estimator === 'history') {
+        var entry = { m: u.sensor_uH.slice(), ox: 0, oy: 0 };
+        if (resense && self.hist[k].length) self.hist[k][self.hist[k].length - 1] = entry; else self.hist[k].push(entry);
+        if (self.hist[k].length >= 2) {
+          es = HIST.estimate(self.M, self.hist[k], self.P, function () { return kitLocal; });
+          m = ('historyUsed' in es) ? 'history' : 'kit_grid';
+        }
+      }
+      est.push([f[0] * es.x, f[1] * es.y]); method.push(m);
+    });
+    return [est, method, grade];
+  };
+  ControllerBrain.prototype._combine = function (est, grade) {
+    var s = this.strategy, w;
+    if (s === 'equal' || s === 'v354') w = est.map(function (e) { return e != null ? 1.0 : 0.0; });
+    else if (s === 'diagonal') w = [0, 1, 2, 3].map(function (k) { return (k === 0 || k === 2) && est[k] != null ? 1.0 : 0.0; });
+    else w = [0, 1, 2, 3].map(function (k) { return est[k] != null ? (GRADE_W[grade[k]] || 0.0) : 0.0; });
+    var fit = fitRigid(est, w), dropped = null;
+    var idx = [0, 1, 2, 3].filter(function (k) { return w[k] > 0; });
+    if (fit !== null && s === 'weighted' && idx.length >= 3) {
+      var res = residuals(est, fit, idx), kBad = idx[0];
+      idx.forEach(function (k) { if (res[k] > res[kBad]) kBad = k; });
+      if (res[kBad] > OUTLIER_MM) {
+        dropped = kBad; w[kBad] = 0.0; fit = fitRigid(est, w);
+        idx = [0, 1, 2, 3].filter(function (k) { return w[k] > 0; });
+      }
+    }
+    var resid = null;
+    if (fit !== null && idx.length >= 3) { var rr = residuals(est, fit, idx); resid = Math.max.apply(null, idx.map(function (k) { return rr[k]; })); }
+    var good = idx.filter(function (k) { return grade[k] === 'good'; }).length, status;
+    if (fit === null) status = 'invalid';
+    else if (idx.length >= 3 && good >= 3 && (resid === null || resid <= KIT_RESID_OK_MM)) status = 'good';
+    else if (idx.length >= 2) status = 'caution';
+    else status = 'invalid';
+    if (fit !== null && idx.length === 1) status = 'caution';
+    var key = idx.slice().sort().join(',');
+    return { fit: fit, weights: w, dropped: dropped, used: idx, resid_mm: resid, status: status,
+             rotation_ok: idx.length >= 3 || key === '0,2' || key === '1,3' };
+  };
+  ControllerBrain.prototype.decide = function (units, machine, resense) {
+    if (!resense && !this.verifying) this.rounds += 1;
+    var r = this._cornerEstimates(units, resense), est = r[0], method = r[1], grade = r[2];
+    var kit = this._combine(est, grade);
+    var mstat = this.useMachine ? ((machine || {}).status || 'none') : 'none';
+    var mfit = (mstat === 'valid' || mstat === 'unstable') ? [machine.x_mm, machine.y_mm, machine.theta_rad] : null;
+    var d = { round: this.rounds, resense: !!resense, verify: this.verifying, corner_est_mm: est, method: method, grade: grade,
+              kit_status: kit.status, weights: kit.weights, dropped_corner: kit.dropped === null ? null : kit.dropped + 1,
+              kit_resid_mm: kit.resid_mm, machine_status: mstat, machine_fit: mfit };
+    var cse;
+    if (this.strategy === 'v354') cse = 'V354';
+    else if (kit.status === 'invalid' && mstat !== 'valid') cse = 'P5';
+    else if (kit.status === 'invalid') cse = 'P1';
+    else if (mstat === 'none') cse = 'P3';
+    else if (mstat === 'unstable') cse = kit.status === 'good' ? 'P2' : 'P4';
+    else cse = kit.status === 'good' ? 'P1' : 'P4';
+    if (cse !== 'P5' && cse !== 'V354' && mfit !== null && kit.fit !== null) {
+      var diff = Math.max(Math.abs(mfit[0] - kit.fit[0]), Math.abs(mfit[1] - kit.fit[1]));
+      var limit = DISAGREE_MM + 0.3 * Math.max(Math.abs(kit.fit[0]), Math.abs(kit.fit[1]));
+      d.disagree_mm = diff; d.disagree_limit_mm = limit;
+      if (diff > limit) {
+        if (!this.disagreeSeen) { this.disagreeSeen = true; return this._hold(d, 'disagree'); }
+        if (kit.status === 'good') cse = 'KIT_OVERRIDE';
+        else if (mstat === 'valid') cse = 'MACHINE_OVERRIDE';
+        else return this._stop(d, 'sensors_disagree');
+      }
+    }
+    d.case = cse; d.case_ko = CASE_KO[cse];
+    if (cse === 'P5' || (kit.fit === null && mfit === null)) return this._hold(d, 'no_reliable_data');
+    var wm, wk;
+    if (cse === 'MACHINE_OVERRIDE') { wm = 1.0; wk = 0.0; }
+    else if (cse === 'V354' || cse === 'P3' || cse === 'KIT_OVERRIDE' || mfit === null) { wm = 0.0; wk = 1.0; }
+    else if (kit.fit === null) { wm = 1.0; wk = 0.0; }
+    else { wm = PRIORITY_W[cse][0]; wk = PRIORITY_W[cse][1]; }
+    var kf = kit.fit || [0, 0, 0], mf = mfit || [0, 0, 0];
+    var fused = cse !== 'V354' ? [0, 1, 2].map(function (i) { return wm * mf[i] + wk * kf[i]; }) : kf;
+    if (cse === 'P3' || cse === 'KIT_OVERRIDE' || wm === 0.0) fused = kf;
+    else if (wk === 0.0) fused = mf;
+    if (!kit.rotation_ok && wm === 0.0) fused = [fused[0], fused[1], 0.0];
+    d.w_machine = wm; d.w_kit = wk; d.fused_mm = fused;
+    this.holds = 0;
+    var K = this.K, move = [K * fused[0], K * fused[1], K * fused[2]], self = this;
+    var usable = [0, 1, 2, 3].filter(function (k) { return est[k] != null && (kit.weights[k] > 0 || self.strategy === 'v354' || self.strategy === 'equal'); });
+    var pred = [0, 1, 2, 3].map(function (k) {
+      if (est[k] == null) return null;
+      var X = CORNERS[k][0], Y = CORNERS[k][1];
+      return [est[k][0] - (move[0] - move[2] * Y), est[k][1] - (move[1] + move[2] * X)];
+    });
+    var predWorst = usable.length ? Math.max.apply(null, usable.map(function (k) { return Math.max(Math.abs(pred[k][0]), Math.abs(pred[k][1])); })) : Infinity;
+    var converged = usable.length > 0 && usable.every(function (k) { return Math.abs(est[k][0]) <= STOP_MM && Math.abs(est[k][1]) <= STOP_MM; });
+    var fusedSmall = Math.max(Math.abs(fused[0]), Math.abs(fused[1])) <= STOP_MM && Math.abs(fused[2]) * CORNER_R_MM <= STOP_MM;
+    if (!converged && wm > 0 && fusedSmall && predWorst <= LOWER_OK_MM) converged = true;
+    d.correction = { x_mm: move[0], y_mm: move[1], theta_rad: move[2], theta_deg: deg(move[2]) };
+    d.predicted_worst_mm = predWorst; d.converged = converged;
+    if (this.verifying) {
+      this.verifying = false;
+      var ok = converged || predWorst <= LOWER_OK_MM;
+      d.action = ok ? 'lower_after_move' : 'stop'; d.reason = ok ? 'verified' : 'verify_failed';
+      return this._record(d);
+    }
+    if (!this.interlock) { d.action = (converged || this.rounds >= this.maxRounds) ? 'lower_after_move' : 'move'; return this._record(d); }
+    if (converged && kit.status !== 'invalid') d.action = 'lower_after_move';
+    else if (this.rounds >= this.maxRounds) { d.action = 'move_then_verify'; this.verifying = true; }
+    else d.action = 'move';
+    return this._record(d);
+  };
+  ControllerBrain.prototype.applyHistoryOffsets = function (c) {
+    if (this.estimator !== 'history') return;
+    var cmdX = -c.x_mm, cmdY = -c.y_mm, cmdTh = -c.theta_rad;
+    for (var k = 0; k < 4; k++) {
+      var lf = frame(k, true), CX = CORNERS[k][0], CY = CORNERS[k][1];
+      var deX = lf[0] * (cmdX - cmdTh * CY), deY = lf[1] * (cmdY + cmdTh * CX);
+      this.hist[k].forEach(function (ob) { ob.ox -= deX; ob.oy -= deY; });
+    }
+  };
+  ControllerBrain.prototype._hold = function (d, reason) {
+    this.holds += 1;
+    if (!('case' in d)) d.case = 'P5';
+    if (!('case_ko' in d)) d.case_ko = CASE_KO[d.case] || '';
+    if (this.holds > MAX_HOLD) return this._stop(d, reason);
+    d.action = 'resense'; d.reason = reason; return this._record(d);
+  };
+  ControllerBrain.prototype._stop = function (d, reason) {
+    if (!('case' in d)) d.case = 'P5';
+    if (!('case_ko' in d)) d.case_ko = CASE_KO[d.case] || '';
+    d.action = 'stop'; d.reason = reason; return this._record(d);
+  };
+  ControllerBrain.prototype._record = function (d) { this.decisions.push(d); return d; };
+
+  // ---------------------------------------------------------------- one synchronous job (sim_job.run_job) - used by the tests
+  function runJob(M, P, worldRnd, auxRnd, strategy, machineMode, fault, maxRounds) {
+    var rs = new VirtualReachStacker(M, P, worldRnd, auxRnd, machineMode || 'none', fault || 'none');
+    rs.approach();
+    var w0 = rs.worstMM(), brain = new ControllerBrain(M, strategy || 'weighted', true, true, maxRounds || 6, P.K, P.estimator);
+    var resense = false, outcome = null, sensings = 0;
+    while (outcome === null) {
+      var units = kitUnits(M, rs.kitReadings()), machine = rs.machineSensor();
+      var d = brain.decide(units, machine, resense); sensings++;
+      if (d.action === 'resense') { resense = true; continue; }
+      resense = false;
+      if (d.action === 'stop') { outcome = 'held'; break; }
+      var c = d.correction;
+      rs.move(c.x_mm, c.y_mm, c.theta_rad); brain.applyHistoryOffsets(c);
+      if (d.action === 'lower_after_move') { rs.lower(); outcome = rs.lock().locked ? 'success' : 'false_lower'; }
+    }
+    return { outcome: outcome, ok: outcome === 'success', worst: rs.worstMM(), worst0: w0, rounds: brain.rounds, sensings: sensings };
+  }
+
+  // ---------------------------------------------------------------- live site (sim_site.py) + reduced kit link
+  var ACT_KO = { disagree: '기존 센서와 키트 값이 어긋남', no_reliable_data: '믿을 만한 측정값 없음', sensors_disagree: '두 센서가 계속 어긋남',
+                 verify_failed: '최종 확인에서 허용 범위를 넘음', verified: '최종 확인 통과' };
+  var GRADE_KO = { good: '양호', caution: '주의', invalid: '무효' };
+  var MSTAT_KO = { valid: '정상', unstable: '불안정', none: '없음' };
+  function Site(getModel, opts) {
+    this.getModel = getModel; this.job = null; this.approachMs = opts.approachMs || 1000; this.moveMs = opts.moveMs || 800;
+    this.kit = { kit_id: 'KIT-BROWSER-1', state: 'IDLE', round_no: 0, session_id: null, sent: 0, last_job: null };
+  }
+  Site.prototype._now = function () { return Date.now() / 1000; };
+  Site.prototype._log = function (who, text) { this.job.log.push({ t: this._now(), at: new Date().toISOString(), who: who, text: text }); };
+  Site.prototype._frame = function (label) { this.job.frames.push({ t: this._now(), errors: cp(this.job.rs.cornerErrors()), label: label }); };
+  Site.prototype._later = function (ms, fn) { var self = this, id = this.job.job_id; setTimeout(function () { if (self.job && self.job.job_id === id && !self.job.outcome) fn(); }, ms); };
+  Site.prototype.start = function (p) {
+    var M = this.getModel();
+    if (this.job && !this.job.outcome) throw new Error('진행 중인 가상 작업이 있습니다');
+    var hw = p.hardware || 'target', seed = p.seed == null ? ((Math.random() * 4294967296) >>> 0 || 1) : (p.seed >>> 0);
+    var P = settings(hw, 'history', { tolModel: p.tol_model || 'orig', capture: p.capture || 'pm5' });
+    var rs = new VirtualReachStacker(M, P, E.rng(seed), E.rng((seed ^ 0x5A5A5A5A) >>> 0), p.machine || 'normal', p.fault || 'none');
+    var d = new Date(), pad = function (v) { return String(v).padStart(2, '0'); };
+    var jobId = 'JOB-' + d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) + '-' + pad(d.getHours()) + pad(d.getMinutes()) + pad(d.getSeconds()) + '-' + Math.floor(Math.random() * 65536).toString(16).padStart(4, '0');
+    this.job = { job_id: jobId, seed: seed, P: P, rs: rs, phase: 'approach', outcome: null, frames: [], log: [], decision: null, machine_last: null,
+                 settings: { hardware: hw, machine: p.machine, fault: p.fault, strategy: p.strategy, tol_model: P.tolModel, capture: P.capture },
+                 brain: new ControllerBrain(M, p.strategy || 'weighted', true, true, 6, P.K), worst0: rs.worstMM() };
+    this.kit.state = 'IDLE'; this.kit.session_id = jobId; this.kit.round_no = 0;
+    this._frame('접근 시작');
+    this._log('기계', '리치스태커: 멀리서 받은 컨테이너 대략 위치로 다가가는 중');
+    var self = this;
+    this._later(this.approachMs, function () { self._inRange(); });
+    return this.state();
+  };
+  Site.prototype._inRange = function () {
+    var j = this.job; j.rs.approach(); j.phase = 'sensing';
+    this._frame('센서 측정 범위 도착 (±30 mm)');
+    this._log('기계', '리치스태커: 자체 센서로 보니 키트가 잴 수 있는 범위(±30 mm) 안에 들어옴');
+    this._log('서버', '메인 서버 → 키트: 작업 시작');
+    this._sense(false, 1);
+  };
+  Site.prototype._sense = function (resense, roundNo) {
+    var j = this.job, M = this.getModel();
+    this.kit.state = 'SENSING'; this.kit.round_no = roundNo;
+    var units = kitUnits(M, j.rs.kitReadings());
+    this.kit.sent += 1; this.kit.state = 'WAITING';
+    var machine = j.rs.machineSensor(); j.machine_last = machine;
+    var d = j.brain.decide(units, machine, resense); j.decision = d;
+    var tag = d.round + '차' + (resense ? ' 재측정' : (d.verify ? ' 최종 확인' : ''));
+    this._log('키트', '키트 → 서버: ' + tag + ' 측정값 전송 (네 모서리 신뢰도 ' + d.grade.map(function (g) { return GRADE_KO[g] || g; }).join('/') + ')');
+    this._log('서버', '서버 판단: ' + (d.case_ko || '') + ' · 기존 센서 ' + (MSTAT_KO[d.machine_status] || d.machine_status) + ' · 키트 ' + (GRADE_KO[d.kit_status] || d.kit_status) + (d.dropped_corner ? ' · 모서리' + d.dropped_corner + ' 값 제외' : ''));
+    var self = this, act = d.action;
+    if (act === 'resense') { this._log('서버', '서버 → 키트: 움직이지 않고 다시 측정 (' + (ACT_KO[d.reason] || d.reason) + ')'); this._later(200, function () { self._sense(true, roundNo); }); return; }
+    if (act === 'stop') { this._finish('held'); this._log('서버', '서버: ' + (ACT_KO[d.reason] || d.reason) + ' → 내리지 않고 안전하게 멈춤'); return; }
+    var c = d.correction;
+    j.rs.move(c.x_mm, c.y_mm, c.theta_rad); j.brain.applyHistoryOffsets(c);
+    this._frame(tag + ' 위치 보정');
+    this._log('서버', '서버 → 리치스태커: 위치 보정 가로 ' + c.x_mm.toFixed(2) + ' / 세로 ' + c.y_mm.toFixed(2) + ' mm / 회전 ' + c.theta_deg.toFixed(4) + '° (기존 센서 ' + Math.round(100 * (d.w_machine || 0)) + '% · 키트 ' + Math.round(100 * (d.w_kit == null ? 1 : d.w_kit)) + '%)');
+    if (act === 'lower_after_move') {
+      j.rs.lower(); var locked = j.rs.lock().locked;
+      this._frame('내림·잠금');
+      this._log('서버', '서버 → 리치스태커: 내림 → 잠금 ' + (locked ? '성공' : '실패 (허용 범위 초과)') + ' → 들어 올림');
+      this._finish(locked ? 'success' : 'false_lower'); return;
+    }
+    j.phase = act === 'move_then_verify' ? 'verify' : 'sensing';
+    this._log('서버', '서버: 이동 끝 확인 → 키트에 ' + (act === 'move_then_verify' ? '최종 확인 측정' : '다음 측정') + ' 요청');
+    this._later(this.moveMs, function () { self._sense(false, roundNo + 1); });
+  };
+  Site.prototype._finish = function (outcome) {
+    var j = this.job; j.outcome = outcome; j.phase = outcome === 'success' ? 'done' : outcome === 'false_lower' ? 'failed' : outcome === 'aborted' ? 'aborted' : 'held';
+    this.kit.state = 'IDLE';
+    this.kit.last_job = { session_id: j.job_id, result: outcome === 'aborted' ? 'aborted' : outcome === 'held' ? 'stopped' : 'end', rounds: j.brain.rounds };
+  };
+  Site.prototype.abort = function (reason) { if (this.job && !this.job.outcome) { this._finish('aborted'); this._log('서버', '작업 중단 (' + reason + ')'); } };
+  Site.prototype.state = function () {
+    var j = this.job; if (!j) return { active: false };
+    var d = j.decision;
+    return { active: !j.outcome, job_id: j.job_id, phase: j.phase, outcome: j.outcome, seed: j.seed, settings: j.settings, worst0_mm: j.worst0,
+             truth_worst_mm: j.rs.worstMM(), truth_corner_errors_mm: cp(j.rs.cornerErrors()), frames: j.frames.slice(), log: j.log.slice(-60),
+             rounds: j.brain.rounds, machine_last: j.machine_last, decision: d ? Object.assign({}, d) : null, job_rs_tol: j.rs.world.tol };
+  };
+  Site.prototype.linkStatus = function () {
+    var k = this.kit;
+    return { kit_id: k.kit_id, state: k.state, round_no: k.round_no, session_id: k.session_id, pending: null,
+             outbox: { pending: 0, sent: k.sent }, units: ['U1', 'U2', 'U3', 'U4'], server_configured: false, server_url: '',
+             awaiting_start: false, last_job: k.last_job, uplink: { last_error: null }, browser: true };
+  };
+
+  // ---------------------------------------------------------------- lowering-gate data from the stored cases (desktop_host.gate_bank)
+  function lowerFeatures(est) {
+    if (!est || est.length !== 4 || est.some(function (e) { return e == null; })) return null;
+    var f = rigidFit(est), sx = f[0], sy = f[1], th = f[2];
+    var worst = Math.max.apply(null, est.map(function (e) { return Math.max(Math.abs(e[0]), Math.abs(e[1])); }));
+    var resid = Math.max.apply(null, est.map(function (e, k) { var X = CORNERS[k][0], Y = CORNERS[k][1]; return Math.max(Math.abs(e[0] - (sx - th * Y)), Math.abs(e[1] - (sy + th * X))); }));
+    return [Math.round(worst * 1e4) / 1e4, Math.round(resid * 1e4) / 1e4];
+  }
+  function gateBankFrom(records, q) {
+    var F = [], Y = [];
+    records.slice().sort(function (a, b) { return a.saved_order - b.saved_order; }).forEach(function (r) {
+      if (r.scenario !== q.scenario || r.estimator !== q.estimator || String(r.radius_mm) !== String(q.radius)) return;
+      if ((r.gate || {}).held) return;
+      var rounds = (r.controller_observable || {}).rounds || [];
+      var f = rounds.length ? lowerFeatures(rounds[rounds.length - 1].estimated_corner_errors_mm) : null;
+      if (f) { F.push(f); Y.push(r.outcome === 'success' ? 1 : 0); }
+    });
+    return { F: F, Y: Y, n: F.length };
+  }
+
+  root.MASKIT_BROWSER_SITE = { Site: Site, runJob: runJob, settings: settings, kitUnits: kitUnits, ControllerBrain: ControllerBrain,
+                               VirtualReachStacker: VirtualReachStacker, gateBankFrom: gateBankFrom, lowerFeatures: lowerFeatures };
+  if (typeof module !== 'undefined') module.exports = root.MASKIT_BROWSER_SITE;
+})(typeof window !== 'undefined' ? window : globalThis);
+
+
+/* Browser edition: built-in main server + kit run here; records stay in this browser. */
+(function(root){'use strict';
+ const S=root.MASKIT_BROWSER_SITE;let M=null;
+ const site=new S.Site(()=>M||(M=root.MASKIT.buildModel(DATA)),{approachMs:1000,moveMs:800});
+ const bank=root.MASKIT_CASE_BANK;bank.mode='browser_indexeddb';
+ bank.gateBank=async q=>S.gateBankFrom(await bank.all(),q);
+ const st=async()=>site.linkStatus();
+ root.MASKIT_LINK={status:st,selfTest:st,machineReady:st,round:st,senseFailed:st,abort:async(sid,reason)=>{site.abort(reason);return site.linkStatus();}};
+ root.MASKIT_SIM={start:async p=>site.start(p),state:async()=>site.state()};
+})(window);
+</script>
+<script>
+(function(){'use strict';
+const E=window.MASKIT, C=E.CORNERS, heads=E.HEADS;
+const $=id=>document.getElementById(id);
+const presets={
+ ideal:{modelBias:0,noise:.1,gapSd:0,tiltSd:0,tolC:.7,act:.2},
+ target:{modelBias:.25,noise:.2,gapSd:.3,tiltSd:.05,tolC:.7,act:.2},
+ base:{modelBias:.5,noise:.3,gapSd:1,tiltSd:.2,tolC:3,act:.5}
+};
+const base={R0:30,theta0:.1,K:.8,iters:6,tolMM:5,fitGap:true,mirror:true,useHead:[1,1,1,1,1],searchMM:36,stopMM:1};
+let model=null,busy=false,runId=0,firstFail=null,lastBatch=null,caseArchive=null,shownErrors=null,approach=0,lastEstimate=null,highlightStep=-1;
+let bankReady=false, bankPath=null;const BANK=window.MASKIT_CASE_BANK;let bankSequence=0;
+const canvas=$('scene'),ctx=canvas.getContext('2d'),zoom=$('cornerZoom'),zx=zoom.getContext('2d');
+function setting(){return {...base,...presets[$('scenario').value],R0:+$('radius').value,estimator:$('estimator').value,tolModel:$('tolModel').value,capture:$('capture').value};}
+function scenKey(){return $('scenario').value+($('tolModel').value==='iso'?'|iso':'')+($('capture').value!=='pm5'?'|'+$('capture').value:'');}
+function seedValue(id){const n=Number($(id).value);return Number.isFinite(n)?(Math.trunc(n)>>>0):2026;}
+function freshSeed(){const a=new Uint32Array(1);if(globalThis.crypto?.getRandomValues){crypto.getRandomValues(a);return a[0]||1;}return (Math.floor(Math.random()*4294967296) ^ Date.now())>>>0 || 1;}
+function autoSeedFor(id){const sd=$('autoSeed').checked?freshSeed():seedValue(id);$(id).value=sd;return sd;}
+function ensureModel(){if(!model){model=E.buildModel(DATA);}return model;}
+function bankLabel(text,isWarn=false){$('bankStatus').textContent=text;$('bankStatus').className=isWarn?'archive-state archive-warning':'archive-state';}
+// ---- lowering gate from the accumulated cases: last-round corner estimates (what the controller sees) -> outcome.
+// True errors are never used; trials the gate held are not learned from. Applied after each trial, so one run
+// gives both columns: as the original (always lower) and with the accumulated cases.
+function gateFeatures(est){if(!est||est.length!==4)return null;let sx=0,sy=0,num=0,den=0,w=0;
+ for(const v of est){sx+=v[0];sy+=v[1];w=Math.max(w,Math.abs(v[0]),Math.abs(v[1]));}sx/=4;sy/=4;
+ est.forEach((v,k)=>{const X=E.CORNERS[k][0],Y=E.CORNERS[k][1];num+=X*(v[1]-sy)-Y*(v[0]-sx);den+=X*X+Y*Y;});const th=num/den;
+ let r=0;est.forEach((v,k)=>{const X=E.CORNERS[k][0],Y=E.CORNERS[k][1];r=Math.max(r,Math.abs(v[0]-(sx-th*Y)),Math.abs(v[1]-(sy+th*X)));});return [w,r];}
+function gateP(bank,f,k=60){const n=bank.F.length;if(n<k)return null;const d=new Float64Array(n);for(let i=0;i<n;i++){const a=bank.F[i][0]-f[0],b=bank.F[i][1]-f[1];d[i]=a*a+b*b;}
+ const idx=Array.from(d.keys()).sort((i,j)=>d[i]-d[j]).slice(0,k);let s=0;for(const i of idx)s+=bank.Y[i];return s/k;}
+function bankId(seed,P,i){/* scenario key includes tolerance model and capture */return ['matrix5','v34', scenKey(),P.estimator,P.R0, seed>>>0, i].join('|');}
+function toBankRecord(r,seed,P,index,origin,savedAt){
+ const trace=r.trace||[], rounds=trace.filter(t=>Array.isArray(t.est));
+ return {
+  uid:bankId(seed,P,index),schema:'MASKIT_observation_case_v1',origin:origin,
+  outcome:r.ok?'success':'failure',gate:r.gate_p!=null?{held:!!r.held,similar_success:r.gate_p}:undefined,saved_at:savedAt,saved_order:Date.now()+(bankSequence++/100000),
+  source_seed:seed>>>0,trial_index:index,scenario:scenKey(),estimator:P.estimator,radius_mm:P.R0,
+  simulation_only:true,source_model:'Maxwell Matrix5 21 FEM cases + interpolation/assumptions',
+  iterations:r.steps,extrapolated:!!r.extrap,initial_worst_axis_mm:r.worst0,final_worst_axis_mm:r.worst,
+  controller_observable:{heads:['Xp','Xm','Yp','Ym','Ref'],
+   rounds:rounds.map(t=>({sensor_uH:t.sensor_uH||[],estimated_corner_errors_mm:t.est,
+    commanded_x_y_rotation:(()=>{let v=recommended(t.est,P);return {x_mm:v[0],y_mm:v[1],theta_deg:v[2]};})()}))},
+  evaluation_only:{initial_true_corner_error_mm:trace[0]?.e||null,final_true_corner_error_mm:trace[trace.length-1]?.e||null,within_5mm:!!r.ok},
+  frozen_conditions:{modelBias:P.modelBias,noise:P.noise,gapSd:P.gapSd,tiltSd:P.tiltSd,tolC:P.tolC,act:P.act,iters:P.iters,K:P.K}
+ };
+}
+async function updateBankStats(newRecords=null){
+ try{
+  if(BANK.mode==='desktop_sqlite' && bankPath===null){const health=await BANK.dbOpen();bankPath=health.db;}
+  const s=await BANK.stats();bankReady=true;
+  $('bankSuccess').textContent=s.success.toLocaleString();$('bankFailure').textContent=s.failure.toLocaleString();$('bankTotal').textContent=s.total.toLocaleString();
+  if(newRecords!==null)$('bankAdded').textContent=String(newRecords);
+  $('bankRecent').replaceChildren();
+  if(s.recent.length){let label=document.createElement('strong');label.textContent='최근 저장된 성공 사례';$('bankRecent').appendChild(label);for(const c of s.recent){const p=document.createElement('div');p.className='recent-case';p.textContent=`${c.scenario} / ${c.estimator} · 시드 ${c.source_seed}, 시행 ${c.trial_index} · 최종 ${Number(c.final_mm).toFixed(2)}mm`;$('bankRecent').appendChild(p);}}
+  else $('bankRecent').textContent='아직 누적된 성공 사례가 없습니다.';
+  bankLabel(BANK.mode==='desktop_sqlite'?'PC 영구 저장 확인 · '+bankPath:'자동 저장 중 · 기록은 이 브라우저에만 남습니다 (다른 기기·브라우저와 공유 안 됨)');
+ }catch(e){bankReady=false;bankLabel('자동 누적 실패: '+String(e.message||e)+' · 마지막 시험 JSON을 반드시 저장하세요.',true);}
+}
+async function storeTrialRecords(records,info){
+ try{const n=await BANK.add(records);await updateBankStats(n);bankLabel(`${info} · 신규 ${n}건 저장 · 동일 조건/시드 중복 제외`);return true;}
+ catch(e){bankReady=false;bankLabel('저장 실패: '+String(e.message||e)+' · "성공·실패 기록 JSON 저장"으로 백업하세요.',true);return false;}
+}
+function downloadJSON(value,filename){const blob=new Blob([JSON.stringify(value,null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1200);}
+function fmt(v,d=1){return (v>=0?'+':'')+Number(v).toFixed(d)}
+function worst(err){return Math.max(...err.flatMap(v=>v.map(x=>Math.abs(x))));}
+function sleep(ms){return new Promise(resolve=>setTimeout(resolve,ms));}
+function color(v){return v<=5?'#15816e':v<=10?'#b58920':'#ba4740';}
+function phase(n,title,desc){$('phase').textContent=title;$('phaseDesc').textContent=desc;
+ [...$('stages').children].forEach((v,i)=>{v.className=(i===n?'active':i<n?'done':'');});}
+function project(x,y,z){return [500+(x-y)*1.43,387+(x+y)*.48-z*1.5];}
+function polygon(points,fill,stroke='#4b728c',lw=1){ctx.beginPath();points.forEach((p,i)=>{const q=project(...p);if(!i)ctx.moveTo(...q);else ctx.lineTo(...q);});ctx.closePath();ctx.fillStyle=fill;ctx.fill();if(stroke){ctx.lineWidth=lw;ctx.strokeStyle=stroke;ctx.stroke();}}
+function line(a,b,stroke,lw=2){const v=project(...a),w=project(...b);ctx.beginPath();ctx.moveTo(...v);ctx.lineTo(...w);ctx.strokeStyle=stroke;ctx.lineWidth=lw;ctx.stroke();}
+function text(txt,x,y,fill='#243d58',size=13,bold=false){ctx.font=(bold?'700 ':'')+size+'px system-ui';ctx.fillStyle=fill;ctx.fillText(txt,x,y);}
+function disc(p,r,fill,stroke){const [x,y]=project(...p);ctx.beginPath();ctx.ellipse(x,y,r,r*.62,0,0,Math.PI*2);ctx.fillStyle=fill;ctx.fill();if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=2;ctx.stroke();}}
+const xy=[[-128,49],[128,49],[128,-49],[-128,-49]],vis=.6; // 0.6 schematic units / mm, 16x actual scale
+const baselineErr=[[0,0],[0,0],[0,0],[0,0]];
+function draw3d(errors=baselineErr,info=null,approachPct=0){
+ ctx.clearRect(0,0,canvas.width,canvas.height);
+ const bg=ctx.createLinearGradient(0,0,0,560);bg.addColorStop(0,'#fafdff');bg.addColorStop(1,'#e9f1f7');ctx.fillStyle=bg;ctx.fillRect(0,0,1000,560);
+ for(let i=0;i<11;i++){ctx.strokeStyle='#deebf4';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(0,360+i*20);ctx.lineTo(1000,360+i*20);ctx.stroke();}
+ const z=64, bottom=0;
+ // Long container with visible height and four corner castings
+ polygon([[-128,49,bottom],[128,49,bottom],[128,49,z],[-128,49,z]],'#2c76ac','#2b668f',2);
+ polygon([[128,-49,bottom],[128,49,bottom],[128,49,z],[128,-49,z]],'#1d608f','#285a7b',2);
+ polygon([[-128,-49,z],[128,-49,z],[128,49,z],[-128,49,z]],'#7bb2d4','#3d84b1',2);
+ // Corrugations on container side
+ for(let x=-112;x<=112;x+=19){line([x,49,2],[x,49,z-5],'#6db0d7',2);line([x+4,49,2],[x+4,49,z-5],'#235d89',1);}
+ for(let y=-35;y<=35;y+=18){line([128,y,2],[128,y,z-5],'#5b9abe',2);}
+ // Top metal rails
+ for(let y of [-46,46])line([-128,y,z+1],[128,y,z+1],'#d2e7f5',5);
+ // True casting center openings; each aligned to target static location.  The e vector controls twistlock position only.
+ xy.forEach((p,k)=>{
+   const x=p[0],y=p[1],r=7;
+   polygon([[x-r,y-r,z+.8],[x+r,y-r,z+.8],[x+r,y+r,z+.8],[x-r,y+r,z+.8]],'#436c81','#e3eef3',2);
+   disc([x,y,z+1.1],6.2,'#102e40','#bfe8e9');
+   const q=project(x,y,z+2);text(''+(k+1),q[0]+8,q[1]-8,'#16426a',13,true);
+ });
+ // Spreader top: four twistlock axes shifted by errors; exaggerated to be visible.
+ const tip=xy.map((p,k)=>[p[0]-errors[k][0]*vis,p[1]-errors[k][1]*vis]);
+ const zTop=119-approachPct*20,zBottom=96-approachPct*25;
+ polygon([tip[0],tip[1],tip[2],tip[3]].map(p=>[p[0],p[1],zTop]),'#f9cc65a8','#a66e21',6);
+ line([tip[0][0],tip[0][1],zTop],[tip[2][0],tip[2][1],zTop],'#ba841e',9);
+ line([tip[1][0],tip[1][1],zTop],[tip[3][0],tip[3][1],zTop],'#ba841e',9);
+ tip.forEach((p,k)=>{
+   disc([p[0],p[1],zTop+3],9,'#f8c04c','#93621e');
+   line([p[0],p[1],zTop],[p[0],p[1],zBottom],'#6a7a83',12);
+   disc([p[0],p[1],zBottom],7.6,'#223e4c','#ebca82');
+   if(highlightStep===0){disc([p[0],p[1],zBottom-2],12,'#41c6e34f','#33a9c6');}
+ });
+ text('MAS-kit  5권선 × 4코너',25,34,'#164e84',20,true);
+ text('노란색: 스프레더/트위스트록    파란색: 컨테이너/캐스팅',25,57,'#526f85',13);
+ text('이동 시각 확대 ×16 (계산은 실제 mm)',25,80,'#936d27',13,true);
+ text('스프레더 보정 표시: 정렬의 시각화, 실제 충돌/잠금 시뮬레이션 아님',25,532,'#647d91',13);
+ if(approachPct>0)text('정렬 기준 충족 → 접근 개념 시연 (자동 체결 판정 아님)',25,105,'#087b69',15,true);
+ drawZoom(errors[0],info);
+ $('corners').innerHTML=errors.map((v,k)=>`<div><strong>코너 ${k+1}</strong> X ${fmt(v[0])} / Y ${fmt(v[1])} mm</div>`).join('');
+}
+function drawZoom(e,est=null){zx.clearRect(0,0,420,230);zx.fillStyle='#f5f9fd';zx.fillRect(0,0,420,230);const cx=210,cy=119,scale=2.5;
+ zx.strokeStyle='#c3d5e2';zx.lineWidth=1;zx.beginPath();zx.moveTo(24,cy);zx.lineTo(395,cy);zx.moveTo(cx,20);zx.lineTo(cx,209);zx.stroke();
+ zx.fillStyle='#7daac1';zx.fillRect(cx-45,cy-33,90,66);zx.fillStyle='#0b293c';zx.fillRect(cx-34,cy-23,68,46);
+ zx.strokeStyle='#6ee0b9';zx.lineWidth=2;zx.strokeRect(cx-5*scale,cy-5*scale,10*scale,10*scale);
+ const px=cx-e[0]*scale,py=cy+e[1]*scale;
+ zx.fillStyle='#f0b33e';zx.beginPath();zx.arc(px,py,10,0,2*Math.PI);zx.fill();zx.strokeStyle='#8d631f';zx.stroke();
+ zx.strokeStyle=color(Math.max(Math.abs(e[0]),Math.abs(e[1])));zx.lineWidth=2;zx.beginPath();zx.moveTo(px,py);zx.lineTo(cx,cy);zx.stroke();
+ if(est){const x=px+est[0]*scale,y=py-est[1]*scale;zx.strokeStyle='#2172c7';zx.lineWidth=2;zx.beginPath();zx.arc(x,y,7,0,7);zx.stroke();}
+ zx.fillStyle='#355876';zx.font='12px system-ui';zx.fillText('초록 사각형: 가상 ±5mm',12,20);zx.fillText('노란 점: 트위스트록',12,37);
+ zx.fillText(`내부 상대 오차 (${fmt(e[0],1)}, ${fmt(e[1],1)})mm`,12,216);
+}
+function recommended(est,p){let sx=0,sy=0,nu=0,den=0;for(const v of est){sx+=v[0];sy+=v[1];}sx/=4;sy/=4;
+ est.forEach((v,k)=>{const x=C[k][0],y=C[k][1];nu+=x*(v[1]-sy)-y*(v[0]-sx);den+=x*x+y*y;});
+ return [p.K*sx,p.K*sy,p.K*(nu/den)*180/Math.PI];}
+async function animateErrors(before,after,duration,token,info=null,approachPct=0){const start=performance.now();return new Promise(resolve=>{
+ function step(ts){if(token!==runId){resolve();return;}const t=Math.min(1,(ts-start)/duration),p=t*t*(3-2*t);const errs=before.map((v,k)=>v.map((x,j)=>x+(after[k][j]-x)*p));draw3d(errs,info,approachPct);
+ if(t<1)requestAnimationFrame(step);else resolve();}requestAnimationFrame(step);});}
+async function playTrace(trial,token){const trace=trial.trace,opts=trial.simOptions || setting(),spd=Number($('speed').value);
+ $('history').textContent='';$('animProgress').style.width='0%';$('verdict').textContent='진행 중';$('verdict').style.color='var(--ink)';highlightStep=-1;
+ let used=trace.filter(x=>x.est).length;const first=trace[0].e;draw3d(first);$('steps').textContent='0 / '+opts.iters;$('worst').textContent=worst(first).toFixed(2)+' mm';
+ phase(0,'초기 오차 생성',`초기 4코너 최악축: ${worst(first).toFixed(2)}mm · 랜덤 시뮬레이션`);
+ await sleep(330*spd);
+ for(let t=0;t<used;t++){
+  if(token!==runId)return;const cur=trace[t],next=trace[t+1]||cur,rec=recommended(cur.est,opts);
+  highlightStep=0;phase(0,`${t+1}차 · 5헤드 센서 측정`,'각 코너에서 인덕턴스 Lii를 읽는 가상 측정 단계');draw3d(cur.e);await sleep(300*spd);
+  if(token!==runId)return;highlightStep=1;phase(1,`${t+1}차 · 비선형 위치 추정`, `${opts.estimator==='history'?'센서 이동 이력·정적 편향 분리':opts.estimator==='lm'?'격자+LM':'격자'} 추정 결과 · X ${fmt(rec[0],2)}mm · Y ${fmt(rec[1],2)}mm · 회전 ${fmt(rec[2],4)}° 안내`);draw3d(cur.e,cur.est[0]);await sleep(320*spd);
+  if(token!==runId)return;highlightStep=2;phase(2,`${t+1}차 · 보정 이동`,`계산값만큼 운전자가 움직였다고 가정 (구동 오차 포함)`);await animateErrors(cur.e,next.e,540*spd,token,cur.est[0]);
+  if(token!==runId)return;highlightStep=3;phase(3,`${t+1}차 · 재측정`,`실제 가상 오차 ${worst(cur.e).toFixed(2)} → ${worst(next.e).toFixed(2)}mm`);draw3d(next.e);$('steps').textContent=`${t+1} / ${opts.iters}`;$('worst').textContent=worst(next.e).toFixed(2)+' mm';
+  $('history').textContent+=`${t+1}차 [센서 기반]: X ${fmt(rec[0],2)}mm / Y ${fmt(rec[1],2)}mm / θ ${fmt(rec[2],4)}° | 내부 오차 ${worst(cur.e).toFixed(2)} → ${worst(next.e).toFixed(2)} mm\n`;
+  if(cur.sensor_uH?.length) $('history').textContent+=`  코너1 측정 Lii μH: ${cur.sensor_uH[0].map(v=>v.toFixed(2)).join(' / ')}\n`;
+  $('animProgress').style.width=100*(t+1)/opts.iters+'%';await sleep(210*spd);
+ }
+ if(token!==runId)return;
+ const last=trace[trace.length-1].e;draw3d(last);highlightStep=-1;
+ const result=trial.ok?'가상 정렬 기준 충족':'정렬 실패 / 기준 미달';
+ $('verdict').textContent=trial.ok?'성공':'실패';$('verdict').style.color=trial.ok?'var(--teal)':'var(--bad)';
+ $('phase').textContent=result;$('phaseDesc').textContent=`최악축 ${trial.worst.toFixed(2)}mm · 가상 ±5mm 판정 (실제 체결 보장 아님)`;
+ $('worst').textContent=trial.worst.toFixed(2)+' mm';$('animProgress').style.width='100%';
+ $('history').textContent+=`최종: ${trial.ok?'성공':'실패'}, 최악축 ${trial.worst.toFixed(2)}mm, 직접 FEM 영역 밖 통과: ${trial.extrap?'있음':'없음'}\n`;
+ if(trial.ok){await animateErrors(last,last,440*spd,token,null,.75);$('phaseDesc').textContent+=' · 아래 접근은 개념 장면이며 잠금 해석 아님';}
+ if(trial.extrap)$('warnings').textContent='주의: 이 사례는 ±30mm 직접 표본 범위 밖을 거쳤습니다. 외삽·대칭 가정이 적용되어 성공 판정의 신뢰도가 낮습니다.';
+}
+/* ---------- kit link: main server directs each sensing; every result is stored then sent ---------- */
+const LINK=window.MASKIT_LINK,SIM=window.MASKIT_SIM,JOB_WAIT_MS=30000;
+const SIM_DIAG={coil_temp_c:25,supply_v:24,fw_cal_version:'SIM-FEM21-v1',error_code:0};
+const STATE_KO={IDLE:'대기',SENSING:'센싱 중',WAITING:'보정 반영 대기',SELF_TEST:'자가 점검',FAULT:'이상'};
+function linkLabel(text,warn=false){$('linkStatus').textContent=text;$('linkStatus').className=warn?'archive-state archive-warning':'archive-state';}
+function showLink(s){
+ $('linkKit').textContent=s.kit_id;$('linkState').textContent=(STATE_KO[s.state]||s.state)+(s.state!=='IDLE'?` · ${s.pending?s.pending.round_no:s.round_no}차`:'');
+ $('linkPending').textContent=s.outbox.pending.toLocaleString();$('linkSent').textContent=s.outbox.sent.toLocaleString();
+ $('linkUnits').textContent='장치 번호 · '+s.units.map((u,i)=>`코너${i+1}: ${u}`).join(' / ');
+ let msg=s.server_configured?`메인 서버: ${s.server_url}`:'브라우저판 · 내장 메인 서버가 지시 · 기록은 이 브라우저에만 저장';
+ if(s.awaiting_start)msg+=' · 작업 지시(start_job) 대기';
+ if(s.last_job&&s.state==='IDLE')msg+=` · 마지막 작업 ${s.last_job.session_id}: ${({end:'완료',stopped:'서버 정지',aborted:'중단'})[s.last_job.result]||s.last_job.result} (${s.last_job.rounds}회)`;
+ if(s.state==='FAULT')msg+=` · 이상(${s.fault_code} ${s.fault}): ${s.fault_detail||''} — 메인 서버의 이상 해제(fault_reset) 필요`;
+ if(s.uplink.last_error)msg+=` · 최근 전송 오류: ${s.uplink.last_error}`;
+ linkLabel(msg,!!s.uplink.last_error||s.state==='FAULT');
+}
+async function refreshLink(){
+ if(!LINK){linkLabel('EXE로 실행해야 키트 전송을 사용할 수 있습니다.',true);return null;}
+ try{let s=await LINK.status();
+  if(s.pending&&s.pending.type==='self_test'){ /* simulated units always pass the self-test */
+   s=await LINK.selfTest([0,1,2,3].map(()=>({ok:true,error_code:0,detail:'sim'})));}
+  showLink(s);return s;}catch(e){linkLabel('키트 상태 확인 실패: '+String(e.message||e),true);return null;}
+}
+function errorMessage(err){console.error(err);$('phase').textContent='실행 오류';$('phaseDesc').textContent=String(err?.message||err);}
+/* Stage 3: one run = one job on the virtual site. The main server (built-in or the example server)
+   decides everything; this screen only starts the job and shows what happened. */
+const SIM_OUTCOME_KO={success:'성공 · 결합 완료',false_lower:'실패 · 허용 오차 밖에서 하강',held:'안전 정지 · 하강 금지',aborted:'중단'};
+function showDecision(d,s){
+ if(!d){$('simDecision').textContent='아직 판단 없음';return;}
+ const m=s.machine_last||{},w=(d.weights||[]).map(v=>v.toFixed(1)).join(' / ');
+ $('simDecision').textContent=`${d.round}차 · ${d.case_ko||d.case||'—'}\n기존 센서: ${({valid:'정상',unstable:'불안정',none:'정보 없음'})[d.machine_status]||d.machine_status} · 키트 종합: ${({good:'양호',caution:'주의',invalid:'무효'})[d.kit_status]||d.kit_status}`
+  +`\n모서리별 신뢰도: ${(d.grade||[]).map(g=>({good:'양호',caution:'주의',invalid:'무효'})[g]||g).join(' / ')} · 모서리별 비중: ${w}${d.dropped_corner?` · 코너${d.dropped_corner} 제외`:''}`
+  +(d.correction?`\n보정 이동: 가로 ${fmt(d.correction.x_mm,2)} / 세로 ${fmt(d.correction.y_mm,2)} mm / 회전 ${fmt(d.correction.theta_deg,4)}° (기존 센서 ${Math.round(100*(d.w_machine||0))}% · 키트 ${Math.round(100*(d.w_kit??1))}%)`:'')
+  +`\n다음 행동: ${({move:'보정 이동 후 다음 센싱',move_then_verify:'보정 이동 후 최종 확인 센싱',lower_after_move:'보정 이동 후 하강',resense:'재측정',stop:'안전 정지'})[d.action]||d.action}${d.reason?' ('+({disagree:'기존 센서와 키트 값이 어긋남',no_reliable_data:'믿을 만한 측정값 없음',sensors_disagree:'두 센서가 계속 어긋남',verify_failed:'최종 확인에서 허용 범위를 넘음',verified:'최종 확인 통과'}[d.reason]||d.reason)+')':''}`;
+}
+async function runSimJob(token){
+ const spd=Number($('speed').value);let shownFrames=0,shownLog=0,last=Date.now(),s=null,prev=null;
+ while(token===runId){
+  s=await SIM.state();
+  if(s.frames&&s.frames.length>shownFrames){
+   for(let i=Math.max(shownFrames,0);i<s.frames.length;i++){const f=s.frames[i];
+    if(prev){await animateErrors(prev,f.errors,480*spd,token);}else draw3d(f.errors);
+    prev=f.errors;$('worst').textContent=worst(f.errors).toFixed(2)+' mm';phase(Math.min(3,i===0?0:2),f.label,`가상 현장 · 실제 최악축 ${worst(f.errors).toFixed(2)} mm (판정용, 서버·키트는 모름)`);}
+   shownFrames=s.frames.length;last=Date.now();
+  }
+  if(s.log&&s.log.length){const newer=s.log.filter(l=>l.t>(window.__simLogT||0));for(const l of newer){$('history').textContent+=l.text+'\n';}if(newer.length){window.__simLogT=newer[newer.length-1].t;$('history').scrollTop=1e9;last=Date.now();}}
+  showDecision(s.decision,s);$('steps').textContent=`${s.rounds} / 6`;
+  if(!s.active&&s.outcome)return s;
+  if(Date.now()-last>30000){phase(0,'응답 없음','30초 동안 진행이 없어 화면 표시를 멈췄습니다. 기록은 저장돼 있습니다.');return null;}
+  await sleep(250);
+ }
+ return null;
+}
+async function play(){if(busy)return;if(!LINK){alert('이 파일은 배포용 EXE 내부 UI입니다. dist\\MASKIT_Desktop.exe로 실행해 주세요.');return;}if(!bankReady){alert('브라우저 저장소를 열 수 없습니다. 시크릿 창이 아닌 일반 창에서 다시 열어 주세요.');return;}const token=++runId;busy=true;$('run').disabled=true;$('reroll').disabled=true;$('batchRun').disabled=true;$('failReplay').disabled=true;
+ try{
+ let st=await LINK.status();
+ if(st.state==='FAULT'||st.state==='SELF_TEST'){
+  alert(st.state==='FAULT'?`키트가 이상 상태입니다 (${st.fault_code} ${st.fault}). 메인 서버가 이상 해제(fault_reset)를 보내야 작업할 수 있습니다.`:'자가 점검 중입니다. 잠시 후 다시 실행하세요.');
+  $('phase').textContent=st.state==='FAULT'?'키트 이상 · 메인 서버 조치 대기':'자가 점검 중';return;
+ }
+ if(st.state!=='IDLE'){
+  if(!confirm(`이전 작업(${st.session_id})이 ${STATE_KO[st.state]} 상태로 남아 있습니다. 중단하고 새 작업을 시작할까요?`))return;
+  await LINK.abort(st.session_id,'ui_restart');
+ }
+ const seed=autoSeedFor('seed');
+ const params={hardware:$('scenario').value,machine:$('simMachine').value,fault:$('simFault').value,strategy:$('simStrategy').value,seed};
+ $('runSeedUsed').textContent='마지막 실행 상황 번호: '+seed;
+ $('history').textContent='';window.__simLogT=0;$('animProgress').style.width='0%';$('verdict').textContent='진행 중';$('verdict').style.color='var(--ink)';$('steps').textContent='0 / 6';
+ $('warnings').textContent='기계 이동·하강·결합은 메인 서버의 판단대로 가상 리치스태커가 수행합니다. 화면의 실제 오차는 판정용이며 서버와 키트는 알지 못합니다.';
+ highlightStep=-1;phase(0,'1·2단계 · 기계 접근','컨테이너 대략 위치(원거리 정보)로 접근 중 · 키트 센싱 범위(±30 mm)에 들어오면 메인 서버가 작업을 지시합니다.');
+ await SIM.start(params);
+ const s=await runSimJob(token);
+ if(!s||token!==runId)return;
+ const ok=s.outcome==='success',wf=s.truth_worst_mm,last=s.truth_corner_errors_mm;
+ draw3d(last);$('worst').textContent=wf.toFixed(2)+' mm';$('animProgress').style.width='100%';
+ $('verdict').textContent=ok?'성공':(s.outcome==='held'?'정지':'실패');$('verdict').style.color=ok?'var(--teal)':'var(--bad)';
+ phase(3,'9단계 · '+(SIM_OUTCOME_KO[s.outcome]||s.outcome),`${s.rounds}회 보정 · 가장 큰 어긋남 ${wf.toFixed(2)} mm · 가상 ±5 mm 판정 (실제 체결 보장 아님)`);
+ if(ok){await animateErrors(last,last,440*Number($('speed').value),token,null,.75);}
+ if(token===runId&&s.outcome!=='aborted'){
+   const P=setting();
+   const result={ok,ok0:s.worst0_mm<=5,worst:wf,worst0:s.worst0_mm,steps:s.rounds,extrap:false,
+    trace:s.frames.map(f=>({e:f.errors,est:null}))};
+   const record=toBankRecord(result,seed,P,1,'server_job_v3',new Date().toISOString());
+   record.uid+='|job|'+s.job_id;record.job_id=s.job_id;record.job_outcome=s.outcome;record.site_settings=s.settings;
+   if(!await storeTrialRecords([record],`1회 작업 ${SIM_OUTCOME_KO[s.outcome]} 기록`)){
+     caseArchive={schema:'MASKIT_casebank_backup_v1',records:[record],count:1,warning:'SQLite 자동 저장 실패로 수동 저장 필요'};
+     $('saveCases').disabled=false;
+     alert('브라우저 저장에 실패했습니다. 시험 기록이 사라지지 않도록 "성공·실패 기록 JSON 저장" 버튼으로 백업하세요.');
+   }
+ }
+ }catch(err){errorMessage(err);}finally{busy=false;$('run').disabled=false;$('reroll').disabled=false;$('batchRun').disabled=false;$('failReplay').disabled=!firstFail;refreshLink();}}
+function wilson(k,n){return E.wilson(k,n);}
+function pct(x){return (100*x).toFixed(1)+'%';}
+async function monteCarlo(){if(busy)return;if(false){alert('이 파일은 배포용 EXE 내부 UI입니다. dist\\MASKIT_Desktop.exe로 실행해 주세요.');return;}if(!bankReady){alert('브라우저 저장소를 열 수 없습니다. 시크릿 창이 아닌 일반 창에서 다시 열어 주세요.');return;}busy=true;$('run').disabled=true;$('batchRun').disabled=true;$('failReplay').disabled=true;$('reroll').disabled=true;
+ $('batchState').textContent='계산 시작 중…';$('batchProgress').style.width='0%';
+ try{await sleep(20);const M=ensureModel(), P=setting(),n=Number($('count').value),runSeed=autoSeedFor('batchseed'),rnd=E.rng(runSeed);
+ caseArchive=null;$('saveCases').disabled=true;const rows=[],newBankRecords=[];const batchTime=new Date().toISOString();
+ let ok=0,fail=0,ext=0,ok0=0,errors=[],failExample=null;let count=0;
+ const gateTh=$('gate').value==='off'?null:Number($('gate').value);let reTried=0,reOk=0,reFail=0,manual=0;const retryRecs=[];let gateBank=null,held=0,heldOk=0,rawOk=0,rawFail=0;
+ if(gateTh!==null){$('batchState').textContent='누적 사례 불러오는 중…';gateBank=await BANK.gateBank({scenario:scenKey(),estimator:P.estimator,radius:P.R0});
+  if(gateBank.n<60){$('batchState').textContent=`같은 조건 누적 사례 ${gateBank.n}건 — 60건 이상이어야 활용합니다 (이번은 원본대로)`;gateBank=null;await sleep(900);}}
+ while(count<n){const until=Math.min(n,count+12);for(;count<until;count++){
+  const r=E.runOnce(M,P,rnd,true);r.simOptions=P;
+  if(r.ok)rawOk++;else rawFail++;
+  const gp=x=>{const ests=(x.trace||[]).filter(t=>t.est),f=gateFeatures(ests.length?ests[ests.length-1].est:null);return f?gateP(gateBank,f):null;};
+  let fin=r;
+  if(gateBank){let p=gp(r);if(p!==null){r.gate_p=p;if(p<gateTh){r.held=true;held++;if(r.ok)heldOk++;}}
+   // held: lift, back off, approach again = NEW initial conditions (new seed: offset, gap, tilt, noise), same container
+   for(let a=1;fin.held&&a<=2;a++){const rr=E.runOnce(M,{...P,fixedTol:r.tol},E.rng(((runSeed*2654435761)^((count+1)*40503)^(a*977))>>>0||1),true);rr.simOptions=P;rr.attempt=a+1;
+    p=gp(rr);if(p!==null){rr.gate_p=p;if(p<gateTh){rr.held=true;}}retryRecs.push(toBankRecord(rr,runSeed,P,`${count+1}r${a}`,'batch_retry',batchTime));fin=rr;}
+   if(fin!==r){reTried++;if(!fin.held&&fin.ok)reOk++;else if(!fin.held)reFail++;else manual++;}}
+  if(fin.held){}else if(fin.ok){ok++;}else{fail++;if(!failExample)failExample=fin;}
+  if(r.extrap)ext++;if(r.ok0)ok0++;errors.push(r.worst);
+  rows.push({index:count+1,outcome:r.ok?'success':'failure',gate:r.gate_p!=null?{held:!!r.held,similar_success:r.gate_p}:null,passed_5mm:!!r.ok,initial_worst_axis_mm:r.worst0,final_worst_axis_mm:r.worst,steps:r.steps,extrapolated:!!r.extrap,initial_corner_errors_mm:r.trace?.[0]?.e??null,final_corner_errors_mm:r.trace?.[r.trace.length-1]?.e??null,estimated_corner_errors_by_step_mm:r.trace?.filter(t=>t.est).map(t=>t.est)??[]});
+  newBankRecords.push(toBankRecord(r,runSeed,P,count+1,'batch',batchTime));newBankRecords.push(...retryRecs.splice(0));
+ }
+ $('batchState').textContent=`계산 ${count.toLocaleString()} / ${n.toLocaleString()}회`; $('batchProgress').style.width=100*count/n+'%';
+ await sleep(0);
+ }
+ errors.sort((a,b)=>a-b);const ci=wilson(ok,n);
+ $('batchSuccess').textContent=`${ok} / ${n}`;$('batchFail').textContent=`${fail} / ${n}`;$('batchRate').textContent=pct(ok/n);
+ $('batchCI').textContent=`${pct(ci[1])}–${pct(ci[2])}`;
+ $('batchExtrap').textContent=`${ext} / ${n}`;
+ $('batchHeld').textContent=gateBank?`${held} → ${reOk} / ${manual}`:'끔';
+ const cmp=$('batchCompare');cmp.style.display='block';
+ cmp.innerHTML=gateBank?`<b>같은 ${n.toLocaleString()}회, 누적 사례 ${gateBank.n.toLocaleString()}건 활용 효과</b><br>
+  사례 미사용(원본): 성공 <b>${rawOk}</b> · 내렸다 실패 <b>${rawFail}</b><br>
+  사례 활용 + 보류 시 재접근(새 초기 조건, 최대 2회): 성공 <b>${ok}</b> · 내렸다 실패 <b>${fail}</b> (${rawFail?Math.round(100*(rawFail-fail)/rawFail):0}% 감소) <br>  보류 <b>${held}</b>건 → 재접근 후 성공 <b>${reOk}</b> · 재접근 후 내렸다 실패 ${reFail} · 끝까지 보류(신호수 수동) ${manual} <span style="opacity:.8">(처음 보류 중 그냥 내렸으면 성공했을 것 ${heldOk})</span><br>
+  <span style="opacity:.8">성공 수는 하드웨어(코너 공차·이동 오차)가 정합니다. 누적 사례는 실패할 하강을 미리 걸러냅니다.</span>`
+  :`누적 사례 활용 꺼짐 — 위 선택을 '켬'으로 바꾸면 같은 시행에 사례를 적용한 결과를 나란히 보여줍니다.`;
+ $('batchError').textContent=`${errors[Math.floor(n/2)].toFixed(1)} / ${errors[Math.min(n-1,Math.floor(n*.95))].toFixed(1)} mm`;
+ $('batchState').textContent=`완료 · 시드 ${runSeed} · ${P.estimator==='history'?'이력 기반 편향 제거':P.estimator==='lm'?'격자+LM 실험안':'원본 격자'} · 성공 ${ok}회 / 실패 ${fail}회 · 수동 초기 조건만으로 충족 ${ok0}회`;
+ firstFail=failExample;lastBatch={n,ok,fail,ext,ci,seed:runSeed};
+ caseArchive={schema:'MASKIT_matrix5_virtual_trials_v1',data_source:'Matrix5 21-case FEM based simulated response; unmeasured regions assumed',purpose:'offline audit + cumulative case bank; NOT used by controller or adaptation; controller consumes only 5-head Lii and commanded movements',created_at:new Date().toISOString(),batch_seed:runSeed,scenario:$('scenario').value,estimator:P.estimator,radius_mm:P.R0,n,success:ok,failed:fail,extrapolated:ext,success_definition:'max absolute true simulated X/Y corner error <= 5 mm',scenario_parameters:P,original_reference_rates:{ideal:99.9,target:60.5,base:6.8},cases:rows};$('saveCases').disabled=false;
+ if(!await storeTrialRecords(newBankRecords,`${n}회 성공·실패 기록`)){
+   alert('브라우저 저장에 실패했습니다. "성공·실패 기록 JSON 저장" 버튼으로 이번 시험 결과를 백업하세요.');
+ }
+ }catch(err){console.error(err);$('batchState').textContent='시험 오류: '+String(err.message||err);}finally{busy=false;$('run').disabled=false;$('batchRun').disabled=false;$('reroll').disabled=false;$('failReplay').disabled=!firstFail;}}
+async function replayFailure(){if(busy||!firstFail)return;busy=true;const token=++runId;$('run').disabled=true;$('batchRun').disabled=true;$('failReplay').disabled=true;
+ $('phase').textContent='실패 사례 재생';$('phaseDesc').textContent='같은 Monte Carlo에서 실제로 실패한 가상 시행을 다시 보여줍니다.';
+ try{await playTrace(firstFail,token);}catch(err){errorMessage(err);}finally{busy=false;$('run').disabled=false;$('batchRun').disabled=false;$('failReplay').disabled=!firstFail;}}
+$('run').addEventListener('click',play);$('batchRun').addEventListener('click',monteCarlo);$('failReplay').addEventListener('click',replayFailure);
+$('estimator').addEventListener('change',()=>{const v=$('estimator').value;$('phase').textContent=v==='history'?'이력 기반 센서 추정 선택':v==='lm'?'LM 실험안 선택':'원본 v3 추정기로 복귀';$('phaseDesc').textContent='원본 21개 FEM 데이터·K=0.8·최대 6회·±5mm 판정 유지. 내부 정답 좌표는 제어기에 주지 않습니다.';});
+$('reroll').addEventListener('click',()=>{$('seed').value=freshSeed();$('phase').textContent='새 난수 시드 설정';$('phaseDesc').textContent='실행을 눌러 다른 초기 오차를 생성합니다.';});
+$('saveCases').addEventListener('click',()=>{if(!caseArchive)return;const content=JSON.stringify(caseArchive,null,2);const blob=new Blob([content],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=caseArchive.schema==='MASKIT_casebank_backup_v1'?`MASKIT_unsaved_record_${Date.now()}.json`:`MASKIT_Matrix5_trials_${caseArchive.scenario}_${caseArchive.estimator}_${caseArchive.batch_seed}.json`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);});
+$('bankExport').addEventListener('click',async()=>{try{bankLabel('누적 기록 읽는 중…');const rows=await BANK.all();downloadJSON({schema:'MASKIT_casebank_backup_v1',exported_at:new Date().toISOString(),source:'Matrix5 21-case virtual simulation; do not feed evaluation_only to estimator',count:rows.length,records:rows},`MASKIT_CaseBank_${new Date().toISOString().slice(0,10)}.json`);await updateBankStats();bankLabel(`누적 ${rows.length.toLocaleString()}건 JSON 내보내기 요청 완료`);}catch(e){bankLabel('내보내기 실패: '+String(e.message||e),true);}});
+$('bankImport').addEventListener('click',()=>$('bankFile').click());
+$('bankFile').addEventListener('change',async event=>{
+ const f=event.target.files?.[0];if(!f)return;
+ try{bankLabel('JSON 검사·불러오기 중…');const parsed=JSON.parse(await f.text());let rows=[];
+ if(parsed.schema==='MASKIT_casebank_backup_v1' && Array.isArray(parsed.records))rows=parsed.records;
+ else if(parsed.schema==='MASKIT_matrix5_virtual_trials_v1' && Array.isArray(parsed.cases)){
+  rows=parsed.cases.map((c,i)=>({uid:['legacy',parsed.scenario,parsed.estimator,parsed.radius_mm,parsed.batch_seed,c.index||i+1].join('|'),schema:'MASKIT_legacy_audit_v1',origin:'imported_legacy',outcome:c.passed_5mm?'success':'failure',saved_at:new Date().toISOString(),saved_order:Date.now()+i/100000,source_seed:parsed.batch_seed,trial_index:c.index||i+1,scenario:parsed.scenario,estimator:parsed.estimator,radius_mm:parsed.radius_mm,simulation_only:true,initial_worst_axis_mm:c.initial_worst_axis_mm,final_worst_axis_mm:c.final_worst_axis_mm,iterations:c.steps,extrapolated:c.extrapolated,controller_observable:null,evaluation_only:{initial_true_corner_error_mm:c.initial_corner_errors_mm,final_true_corner_error_mm:c.final_corner_errors_mm,within_5mm:!!c.passed_5mm},warning:'이전 저장본에는 센서 측정 이력이 없어 관측 학습 자료가 아님'}));
+ }else throw new Error('MAS-kit 누적 백업 또는 v3.3 실험 JSON 형식만 지원');
+ if(rows.length>500000)throw new Error('500,000건 초과 파일은 분할해 불러와 주세요.');
+ for(const r of rows){if(!r || typeof r.uid!=='string'||r.uid.length>350||!['success','failure'].includes(r.outcome))throw new Error('기록 형식 오류 (uid/outcome)');}
+ const added=await BANK.add(rows);await updateBankStats(added);bankLabel(`불러오기 완료: ${rows.length}건 확인 / 신규 ${added}건 (중복 제외)`);
+ }catch(e){bankLabel('불러오기 오류: '+String(e.message||e),true);}finally{event.target.value='';}
+});
+$('bankClear').addEventListener('click',async()=>{
+ if(!confirm('누적 성공·실패 사례를 모두 지웁니다. 먼저 "누적 전체 JSON 내보내기"로 백업했나요?'))return;
+ if(!confirm('마지막 확인: 보관함의 모든 누적 사례를 정말 삭제할까요?'))return;
+ try{await BANK.clear();await updateBankStats(0);bankLabel('누적 기록을 초기화했습니다.');}catch(e){bankLabel('초기화 오류: '+String(e.message||e),true);}
+});
+updateBankStats();
+refreshLink();setInterval(()=>{if(!busy)refreshLink();},2500);
+$('open3d').addEventListener('click',()=>{window.open('/3d','_blank','noopener');});
+$('seed').value=freshSeed();$('batchseed').value=freshSeed();
+// ready state must paint immediately without calculating the FEM table
+const first=[[18,-10],[18,-10],[18,-10],[18,-10]];draw3d(first);$('worst').textContent='—';
+window.MASKIT_UI_TEST={run:play,batch:monteCarlo,state:()=>({busy,batch:lastBatch,phase:$('phase').textContent,archive:caseArchive})};
+})();
+</script><script>(function(){var a=document.querySelector('.layout>aside'),h=document.getElementById('moreHint');if(!a||!h)return;function u(){h.style.opacity=(a.scrollTop+a.clientHeight>=a.scrollHeight-30)?'0':'1';}a.addEventListener('scroll',u);window.addEventListener('resize',u);setTimeout(u,300);})();</script></body></html>

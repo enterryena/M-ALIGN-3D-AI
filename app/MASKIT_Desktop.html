@@ -14,41 +14,41 @@ select,input{border:1px solid #bdcddb;border-radius:7px;padding:8px;width:100%;f
 .log{font:11px/1.55 ui-monospace,Consolas,monospace;max-height:170px;overflow:auto;background:#f6f9fb;border-radius:8px;padding:10px;white-space:pre-wrap}.batch{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-top:10px}.batch .stat{padding:9px}.notes{font-size:12px;line-height:1.65}.notes b{color:#193e68}.archive-state{background:#eef7f4;border:1px solid #cce7dd;padding:9px 10px;border-radius:9px;font-size:12px;margin:8px 0}.archive-warning{color:#9a3b29}.recent-case{font-size:11px;padding:5px 0;border-top:1px solid #dde9e6;overflow-wrap:anywhere}
 @media(min-width:901px){html,body{height:100%;overflow:hidden}main{height:100vh;display:flex;flex-direction:column;padding-bottom:10px}.top{flex:0 0 auto;margin-bottom:8px}.layout{flex:1 1 auto;min-height:0}.layout>section,.layout>aside{height:100%;overflow-y:scroll;padding-right:8px}.layout>section .log{max-height:120px}.layout>section #scene{max-height:calc(100vh - 330px);object-fit:contain}#moreHint{position:sticky;bottom:0;margin:0 -8px 0 0;padding:16px 0 8px;text-align:center;font-size:12px;font-weight:700;color:#155ba5;background:linear-gradient(180deg,rgba(240,244,248,0),var(--bg) 55%);pointer-events:none;transition:opacity .2s}}@media(max-width:900px){#moreHint{display:none}}*{scrollbar-width:auto;scrollbar-color:#5f84a8 #dce6ef}::-webkit-scrollbar{width:13px;height:13px}::-webkit-scrollbar-track{background:#e1e9f0;border-radius:7px}::-webkit-scrollbar-thumb{background:#8fa9c1;border-radius:7px;border:3px solid #e1e9f0}::-webkit-scrollbar-thumb:hover{background:#5f84a8}.top{position:relative}.top .subtitle{display:none}.top h1{font-size:clamp(18px,2.2vw,23px)}@media(max-width:900px){.layout{grid-template-columns:1fr}}@media(max-width:480px){.controls{grid-template-columns:repeat(2,minmax(0,1fr))}.control-wide{grid-column:span 2}main{padding:12px 9px}.card{padding:11px}.stage-list span{font-size:10px}.stat strong{font-size:17px}}
 </style></head><body><main>
-<header class="top"><div><a href="/3d" style="display:inline-block;margin-bottom:8px;padding:8px 14px;border-radius:9px;background:#2f7df6;color:#fff;font-weight:700;text-decoration:none">🎮 3D AI 야드로 가기 (트럭·장애물·사례 유도)</a><div class="eyebrow">MAS-kit · MATRIX5 · 3D 시각화 / 2026-11-11 기반</div><h1>컨테이너 정렬 보정 시뮬레이터 · 센서 이력 추정 · 성공사례 누적 v3.5.2 (PC 저장형)</h1><p class="subtitle">5권선 인덕턴스 21개 Maxwell 조건을 기반으로 만든 <b>가상 정렬 보조 키트</b>. 실행하면 센서 추정과 보정값을 계산하고 스프레더 이동 과정을 애니메이션으로 재생합니다. 자동 잠금·실물 성능을 의미하지 않습니다.</p></div></header>
+<header class="top"><div><a href="/3d" style="display:inline-block;margin-bottom:8px;padding:8px 14px;border-radius:9px;background:#2f7df6;color:#fff;font-weight:700;text-decoration:none">🎮 3D AI 야드로 가기 (트럭·장애물·사례 유도)</a><div class="eyebrow">MAS-kit · MATRIX5 · 3D 시각화 / 2026-11-11 기반</div><h1>MAS-kit 컨테이너 정렬 시뮬레이터 v3.6</h1><p class="subtitle">5권선 인덕턴스 21개 Maxwell 조건을 기반으로 만든 <b>가상 정렬 보조 키트</b>. 실행하면 센서 추정과 보정값을 계산하고 스프레더 이동 과정을 애니메이션으로 재생합니다. 자동 잠금·실물 성능을 의미하지 않습니다.</p></div></header>
 <div class="layout">
 <section>
 <div class="card"><h2>① 컨테이너·스프레더 3D 시뮬레이션</h2>
 <canvas id="scene" width="1000" height="560" aria-label="컨테이너 본체와 네 코너 캐스팅, 스프레더의 3차원 투영 애니메이션"></canvas>
 <p class="small">3D 투영 도식 · 노란색 스프레더, 파란색 컨테이너, 초록색 구멍. <b>위치 오차 움직임은 시인성을 위해 16배 확대</b>했고, 수치와 성공 판정은 원래 mm 단위로 계산합니다.</p>
-<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-top:9px"><div style="flex:1 1 240px"><h3>코너 ① 확대 (실제 오차 mm 기준)</h3><canvas id="cornerZoom" width="420" height="230" aria-label="코너캐스팅 구멍과 트위스트록 축의 상대 오차 확대"></canvas></div><div style="flex:1 1 200px"><h3>코너별 현재 상대 오차</h3><div class="grid-corners" id="corners"></div><p class="small">실제 오차는 시뮬레이터 내부 정답이며 현실 기기에는 주어지지 않습니다.</p></div></div>
+<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-top:9px"><div style="flex:1 1 240px"><h3>모서리 ① 확대 (실제 오차 mm 기준)</h3><canvas id="cornerZoom" width="420" height="230" aria-label="코너캐스팅 구멍과 트위스트록 축의 상대 오차 확대"></canvas></div><div style="flex:1 1 200px"><h3>모서리별 지금 어긋난 정도</h3><div class="grid-corners" id="corners"></div><p class="small">실제 오차는 시뮬레이터 내부 정답이며 현실 기기에는 주어지지 않습니다.</p></div></div>
 </div>
 <div class="card"><h2>② 보정 동작 기록</h2><div class="log" id="history">실행하면 단계별 보정값과 실제 최종 오차를 기록합니다.</div></div>
 </section>
 <aside>
 <div class="card"><h2>실행 설정</h2><div class="controls">
-<div class="control-wide"><label for="scenario">하드웨어 오차 가정 (원본 3종)</label><select id="scenario"><option value="base">기준 가정 · 편향 0.5μH / 공극 1mm</option><option value="target">목표 가정 · 편향 0.25μH / 공극 0.3mm</option><option value="ideal">FEM 기준 가정 · 편향 0μH</option></select></div>
-<div class="control-wide"><label for="estimator">위치 추정 방식 (기본: 이력 추정 / 언제든 원본 복귀)</label><select id="estimator"><option value="history" selected>센서 이동 이력으로 정적 편향 추정·제거 — 권장 비교안</option><option value="base">기존 격자 추정기 — 원본 롤백</option><option value="lm">기존 격자 + 위치별 X/Y LM — 이전 실험안</option></select></div>
-<div class="control-wide"><label for="tolModel">컨테이너 코너 공차</label><select id="tolModel"><option value="orig" selected>원본 가정 (하드웨어 가정의 코너 공차)</option><option value="iso">ISO 668 규격 기반 (S·P +3/−5 mm, 대각선 차 ≤13 mm)</option></select></div>
-<div class="control-wide"><label for="capture">결합 판정</label><select id="capture"><option value="pm5" selected>원본: 네 코너 모두 ±5 mm</option><option value="head">고정 트위스트록: 길이 ±10 · 폭 ±3.8 mm (구멍 124.5×63.5)</option><option value="float10">플로팅 트위스트록: ±10 mm (리치스태커 스프레더 표준 사양)</option></select></div>
-<div><label for="radius">초기 오차 반경</label><select id="radius"><option value="30" selected>30 mm</option><option value="10">10 mm</option><option value="20">20 mm</option><option value="40">40 mm (외삽 위험)</option></select></div>
-<div><label for="seed">1회 시드 (재현용)</label><input id="seed" type="number" step="1" value="2026"></div>
+<div class="control-wide"><label for="scenario">장비 상태</label><select id="scenario"><option value="base">보통 현장 · 오차 큼 (센서 치우침 0.5μH, 틈 변화 1mm)</option><option value="target">목표 성능 센서 (치우침 0.25μH, 틈 변화 0.3mm)</option><option value="ideal">이상적 조건 · 해석값 그대로 (오차 없음)</option></select></div>
+<div class="control-wide"><label for="estimator">구멍 위치 계산 방식</label><select id="estimator"><option value="history" selected>이동 기록 활용 · 센서 치우침 자동 제거 (추천)</option><option value="base">한 번 잰 값만 사용 (옛 방식)</option><option value="lm">옛 방식 + 미세 보정 (이전 실험)</option></select></div>
+<div class="control-wide"><label for="tolModel">컨테이너 모서리 제작 오차</label><select id="tolModel"><option value="orig" selected>장비 상태에 맞춤 (기본)</option><option value="iso">국제 규격(ISO 668) 허용 범위</option></select></div>
+<div class="control-wide"><label for="capture">잠금 성공 기준</label><select id="capture"><option value="pm5" selected>네 모서리 모두 ±5 mm 안 (기본)</option><option value="head">고정형 잠금쇠: 길이 ±10 · 폭 ±3.8 mm</option><option value="float10">움직이는 잠금쇠: ±10 mm (리치스태커 보통 사양)</option></select></div>
+<div><label for="radius">처음 어긋난 거리 (최대)</label><select id="radius"><option value="30" selected>30 mm</option><option value="10">10 mm</option><option value="20">20 mm</option><option value="40">40 mm (해석 범위 밖이라 부정확)</option></select></div>
+<div><label for="seed">상황 번호 (같은 번호 = 같은 상황)</label><input id="seed" type="number" step="1" value="2026"></div>
 <div><label for="speed">재생 속도</label><select id="speed"><option value="1">보통</option><option value="0.35" selected>빠르게</option></select></div>
 </div>
-<label class="small" style="display:flex;align-items:center;gap:7px;margin-top:8px"><input id="autoSeed" type="checkbox" checked style="width:auto"> 매 실행마다 새 무작위 시드 (끄면 입력 시드 재현)</label><div class="buttons"><button id="run">▶ 1회 작업 실행 (랜덤 오차)</button><button id="reroll" class="secondary">새 랜덤 시드</button></div><p class="small" id="runSeedUsed">마지막 1회 실행 시드: —</p>
+<label class="small" style="display:flex;align-items:center;gap:7px;margin-top:8px"><input id="autoSeed" type="checkbox" checked style="width:auto"> 실행할 때마다 새 상황 (끄면 위 번호의 상황을 다시 재현)</label><div class="buttons"><button id="run">▶ 작업 1건 실행</button><button id="reroll" class="secondary">새 상황 번호</button></div><p class="small" id="runSeedUsed">마지막 실행 상황 번호: —</p>
 <div class="stage-list" id="stages"><span>센서 측정</span><span>위치 추정</span><span>보정 이동</span><span>재측정</span></div>
 <div id="phase" class="state" role="status" aria-live="polite">실행 준비 완료</div><p class="small" id="phaseDesc">실행 버튼을 누르면 즉시 계산과 애니메이션이 시작됩니다.</p><div class="meter"><div id="animProgress"></div></div>
-<div class="statgrid" style="margin-top:10px"><div class="stat"><small>보정 횟수</small><strong id="steps">0 / 6</strong></div><div class="stat"><small>최종/현재 최악축</small><strong id="worst">—</strong></div><div class="stat"><small>정렬 판정</small><strong id="verdict">대기</strong></div></div>
+<div class="statgrid" style="margin-top:10px"><div class="stat"><small>보정 횟수</small><strong id="steps">0 / 6</strong></div><div class="stat"><small>가장 많이 어긋난 모서리</small><strong id="worst">—</strong></div><div class="stat"><small>정렬 판정</small><strong id="verdict">대기</strong></div></div>
 <div class="notice" id="warnings">보정 이동은 운전자가 안내를 따랐다고 가정한 가상 조작입니다. ±5mm는 기존 시뮬레이션 판정값입니다.</div>
 </div>
-<div class="card"><h2>③ 랜덤 오차 100~1,000회 성공률 시험</h2><p class="small">위에서 선택한 <b>시나리오·초기 오차 반경</b>을 그대로 적용합니다. 실행마다 초기 X/Y 위치·회전과 편향·잡음·구동 오차를 난수로 생성합니다. <b>제어기는 5개 센서 측정값과 실제로 명령한 이동량만 사용</b>합니다. 시뮬레이터 내부 참값은 애니메이션과 성공 판정 전용입니다. K=0.8, 최대 6회는 원본과 동일합니다.</p>
-<div class="controls"><div class="control-wide"><label for="count">시험 횟수</label><select id="count"><option value="100">100회</option><option value="300">300회</option><option value="500">500회</option><option value="1000" selected>1,000회</option></select></div><div><label for="batchseed">시험 시드</label><input id="batchseed" type="number" value="2026"></div></div>
-<div class="controls"><div class="control-wide"><label for="gate">누적 사례 활용 (하강 판단)</label><select id="gate"><option value="0.3" selected>켬 — 비슷한 과거 사례 결합률 30% 미만이면 내리지 않고 보류</option><option value="0.4">켬 — 40% 미만이면 보류 (더 보수적)</option><option value="off">끔 — 원본: 6회 보정 후 항상 하강</option></select></div></div>
+<div class="card"><h2>③ 여러 번 돌려 성공률 보기 (100~1,000회)</h2><p class="small">위에서 선택한 <b>장비 상태·처음 어긋난 거리</b>을 그대로 적용합니다. 실행마다 초기 X/Y 위치·회전과 편향·잡음·구동 오차를 난수로 생성합니다. <b>제어기는 5개 센서 측정값과 실제로 명령한 이동량만 사용</b>합니다. 시뮬레이터 내부 참값은 애니메이션과 성공 판정 전용입니다. K=0.8, 최대 6회는 원본과 동일합니다.</p>
+<div class="controls"><div class="control-wide"><label for="count">시험 횟수</label><select id="count"><option value="100">100회</option><option value="300">300회</option><option value="500">500회</option><option value="1000" selected>1,000회</option></select></div><div><label for="batchseed">시작 상황 번호</label><input id="batchseed" type="number" value="2026"></div></div>
+<div class="controls"><div class="control-wide"><label for="gate">과거 기록으로 내릴지 판단</label><select id="gate"><option value="0.3" selected>켬 — 비슷한 과거 상황의 잠금 성공이 30% 미만이면 내리지 않음</option><option value="0.4">켬 — 40% 미만이면 내리지 않음 (더 조심)</option><option value="off">끔 — 6번 보정 후 항상 내림 (기본)</option></select></div></div>
 <div class="buttons"><button id="batchRun">■ 성공률 계산</button><button id="failReplay" class="secondary" disabled>실패 사례 재생</button><button id="saveCases" class="secondary" disabled>성공·실패 기록 JSON 저장</button></div><p class="small" id="batchState" role="status" aria-live="polite">아직 계산하지 않았습니다.</p><div class="meter"><div id="batchProgress"></div></div>
-<div class="batch"><div class="stat"><small>성공 / 전체</small><strong id="batchSuccess">—</strong></div><div class="stat"><small>실패(내렸는데 5mm 초과) / 전체</small><strong id="batchFail">—</strong></div><div class="stat"><small>가상 성공률</small><strong id="batchRate">—</strong></div><div class="stat"><small>Wilson 95% 구간</small><strong id="batchCI">—</strong></div><div class="stat"><small>외삽 포함 사례</small><strong id="batchExtrap">—</strong></div><div class="stat"><small>최종 오차 중앙값 / 95백분위</small><strong id="batchError">—</strong></div><div class="stat"><small>보류 → 재접근 후 성공 / 신호수 수동</small><strong id="batchHeld">—</strong></div></div>
+<div class="batch"><div class="stat"><small>성공 / 전체</small><strong id="batchSuccess">—</strong></div><div class="stat"><small>실패(내렸는데 5mm 초과) / 전체</small><strong id="batchFail">—</strong></div><div class="stat"><small>가상 성공률</small><strong id="batchRate">—</strong></div><div class="stat"><small>성공률 오차 범위 (95%)</small><strong id="batchCI">—</strong></div><div class="stat"><small>해석 범위 밖을 지난 경우</small><strong id="batchExtrap">—</strong></div><div class="stat"><small>최종 어긋남: 보통 / 나쁜 5%</small><strong id="batchError">—</strong></div><div class="stat"><small>멈춤 → 다시 접근해 성공 / 사람이 직접</small><strong id="batchHeld">—</strong></div></div>
 <div id="batchCompare" class="small" style="margin-top:8px;padding:8px 10px;border:1px solid rgba(127,163,196,.45);border-radius:8px;display:none"></div>
 <div class="notice">성공: 네 코너 <b>실제 가상 오차의 최악축 ≤ 5mm</b>. 실패까지 포함해 기록합니다. 성공·실패 사례는 실행 간 <b>저장소에 누적</b>하되 현재는 검토용으로만 저장하고 센서 추정기에 정답을 제공하지 않습니다. 기존 비선형 격자와 이력 추정기를 선택해 비교할 수 있으며, 결과를 미리 성공으로 정하지 않습니다.</div>
 </div>
-<div class="card" id="caseBankPanel"><h2>④ 누적 성공·실패 사례 보관함</h2>
+<div class="card" id="caseBankPanel"><h2>④ 실행 기록 보관함</h2>
 <p class="small">실행할 때마다 <b>가상 성공·실패 사례를 자동 누적</b>합니다. 1회 실행도 저장합니다. 같은 <b>시드·시나리오·추정기·초기 반경·시행번호</b>의 재실험은 중복 저장하지 않습니다.</p>
 <div class="batch"><div class="stat"><small>누적 성공 사례</small><strong id="bankSuccess">—</strong></div><div class="stat"><small>누적 실패 사례</small><strong id="bankFailure">—</strong></div><div class="stat"><small>누적 전체 (중복 제외)</small><strong id="bankTotal">—</strong></div><div class="stat"><small>이번 시험 신규 저장</small><strong id="bankAdded">—</strong></div></div>
 <div id="bankStatus" class="archive-state" role="status" aria-live="polite">로컬 기록 저장소를 연결하는 중…</div>
@@ -57,14 +57,14 @@ select,input{border:1px solid #bdcddb;border-radius:7px;padding:8px;width:100%;f
 <input id="bankFile" type="file" accept="application/json,.json" hidden>
 <p class="small">보관 위치: <b>데스크톱 EXE 실행 시 %LOCALAPPDATA%\\MASKIT\\CaseBank\\cases.sqlite3</b> (영구 저장). HTML만 단독 실행하면 브라우저 IndexedDB를 사용하므로 브라우저 데이터 삭제 시 사라질 수 있습니다. JSON 내보내기로 별도 백업할 수 있습니다. 누적 기록은 현재 제어 방향에 반영하지 않습니다. 이후 학습 시 평가용 내부 정답과 센서 관측 정보를 엄격히 구분해야 합니다.</p>
 </div>
-<div class="card" id="linkPanel"><h2>⑤ 메인 서버 연동 · 4대 1세트 키트</h2>
+<div class="card" id="linkPanel"><h2>⑤ 메인 서버와 키트 (모서리 4개 = 1세트)</h2>
 <p class="small"><b>1회 작업 실행</b> = 가상 현장에서 작업 1건: 기계 접근 → 센싱 범위 진입 → 메인 서버 작업 지시 → 키트 센싱 → <b>메인 서버가 기존 센서와 키트를 비교해 우선순위·보정값 결정</b> → 리치스태커 보정 이동 → 다음 센싱 (약 6회) → 하강 조건 확인 후 하강·결합. 조건이 안 맞으면 하강하지 않고 안전 정지합니다. 회차마다 네 코너 장치(고유 번호)의 값을 <b>한 묶음</b>으로 PC에 먼저 저장하고 메인 서버로 보냅니다. 서버가 끊겨도 기록은 남았다가 순서대로 다시 보냅니다. 성공률 계산(반복 시험)은 전송하지 않습니다.</p>
 <div class="batch"><div class="stat"><small>키트 번호</small><strong id="linkKit" style="font-size:13px">—</strong></div><div class="stat"><small>키트 상태</small><strong id="linkState">—</strong></div><div class="stat"><small>전송 대기</small><strong id="linkPending">—</strong></div><div class="stat"><small>전송 완료</small><strong id="linkSent">—</strong></div></div>
 <div id="linkStatus" class="archive-state" role="status" aria-live="polite">키트 전송 상태를 확인하는 중…</div>
 <div id="linkUnits" class="small"></div>
-<div class="controls" style="margin-top:8px"><div><label for="simMachine">리치스태커 기존 센서</label><select id="simMachine"><option value="normal">정상</option><option value="unstable">불안정</option><option value="none">정보 없음</option><option value="biased">편향(고장 미감지)</option></select></div>
-<div><label for="simFault">키트 코너 고장</label><select id="simFault"><option value="none">없음</option><option value="head_dead">코너2 헤드 2개 고장(감지)</option><option value="drift">코너2 교정 틀어짐(미감지)</option></select></div>
-<div><label for="simStrategy">4코너 종합 방식</label><select id="simStrategy"><option value="weighted">신뢰도 가중 + 튀는 코너 제외</option><option value="equal">4코너 동일 가중</option><option value="diagonal">고정 기준 (대각선 1·3)</option><option value="v354">v3.5.4 그대로 (인터록 없음)</option></select></div></div>
+<div class="controls" style="margin-top:8px"><div><label for="simMachine">리치스태커 기존 센서</label><select id="simMachine"><option value="normal">정상</option><option value="unstable">불안정</option><option value="none">정보 없음</option><option value="biased">값이 치우침 (고장인 줄 모름)</option></select></div>
+<div><label for="simFault">키트 모서리 고장</label><select id="simFault"><option value="none">없음</option><option value="head_dead">모서리2 코일 2개 고장 (키트가 알아챔)</option><option value="drift">모서리2 보정값 틀어짐 (키트가 모름)</option></select></div>
+<div><label for="simStrategy">네 모서리 값 합치는 방법</label><select id="simStrategy"><option value="weighted">믿을 만한 값에 비중 + 튀는 모서리 제외 (추천)</option><option value="equal">네 모서리 같은 비중</option><option value="diagonal">대각선 모서리 1·3만 사용</option><option value="v354">옛 방식 v3.5.4 (확인 없이 내림)</option></select></div></div>
 <div class="log" id="simDecision" style="margin-top:8px;max-height:none">아직 판단 없음</div>
 <div class="buttons"><button id="open3d" class="secondary">🎮 3D 화면으로 보기 (AI 제어)</button></div>
 <p class="small">메인 서버 주소와 장치 번호는 관리 창의 <b>전송 설정</b>(link_config.json)에서만 바꿉니다. 키트는 측정·보고만 하며 기계를 직접 제어하지 않습니다. 기계 준비 완료 신호는 실제로는 기계가 메인 서버에 보내며, 여기서는 시뮬레이션으로 대신합니다.</p>
@@ -742,10 +742,10 @@ const SIM_OUTCOME_KO={success:'성공 · 결합 완료',false_lower:'실패 · �
 function showDecision(d,s){
  if(!d){$('simDecision').textContent='아직 판단 없음';return;}
  const m=s.machine_last||{},w=(d.weights||[]).map(v=>v.toFixed(1)).join(' / ');
- $('simDecision').textContent=`${d.round}차 · ${d.case_ko||d.case||'—'}\n기계 센서: ${({valid:'정상',unstable:'불안정',none:'정보 없음'})[d.machine_status]||d.machine_status} · 키트 종합: ${({good:'양호',caution:'주의',invalid:'무효'})[d.kit_status]||d.kit_status}`
-  +`\n코너 신뢰도: ${(d.grade||[]).map(g=>({good:'양호',caution:'주의',invalid:'무효'})[g]||g).join(' / ')} · 코너 가중치: ${w}${d.dropped_corner?` · 코너${d.dropped_corner} 제외`:''}`
-  +(d.correction?`\n보정 이동: X ${fmt(d.correction.x_mm,2)} / Y ${fmt(d.correction.y_mm,2)} mm / θ ${fmt(d.correction.theta_deg,4)}° (기계 ${Math.round(100*(d.w_machine||0))}% · 키트 ${Math.round(100*(d.w_kit??1))}%)`:'')
-  +`\n다음 행동: ${({move:'보정 이동 후 다음 센싱',move_then_verify:'보정 이동 후 최종 확인 센싱',lower_after_move:'보정 이동 후 하강',resense:'재측정',stop:'안전 정지'})[d.action]||d.action}${d.reason?' ('+d.reason+')':''}`;
+ $('simDecision').textContent=`${d.round}차 · ${d.case_ko||d.case||'—'}\n기존 센서: ${({valid:'정상',unstable:'불안정',none:'정보 없음'})[d.machine_status]||d.machine_status} · 키트 종합: ${({good:'양호',caution:'주의',invalid:'무효'})[d.kit_status]||d.kit_status}`
+  +`\n모서리별 신뢰도: ${(d.grade||[]).map(g=>({good:'양호',caution:'주의',invalid:'무효'})[g]||g).join(' / ')} · 모서리별 비중: ${w}${d.dropped_corner?` · 코너${d.dropped_corner} 제외`:''}`
+  +(d.correction?`\n보정 이동: 가로 ${fmt(d.correction.x_mm,2)} / 세로 ${fmt(d.correction.y_mm,2)} mm / 회전 ${fmt(d.correction.theta_deg,4)}° (기존 센서 ${Math.round(100*(d.w_machine||0))}% · 키트 ${Math.round(100*(d.w_kit??1))}%)`:'')
+  +`\n다음 행동: ${({move:'보정 이동 후 다음 센싱',move_then_verify:'보정 이동 후 최종 확인 센싱',lower_after_move:'보정 이동 후 하강',resense:'재측정',stop:'안전 정지'})[d.action]||d.action}${d.reason?' ('+({disagree:'기존 센서와 키트 값이 어긋남',no_reliable_data:'믿을 만한 측정값 없음',sensors_disagree:'두 센서가 계속 어긋남',verify_failed:'최종 확인에서 허용 범위를 넘음',verified:'최종 확인 통과'}[d.reason]||d.reason)+')':''}`;
 }
 async function runSimJob(token){
  const spd=Number($('speed').value);let shownFrames=0,shownLog=0,last=Date.now(),s=null,prev=null;
@@ -778,7 +778,7 @@ async function play(){if(busy)return;if(BANK.mode!=='desktop_sqlite'||!LINK){ale
  }
  const seed=autoSeedFor('seed');
  const params={hardware:$('scenario').value,machine:$('simMachine').value,fault:$('simFault').value,strategy:$('simStrategy').value,seed};
- $('runSeedUsed').textContent='마지막 1회 실행 시드: '+seed;
+ $('runSeedUsed').textContent='마지막 실행 상황 번호: '+seed;
  $('history').textContent='';window.__simLogT=0;$('animProgress').style.width='0%';$('verdict').textContent='진행 중';$('verdict').style.color='var(--ink)';$('steps').textContent='0 / 6';
  $('warnings').textContent='기계 이동·하강·결합은 메인 서버의 판단대로 가상 리치스태커가 수행합니다. 화면의 실제 오차는 판정용이며 서버와 키트는 알지 못합니다.';
  highlightStep=-1;phase(0,'1·2단계 · 기계 접근','컨테이너 대략 위치(원거리 정보)로 접근 중 · 키트 센싱 범위(±30 mm)에 들어오면 메인 서버가 작업을 지시합니다.');
@@ -788,7 +788,7 @@ async function play(){if(busy)return;if(BANK.mode!=='desktop_sqlite'||!LINK){ale
  const ok=s.outcome==='success',wf=s.truth_worst_mm,last=s.truth_corner_errors_mm;
  draw3d(last);$('worst').textContent=wf.toFixed(2)+' mm';$('animProgress').style.width='100%';
  $('verdict').textContent=ok?'성공':(s.outcome==='held'?'정지':'실패');$('verdict').style.color=ok?'var(--teal)':'var(--bad)';
- phase(3,'9단계 · '+(SIM_OUTCOME_KO[s.outcome]||s.outcome),`${s.rounds}회 보정 · 최종 최악축 ${wf.toFixed(2)} mm · 가상 ±5 mm 판정 (실제 체결 보장 아님)`);
+ phase(3,'9단계 · '+(SIM_OUTCOME_KO[s.outcome]||s.outcome),`${s.rounds}회 보정 · 가장 큰 어긋남 ${wf.toFixed(2)} mm · 가상 ±5 mm 판정 (실제 체결 보장 아님)`);
  if(ok){await animateErrors(last,last,440*Number($('speed').value),token,null,.75);}
  if(token===runId&&s.outcome!=='aborted'){
    const P=setting();
